@@ -1,0 +1,1315 @@
+// proto/pages-contract.jsx — 4-step contract creation flow
+
+const {
+  AppFrame, StepBar, FieldInput, PrimaryBtn, SecondaryBtn, SectionLabel,
+  ChevLeftIcon, ChevRightIcon, CameraIcon, UploadIcon, CheckCircleIcon,
+  AlertCircleIcon, FileTextIcon, SpinnerIcon, CheckIcon, DownloadIcon,
+} = window;
+
+// AssetPickerSheet + ASSET_TYPES loaded from pages-assets.jsx (via window)
+
+// ─── Template data ────────────────────────────────────────────────────────────
+const TEMPLATES = [
+  {
+    id: 'rentacar-standard',
+    name: 'Închiriere Auto',
+    icon: '🚗',
+    description: 'Contract standard de închiriere autovehicul cu predare-primire',
+    fields: [
+      { key: 'firma_nume',          label: 'Denumire firmă',           source: 'profile',  type: 'text',     required: true },
+      { key: 'firma_cui',           label: 'CUI',                      source: 'profile',  type: 'text',     required: true },
+      { key: 'firma_adresa',        label: 'Adresă sediu',             source: 'profile',  type: 'text',     required: true },
+      { key: 'firma_reg',           label: 'Nr. Reg. Comerțului',      source: 'profile',  type: 'text',     required: true },
+      { key: 'firma_reprezentant',  label: 'Reprezentant legal',       source: 'profile',  type: 'text',     required: true },
+      { key: 'sofer_nume',          label: 'Nume și prenume șofer',    source: 'ocr',      type: 'text',     required: true },
+      { key: 'sofer_cnp',           label: 'CNP',                      source: 'ocr',      type: 'text',     required: true },
+      { key: 'sofer_ci_serie',      label: 'Serie CI',                 source: 'ocr',      type: 'text',     required: true, placeholder: 'ex. RX' },
+      { key: 'sofer_ci_nr',         label: 'Număr CI',                 source: 'ocr',      type: 'text',     required: true, placeholder: 'ex. 123456' },
+      { key: 'sofer_adresa',        label: 'Adresă domiciliu',         source: 'ocr',      type: 'text',     required: true },
+      { key: 'sofer_data_nastere',  label: 'Data nașterii',            source: 'ocr',      type: 'date',     required: true },
+      { key: 'masina_marca',        label: 'Marcă',                    source: 'manual',   type: 'text',     required: true, placeholder: 'ex. Dacia' },
+      { key: 'masina_model',        label: 'Model',                    source: 'manual',   type: 'text',     required: true, placeholder: 'ex. Logan' },
+      { key: 'masina_an',           label: 'An fabricație',            source: 'manual',   type: 'text',     required: true, placeholder: 'ex. 2022' },
+      { key: 'masina_nr_inmatr',    label: 'Nr. înmatriculare',        source: 'manual',   type: 'text',     required: true, placeholder: 'ex. B 123 ABC' },
+      { key: 'masina_culoare',      label: 'Culoare',                  source: 'manual',   type: 'text',     required: false, placeholder: 'ex. Alb' },
+      { key: 'masina_serie_vin',    label: 'Serie VIN / Șasiu',        source: 'manual',   type: 'text',     required: false, placeholder: 'ex. VSSZZZ6K...' },
+      { key: 'predare_data_ora',    label: 'Data și ora predării',     source: 'manual',   type: 'datetime', required: true },
+      { key: 'restituire_data_ora', label: 'Data și ora restituirii',  source: 'manual',   type: 'datetime', required: true },
+      { key: 'nr_zile',             label: 'Număr zile închiriate',    source: 'manual',   type: 'number',   required: true, hint: 'Calculat automat din date' },
+      { key: 'km_predare',          label: 'Km la predare',            source: 'manual',   type: 'number',   required: true, placeholder: 'ex. 45230' },
+      { key: 'combustibil_predare', label: 'Combustibil la predare',   source: 'manual',   type: 'select',   required: true, options: ['1/4', '1/2', '3/4', 'Plin'] },
+      { key: 'tarif_zi',            label: 'Tarif / zi (RON)',         source: 'manual',   type: 'number',   required: true, placeholder: 'ex. 150' },
+      { key: 'valoare_totala',      label: 'Valoare totală (RON)',     source: 'manual',   type: 'number',   required: true, hint: 'Calculat automat: zile × tarif' },
+      { key: 'garantie',            label: 'Garanție (RON)',           source: 'manual',   type: 'number',   required: true, placeholder: 'ex. 500' },
+      { key: 'mod_plata',           label: 'Mod de plată',             source: 'manual',   type: 'select',   required: true, options: ['Numerar', 'Card bancar', 'Transfer bancar', 'Online'] },
+      { key: 'km_inclusi',          label: 'Km incluși / zi',          source: 'manual',   type: 'select',   required: true, options: ['Nelimitați', '100 km/zi', '150 km/zi', '200 km/zi', '300 km/zi'] },
+      { key: 'fransiza',            label: 'Franșiză daune (RON)',     source: 'manual',   type: 'number',   required: false, placeholder: 'ex. 1000' },
+      { key: 'casco',               label: 'Asigurare CASCO',          source: 'manual',   type: 'select',   required: true, options: ['Inclusă', 'Nu este inclusă'] },
+      { key: 'loc_predare',         label: 'Locul predării',           source: 'manual',   type: 'text',     required: false, placeholder: 'ex. Aeroportul Otopeni' },
+      { key: 'observatii',          label: 'Observații / daune',       source: 'manual',   type: 'textarea', required: false, placeholder: 'ex. Zgârietură pe aripa...' },
+      { key: 'data_contract',       label: 'Data contractului',        source: 'manual',   type: 'date',     required: true },
+      { key: 'loc_incheiere',       label: 'Locul încheierii',         source: 'manual',   type: 'text',     required: true, placeholder: 'ex. București' },
+    ],
+  },
+];
+
+// All templates defined in ALL_TEMPLATE_LIST below
+
+// ─── Scan mode config ─────────────────────────────────────────────────────────
+const SCAN_MODES = [
+  {
+    id: 'ci',
+    icon: '🪪',
+    label: 'Act de identitate',
+    sub: 'CI, pașaport, permis de ședere',
+    tags: ['ci'],
+    mockData: {
+      values: {
+        sofer_nume: 'Ionescu Alexandru', sofer_cnp: '1850315400123',
+        sofer_ci_serie: 'RX', sofer_ci_nr: '412305',
+        sofer_adresa: 'Str. Florilor nr. 12, Bl. A3, Ap. 7, București, Sector 3',
+        sofer_data_nastere: '1985-03-15',
+      },
+      confidence: {
+        sofer_nume: 'confident', sofer_cnp: 'confident',
+        sofer_ci_serie: 'confident', sofer_ci_nr: 'confident',
+        sofer_adresa: 'uncertain', sofer_data_nastere: 'confident',
+      },
+    },
+  },
+  {
+    id: 'ci_permis',
+    icon: '🪪',
+    icon2: '🚗',
+    label: 'CI + Permis de conducere',
+    sub: 'Două documente — recomandat pentru rent-a-car',
+    tags: ['ci', 'permis'],
+    mockData: {
+      values: {
+        sofer_nume: 'Ionescu Alexandru', sofer_cnp: '1850315400123',
+        sofer_ci_serie: 'RX', sofer_ci_nr: '412305',
+        sofer_adresa: 'Str. Florilor nr. 12, Bl. A3, Ap. 7, București, Sector 3',
+        sofer_data_nastere: '1985-03-15',
+        permis_serie: 'B', permis_nr: '1234567',
+        permis_categorii: 'B, BE', permis_expirare: '2030-03-15',
+      },
+      confidence: {
+        sofer_nume: 'confident', sofer_cnp: 'confident',
+        sofer_ci_serie: 'confident', sofer_ci_nr: 'confident',
+        sofer_adresa: 'uncertain', sofer_data_nastere: 'confident',
+        permis_serie: 'confident', permis_nr: 'confident',
+        permis_categorii: 'confident', permis_expirare: 'uncertain',
+      },
+    },
+  },
+  {
+    id: 'ci_firma',
+    icon: '🪪',
+    icon2: '🏢',
+    label: 'Persoană + Firmă',
+    sub: 'CI + date firmă (CUI) — pentru contracte B2B',
+    tags: ['ci', 'firma'],
+    mockData: {
+      values: {
+        sofer_nume: 'Georgescu Dan', sofer_cnp: '1790502400456',
+        sofer_ci_serie: 'KL', sofer_ci_nr: '789012',
+        sofer_adresa: 'Str. Independenței nr. 5, Cluj-Napoca',
+        sofer_data_nastere: '1979-05-02',
+        client_firma: 'Global Trade SA', client_cui: 'RO11223344',
+        client_adresa: 'Bd. Unirii nr. 10, București',
+      },
+      confidence: {
+        sofer_nume: 'confident', sofer_cnp: 'confident',
+        sofer_ci_serie: 'confident', sofer_ci_nr: 'confident',
+        sofer_adresa: 'confident', sofer_data_nastere: 'confident',
+        client_firma: 'confident', client_cui: 'confident',
+        client_adresa: 'uncertain',
+      },
+    },
+  },
+  {
+    id: 'firma',
+    icon: '🏢',
+    label: 'Date firmă (CUI)',
+    sub: 'Lookup automat via ANAF după CUI',
+    tags: ['firma'],
+    mockData: {
+      values: {
+        client_firma: 'TechCorp SRL', client_cui: 'RO87654321',
+        client_adresa: 'Bd. Unirii nr. 10, București',
+        client_reg: 'J40/5678/2019', client_contact: 'Ionescu Maria',
+      },
+      confidence: {
+        client_firma: 'confident', client_cui: 'confident',
+        client_adresa: 'confident', client_reg: 'confident',
+        client_contact: 'uncertain',
+      },
+    },
+  },
+];
+
+// ─── Step 2: Scan ──────────────────────────────────────────────────────────────
+// Each mode is broken into a sequence of "steps" — each one a document to scan
+// (kind: 'scan') or a CUI ANAF lookup (kind: 'anaf'). Cards stack one per step.
+function getModeSteps(mode) {
+  if (!mode) return [];
+  const ciKeys     = ['sofer_nume', 'sofer_cnp', 'sofer_ci_serie', 'sofer_ci_nr', 'sofer_adresa', 'sofer_data_nastere'];
+  const permisKeys = ['permis_serie', 'permis_nr', 'permis_categorii', 'permis_expirare'];
+
+  function pick(keys) {
+    const values = {}, confidence = {};
+    keys.forEach(k => {
+      if (k in mode.mockData.values)     values[k]     = mode.mockData.values[k];
+      if (k in mode.mockData.confidence) confidence[k] = mode.mockData.confidence[k];
+    });
+    return { values, confidence };
+  }
+
+  const stepCI     = { kind: 'scan', id: 'ci',     icon: '🪪', label: 'Carte de identitate',   cardTitle: 'Date din CI',     color: 'green', ...pick(ciKeys)     };
+  const stepPermis = { kind: 'scan', id: 'permis', icon: '🚗', label: 'Permis de conducere',   cardTitle: 'Date din Permis', color: 'green', ...pick(permisKeys) };
+  const stepFirma  = { kind: 'anaf', id: 'firma',  icon: '🏢', label: 'Date firmă (CUI ANAF)', cardTitle: 'Date firmă',      color: 'blue' };
+
+  switch (mode.id) {
+    case 'ci':        return [stepCI];
+    case 'ci_permis': return [stepCI, stepPermis];
+    case 'ci_firma':  return [stepCI, stepFirma];
+    case 'firma':     return [stepFirma];
+    default:          return [];
+  }
+}
+
+function StepScan({ onDone }) {
+  const [mode, setMode]             = React.useState(null);
+  const [completed, setCompleted]   = React.useState({});  // { stepId: { values, confidence } }
+  const [scanningId, setScanningId] = React.useState(null);
+  const [cui, setCui]               = React.useState('');
+  const [cuiLoading, setCuiLoading] = React.useState(false);
+
+  function skipScan()     { onDone({ values: {}, confidence: {} }); }
+  function resetMode()    { setMode(null); setCompleted({}); setScanningId(null); setCui(''); }
+  function skipStep(step) { setCompleted(prev => ({ ...prev, [step.id]: { values: {}, confidence: {}, skipped: true } })); if (step.kind === 'anaf') setCui(''); }
+
+  async function simulateScan(step) {
+    setScanningId(step.id);
+    await new Promise(r => setTimeout(r, 2200));
+    setCompleted(prev => ({ ...prev, [step.id]: { values: step.values, confidence: step.confidence } }));
+    setScanningId(null);
+  }
+
+  async function lookupAnaf(step) {
+    if (cui.length < 5) return;
+    setCuiLoading(true);
+    await new Promise(r => setTimeout(r, 1100));
+    setCuiLoading(false);
+    const values = {
+      client_firma:   'Global Trade SA',
+      client_cui:     cui,
+      client_adresa:  'Bd. Unirii nr. 10, București',
+      client_reg:     'J40/5678/2019',
+      client_contact: 'Ionescu Maria',
+    };
+    const confidence = Object.fromEntries(Object.keys(values).map(k => [k, 'confident']));
+    setCompleted(prev => ({ ...prev, [step.id]: { values, confidence } }));
+  }
+
+  function finish() {
+    const allValues = {}, allConf = {};
+    Object.values(completed).forEach(s => {
+      Object.assign(allValues, s.values);
+      Object.assign(allConf, s.confidence);
+    });
+    onDone({ values: allValues, confidence: allConf });
+  }
+
+  // ─── Step A: mode picker ──────────────────────────────────────────────────
+  if (!mode) {
+    return (
+      <div style={{ flex: 1, overflowY: 'auto', padding: '18px 18px 32px' }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Scanează acte</h2>
+        <p style={{ fontSize: 13, color: '#64748b', marginBottom: 18 }}>Alege ce documente scanezi pentru acest contract.</p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {SCAN_MODES.map(m => (
+            <button key={m.id} onClick={() => setMode(m)} style={{
+              display: 'flex', alignItems: 'center', gap: 14, width: '100%',
+              border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '14px 16px',
+              background: '#fff', textAlign: 'left', cursor: 'pointer', transition: 'all 0.15s',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#93c5fd'; e.currentTarget.style.background = '#f0f9ff'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#fff'; }}>
+              <div style={{ position: 'relative', width: 48, height: 48, flexShrink: 0 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>{m.icon}</div>
+                {m.icon2 && (
+                  <div style={{ position: 'absolute', bottom: -2, right: -2, width: 24, height: 24, borderRadius: 8, background: '#dbeafe', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>{m.icon2}</div>
+                )}
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontWeight: 600 }}>{m.label}</p>
+                <p style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{m.sub}</p>
+              </div>
+              <ChevRightIcon size={18} color="#cbd5e1" />
+            </button>
+          ))}
+        </div>
+
+        {/* Skip / manual entry */}
+        <button onClick={skipScan} style={{
+          display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+          border: '1.5px dashed #cbd5e1', borderRadius: 12, padding: '13px 16px',
+          background: '#fff', textAlign: 'left', cursor: 'pointer',
+          marginTop: 14, transition: 'all 0.15s',
+        }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#64748b'; e.currentTarget.style.background = '#f8fafc'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#fff'; }}>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>✏️</div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontWeight: 600, color: '#334155', fontSize: 14 }}>Sări peste — introdu manual</p>
+            <p style={{ fontSize: 12, color: '#94a3b8' }}>Completezi toate datele tu, fără scanare</p>
+          </div>
+          <ChevRightIcon size={16} color="#94a3b8" />
+        </button>
+
+        <div style={{ marginTop: 16, border: '1px dashed #e2e8f0', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
+          <p style={{ fontSize: 12, color: '#94a3b8' }}>📋 Poți scana mai multe acte pe rând. Date extrase automat cu AI.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Step B: sequential multi-step scan flow ─────────────────────────────
+  const steps      = getModeSteps(mode);
+  const remaining  = steps.filter(s => !completed[s.id]);
+  const nextStep   = remaining[0];
+  const allDone    = remaining.length === 0;
+  const isScanning = !!scanningId;
+  const hasUncertain = Object.values(completed).some(s =>
+    Object.values(s.confidence).some(c => c === 'uncertain')
+  );
+
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: '18px 18px 32px' }}>
+      {/* Mode header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <button onClick={resetMode} style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+          <ChevLeftIcon size={16} color="#475569" />
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+          <span style={{ fontSize: 20 }}>{mode.icon}{mode.icon2 || ''}</span>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <p style={{ fontWeight: 700, fontSize: 15 }}>{mode.label}</p>
+            <p style={{ fontSize: 12, color: '#64748b' }}>{mode.sub}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Progress dots for multi-step modes */}
+      {steps.length > 1 && <ScanProgress steps={steps} completed={completed} scanningId={scanningId} />}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* Completed step cards — one per scanned document */}
+        {steps.filter(s => completed[s.id]).map(step => (
+          <ResultCard
+            key={step.id}
+            step={step}
+            data={completed[step.id]}
+            onRescan={() => { setCompleted(prev => { const n = { ...prev }; delete n[step.id]; return n; }); if (step.kind === 'anaf') setCui(''); }}
+          />
+        ))}
+
+        {/* Scanning view (loading) */}
+        {isScanning && <ScanningView step={steps.find(s => s.id === scanningId)} />}
+
+        {/* Next step UI: scan or anaf */}
+        {!isScanning && nextStep && (() => {
+          const stepIdx = steps.indexOf(nextStep);
+          // Skip option is available on step 2+ of a multi-step flow
+          const onSkip = (steps.length > 1 && stepIdx > 0) ? () => skipStep(nextStep) : null;
+          return nextStep.kind === 'scan' ? (
+            <ScanPromptCard
+              step={nextStep}
+              stepIdx={stepIdx}
+              totalSteps={steps.length}
+              onScan={() => simulateScan(nextStep)}
+              onSkip={onSkip}
+            />
+          ) : (
+            <AnafPromptCard
+              step={nextStep}
+              stepIdx={stepIdx}
+              totalSteps={steps.length}
+              cui={cui}
+              setCui={setCui}
+              loading={cuiLoading}
+              onLookup={() => lookupAnaf(nextStep)}
+              onSkip={onSkip}
+            />
+          );
+        })()}
+
+        {/* All done — show warning + continue */}
+        {allDone && (
+          <>
+            {hasUncertain && (
+              <div style={{ display: 'flex', gap: 10, border: '1px solid #fde68a', borderRadius: 10, background: '#fffbeb', padding: '10px 12px' }}>
+                <AlertCircleIcon size={16} color="#d97706" style={{ flexShrink: 0, marginTop: 1 }} />
+                <p style={{ fontSize: 12, color: '#92400e' }}>Câmpurile cu ⚠️ au incertitudine — verifică-le la pasul următor.</p>
+              </div>
+            )}
+            <PrimaryBtn onClick={finish}>Continuă → Completează datele</PrimaryBtn>
+            <SecondaryBtn onClick={resetMode}>Schimbă mod / reia</SecondaryBtn>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Sub-components for StepScan ──────────────────────────────────────────────
+function ScanProgress({ steps, completed, scanningId }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16, padding: '8px 0' }}>
+      {steps.map((s, i) => {
+        const entry    = completed[s.id];
+        const isDone   = !!entry && !entry.skipped;
+        const isSkipped = !!entry && entry.skipped;
+        const isActive = scanningId === s.id;
+        const bg = isDone ? '#10b981' : isSkipped ? '#cbd5e1' : isActive ? '#2563eb' : '#f1f5f9';
+        const fg = isDone || isActive || isSkipped ? '#fff' : '#94a3b8';
+        const labelColor = isDone ? '#065f46' : isSkipped ? '#64748b' : isActive ? '#1e40af' : '#94a3b8';
+        return (
+          <React.Fragment key={s.id}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+              <div style={{
+                width: 22, height: 22, borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 700,
+                background: bg, color: fg,
+                transition: 'all 0.2s',
+              }}>{isDone ? '✓' : isSkipped ? '—' : i + 1}</div>
+              <span style={{ fontSize: 11, fontWeight: 600, color: labelColor }}>
+                {s.id === 'ci' ? 'CI' : s.id === 'permis' ? 'Permis' : 'Firmă'}
+              </span>
+            </div>
+            {i < steps.length - 1 && <div style={{ flex: 1, height: 2, background: isDone || isSkipped ? '#cbd5e1' : '#e2e8f0', borderRadius: 99 }} />}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+function ScanPromptCard({ step, stepIdx, totalSteps, onScan, onSkip }) {
+  const subject = step.id === 'permis' ? 'permisului' : 'CI-ului';
+  return (
+    <div style={{ border: '1.5px solid #93c5fd', borderRadius: 12, background: '#eff6ff', padding: 14 }}>
+      {totalSteps > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <span style={{ background: '#2563eb', color: '#fff', borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 800, letterSpacing: 0.4 }}>
+            PASUL {stepIdx + 1} / {totalSteps}
+          </span>
+          <p style={{ fontWeight: 700, fontSize: 14, color: '#1e40af' }}>Scanează {step.label.toLowerCase()}</p>
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <button onClick={onScan} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: '2px solid #2563eb', borderRadius: 11, padding: '14px 14px', background: '#fff', cursor: 'pointer', textAlign: 'left' }}>
+          <div style={{ width: 44, height: 44, borderRadius: 11, background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <CameraIcon size={22} color="#fff" />
+          </div>
+          <div>
+            <p style={{ fontWeight: 700, color: '#1d4ed8', fontSize: 14 }}>Fă o poză {subject}</p>
+            <p style={{ fontSize: 12, color: '#3b82f6', marginTop: 1 }}>Deschide camera telefonului</p>
+          </div>
+        </button>
+        <button onClick={onScan} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: '1.5px solid #e2e8f0', borderRadius: 11, padding: '14px 14px', background: '#fff', cursor: 'pointer', textAlign: 'left' }}>
+          <div style={{ width: 44, height: 44, borderRadius: 11, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <UploadIcon size={22} color="#64748b" />
+          </div>
+          <div>
+            <p style={{ fontWeight: 600, fontSize: 14 }}>Încarcă din galerie</p>
+            <p style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>JPG, PNG, PDF — max. 10 MB</p>
+          </div>
+        </button>
+        {onSkip && (
+          <button onClick={onSkip} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: '1.5px dashed #cbd5e1', borderRadius: 11, padding: '12px 14px', background: '#fff', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = '#64748b'; e.currentTarget.style.background = '#f8fafc'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#fff'; }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>✏️</div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontWeight: 600, color: '#334155', fontSize: 13 }}>Sări peste — completez manual</p>
+              <p style={{ fontSize: 11, color: '#94a3b8' }}>Datele se introduc la pasul următor</p>
+            </div>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ScanningView({ step }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '40px 0', border: '1.5px solid #bfdbfe', borderRadius: 12, background: '#eff6ff' }}>
+      <div style={{ position: 'relative', width: 80, height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '4px solid #dbeafe', borderTopColor: '#2563eb', animation: 'spin 0.8s linear infinite' }} />
+        <span style={{ fontSize: 32 }}>{step.icon}</span>
+      </div>
+      <p style={{ fontWeight: 700, color: '#1e40af', fontSize: 14 }}>Se extrag datele de pe {step.label.toLowerCase()}...</p>
+      <p style={{ fontSize: 12, color: '#3b82f6' }}>Analizăm cu AI · GPT-4o</p>
+      <div style={{ width: '100%', maxWidth: 200, padding: '0 20px' }}><LoadingBar /></div>
+    </div>
+  );
+}
+
+function ResultCard({ step, data, onRescan }) {
+  // Skipped state — render a small grey card so user sees the step is acknowledged
+  if (data.skipped) {
+    return (
+      <div style={{ border: '1.5px dashed #cbd5e1', borderRadius: 12, background: '#f8fafc', padding: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 9, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>✂️</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontWeight: 700, fontSize: 13, color: '#475569' }}>{step.cardTitle} — sărit</p>
+            <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>Completezi manual la pasul următor</p>
+          </div>
+          <button onClick={onRescan} title="Scanează după tot" style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: '#fff', cursor: 'pointer', fontSize: 14, color: '#64748b', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>↻</button>
+        </div>
+      </div>
+    );
+  }
+
+  const isFirma     = step.color === 'blue';
+  const borderColor = isFirma ? '#bfdbfe' : '#6ee7b7';
+  const bg          = isFirma ? '#eff6ff' : '#f0fdf4';
+  const titleColor  = isFirma ? '#1e40af' : '#065f46';
+  const labelColor  = isFirma ? '#3b82f6' : '#059669';
+  const valColor    = isFirma ? '#1e3a8a' : '#064e3b';
+  const badgeBg     = isFirma ? '#dbeafe' : '#dcfce7';
+  const badgeColor  = isFirma ? '#1e40af' : '#166534';
+
+  return (
+    <div style={{ border: `1.5px solid ${borderColor}`, borderRadius: 12, background: bg, padding: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <CheckCircleIcon size={18} color={isFirma ? '#2563eb' : '#10b981'} />
+        <p style={{ fontWeight: 700, color: titleColor, fontSize: 13 }}>{step.cardTitle}</p>
+        <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, background: badgeBg, color: badgeColor, borderRadius: 6, padding: '2px 8px' }}>
+          {isFirma ? 'ANAF' : 'GPT-4o'}
+        </span>
+        <button onClick={onRescan} title="Re-scanează" style={{ width: 24, height: 24, borderRadius: '50%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 14, color: labelColor, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>↻</button>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {Object.entries(data.values).map(([key, val]) => (
+          <div key={key} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+            <span style={{ fontSize: 11, color: labelColor, flexShrink: 0, textTransform: 'capitalize' }}>
+              {key.replace(/_/g,' ').replace('sofer ','').replace('client ','').replace('permis ','')}
+            </span>
+            <span style={{ fontSize: 11, fontWeight: 600, textAlign: 'right', color: data.confidence[key] === 'uncertain' ? '#d97706' : valColor }}>
+              {val} {data.confidence[key] === 'uncertain' && '⚠️'}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AnafPromptCard({ step, stepIdx, totalSteps, cui, setCui, loading, onLookup, onSkip }) {
+  return (
+    <div style={{ border: '1.5px solid #bfdbfe', borderRadius: 12, background: '#eff6ff', padding: 14 }}>
+      {totalSteps > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <span style={{ background: '#2563eb', color: '#fff', borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 800, letterSpacing: 0.4 }}>
+            PASUL {stepIdx + 1} / {totalSteps}
+          </span>
+          <p style={{ fontWeight: 700, fontSize: 14, color: '#1e40af' }}>Introdu CUI firmă</p>
+        </div>
+      )}
+      <p style={{ fontSize: 12, color: '#3b82f6', marginBottom: 10 }}>🏢 Datele firmei se preiau automat de la ANAF după CUI.</p>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input
+          value={cui}
+          onChange={e => setCui(e.target.value)}
+          placeholder="ex. RO12345678"
+          style={{ flex: 1, padding: '11px 12px', border: '1.5px solid #bfdbfe', borderRadius: 10, background: '#fff', outline: 'none', fontSize: 14, fontFamily: 'inherit' }}
+        />
+        <button onClick={onLookup} disabled={loading || cui.length < 5} style={{ padding: '11px 16px', borderRadius: 10, border: 'none', background: loading || cui.length < 5 ? '#cbd5e1' : '#2563eb', color: '#fff', fontWeight: 700, fontSize: 13, cursor: loading || cui.length < 5 ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+          {loading ? <><SpinnerIcon size={14} /> ANAF</> : <>🔍 ANAF</>}
+        </button>
+      </div>
+      {onSkip && (
+        <button onClick={onSkip} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: '1.5px dashed #cbd5e1', borderRadius: 11, padding: '12px 14px', background: '#fff', cursor: 'pointer', textAlign: 'left', marginTop: 10, transition: 'all 0.15s' }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#64748b'; e.currentTarget.style.background = '#f8fafc'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#fff'; }}>
+          <div style={{ width: 38, height: 38, borderRadius: 10, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>✏️</div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontWeight: 600, color: '#334155', fontSize: 13 }}>Sări peste — completez manual</p>
+            <p style={{ fontSize: 11, color: '#94a3b8' }}>Datele se introduc la pasul următor</p>
+          </div>
+        </button>
+      )}
+    </div>
+  );
+}
+function buildContractBody(template, values) {
+  const fill = (k) => values[k] || '___________';
+  return `CONTRACT DE ÎNCHIRIERE AUTOVEHICUL
+Nr. _____ / ${fill('data_contract')}
+
+Încheiat la ${fill('loc_incheiere')}, astăzi ${fill('data_contract')},
+
+I. PĂRȚILE CONTRACTANTE
+
+LOCATOR (Firma):
+${fill('firma_nume')}, sediu în ${fill('firma_adresa')},
+Reg. Com. ${fill('firma_reg')}, CUI ${fill('firma_cui')},
+reprezentată prin ${fill('firma_reprezentant')},
+
+LOCATAR (Șoferul):
+${fill('sofer_nume')}, CNP ${fill('sofer_cnp')},
+CI seria ${fill('sofer_ci_serie')} nr. ${fill('sofer_ci_nr')},
+domiciliu: ${fill('sofer_adresa')},
+data nașterii: ${fill('sofer_data_nastere')},
+
+II. OBIECTUL CONTRACTULUI
+
+Autovehicul: ${fill('masina_marca')} ${fill('masina_model')} ${fill('masina_an')}
+Nr. înmatriculare: ${fill('masina_nr_inmatr')}
+Culoare: ${fill('masina_culoare')} · VIN: ${fill('masina_serie_vin')}
+CASCO: ${fill('casco')}
+
+III. DURATA ÎNCHIRIERII
+
+Predare: ${fill('predare_data_ora')}
+Restituire: ${fill('restituire_data_ora')}
+Perioadă: ${fill('nr_zile')} zile
+Loc predare: ${fill('loc_predare')}
+
+IV. PREȚUL ȘI PLATA
+
+Tarif: ${fill('tarif_zi')} RON/zi
+Valoare totală: ${fill('valoare_totala')} RON
+Garanție: ${fill('garantie')} RON
+Mod plată: ${fill('mod_plata')}
+
+V. CONDIȚII
+
+Km incluși: ${fill('km_inclusi')}
+Franșiză daune: ${fill('fransiza')} RON
+Km la predare: ${fill('km_predare')} km
+Combustibil: ${fill('combustibil_predare')}
+Observații: ${fill('observatii') || '—'}
+
+VI. SEMNĂTURI
+
+LOCATOR: ${fill('firma_reprezentant')}
+LOCATAR: ${fill('sofer_nume')}
+
+________________________    ________________________
+  (semnătură + ștampilă)          (semnătură)`;
+}
+
+// ─── All available templates (active + coming soon) ──────────────────────────
+const ALL_TEMPLATE_LIST = [
+  { id: 'rentacar-standard',   name: 'Închiriere Auto',            icon: '🚗', desc: 'Contract predare-primire autovehicul',    category: 'Mobilitate',    active: true  },
+  { id: 'inchiriere-apt',      name: 'Închiriere Apartament',      icon: '🏠', desc: 'Contract de locațiune rezidențial',       category: 'Imobiliare',    active: false },
+  { id: 'vanzare-proprietate', name: 'Vânzare Proprietate',        icon: '🏘️', desc: 'Antecontract / promisiune de vânzare',    category: 'Imobiliare',    active: false },
+  { id: 'cim',                 name: 'Contract Individual Muncă',  icon: '👥', desc: 'CIM conform Codul Muncii',                category: 'Resurse Umane', active: false },
+  { id: 'prestari-servicii',   name: 'Prestări Servicii',          icon: '📋', desc: 'Contract de servicii B2B',               category: 'Servicii',      active: false },
+  { id: 'colaborare-pfa',      name: 'Colaborare PFA',             icon: '🤝', desc: 'Contract colaborare cu persoană fizică',  category: 'Resurse Umane', active: false },
+  { id: 'inchiriere-spatiu',   name: 'Închiriere Spațiu Comercial',icon: '🏪', desc: 'Birou, depozit sau spațiu comercial',     category: 'Comercial',     active: false },
+];
+
+const CATEGORIES = [
+  { id: 'Mobilitate',    icon: '🚗' },
+  { id: 'Imobiliare',    icon: '🏠' },
+  { id: 'Resurse Umane', icon: '👥' },
+  { id: 'Servicii',      icon: '📋' },
+  { id: 'Comercial',     icon: '🏪' },
+];
+
+// ─── Step 1: Template ─────────────────────────────────────────────────────────
+function StepTemplate({ onSelect }) {
+  const [favorites, setFavorites] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem('ra_fav_tpl') || '[]'); } catch { return []; }
+  });
+  const [showAll, setShowAll]       = React.useState(false);
+  const [showUpload, setShowUpload] = React.useState(false);
+
+  function toggleFav(id) {
+    setFavorites(prev => {
+      const next = prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id];
+      localStorage.setItem('ra_fav_tpl', JSON.stringify(next));
+      return next;
+    });
+  }
+
+  function handleSelect(t) {
+    if (!t.active) return;
+    const template = TEMPLATES.find(tp => tp.id === t.id);
+    if (template) onSelect(template);
+  }
+
+  const favList    = ALL_TEMPLATE_LIST.filter(t => favorites.includes(t.id));
+  const activeList = ALL_TEMPLATE_LIST.filter(t => t.active);
+
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: '18px 18px 32px' }}>
+      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Alege contractul</h2>
+      <p style={{ fontSize: 13, color: '#64748b', marginBottom: 18 }}>Apasă pe un contract pentru a-l citi înainte de a-l alege.</p>
+
+      {/* Favorites */}
+      {favList.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <SectionLabel>⭐ Favorite</SectionLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {favList.map(t => <TemplateCard key={t.id} t={t} isFav onToggleFav={toggleFav} onSelect={handleSelect} />)}
+          </div>
+        </div>
+      )}
+
+      {/* Active contracts + browse all button */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <SectionLabel>Toate contractele</SectionLabel>
+          <button onClick={() => setShowAll(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f1f5f9', border: 'none', borderRadius: 8, padding: '5px 10px', fontSize: 12, fontWeight: 600, color: '#475569', cursor: 'pointer', marginBottom: 8 }}
+            onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
+            onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}>
+            🗂️ Browse ({ALL_TEMPLATE_LIST.length})
+          </button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {activeList.map(t => <TemplateCard key={t.id} t={t} isFav={favorites.includes(t.id)} onToggleFav={toggleFav} onSelect={handleSelect} />)}
+        </div>
+        <button onClick={() => setShowAll(true)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', border: '1px dashed #e2e8f0', borderRadius: 10, padding: '11px 14px', background: 'none', cursor: 'pointer', marginTop: 8, transition: 'background 0.15s' }}
+          onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+          onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+          <span style={{ fontSize: 16 }}>🔍</span>
+          <span style={{ fontSize: 13, color: '#94a3b8', flex: 1, textAlign: 'left' }}>+{ALL_TEMPLATE_LIST.filter(t => !t.active).length} template-uri în curând — Explorează toate categoriile</span>
+          <ChevRightIcon size={15} color="#94a3b8" />
+        </button>
+      </div>
+
+      {/* Upload own */}
+      <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 16 }}>
+        <SectionLabel>Contract propriu</SectionLabel>
+        <button onClick={() => setShowUpload(true)} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: '1.5px dashed #cbd5e1', borderRadius: 12, padding: '14px 16px', background: '#f8fafc', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#64748b'; e.currentTarget.style.background = '#f1f5f9'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>📤</div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontWeight: 600, color: '#334155' }}>Încarcă contractul tău</p>
+            <p style={{ fontSize: 12, color: '#94a3b8' }}>Îl vom adăuga în profilul tău în 24-48h</p>
+          </div>
+          <ChevRightIcon size={16} color="#94a3b8" />
+        </button>
+      </div>
+
+      {showAll    && <AllContractsSheet favorites={favorites} onToggleFav={toggleFav} onSelect={handleSelect} onClose={() => setShowAll(false)} />}
+      {showUpload && <UploadContractSheet onClose={() => setShowUpload(false)} />}
+    </div>
+  );
+}
+
+// ─── Template card ────────────────────────────────────────────────────────────
+function TemplateCard({ t, isFav, onToggleFav, onSelect }) {
+  const [showPreview, setShowPreview] = React.useState(false);
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, border: `1.5px solid ${t.active ? '#e2e8f0' : '#f1f5f9'}`, borderRadius: 12, padding: '11px 12px', background: t.active ? '#fff' : '#fafafa', transition: 'all 0.15s', cursor: 'pointer' }}
+        onClick={() => setShowPreview(true)}
+        onMouseEnter={e => { if (t.active) e.currentTarget.style.borderColor = '#bfdbfe'; }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = t.active ? '#e2e8f0' : '#f1f5f9'; }}>
+        <div style={{ width: 42, height: 42, borderRadius: 11, background: t.active ? '#eff6ff' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 21, flexShrink: 0 }}>{t.icon}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <p style={{ fontWeight: 600, fontSize: 14, color: t.active ? '#0f172a' : '#94a3b8' }}>{t.name}</p>
+            {!t.active && <span style={{ background: '#f1f5f9', color: '#94a3b8', borderRadius: 5, padding: '1px 6px', fontSize: 10, fontWeight: 700 }}>CURÂND</span>}
+          </div>
+          <p style={{ fontSize: 12, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.desc}</p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+          <button onClick={e => { e.stopPropagation(); onToggleFav(t.id); }} title={isFav ? 'Elimină' : 'Favorit'} style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', background: isFav ? '#fef3c7' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14 }}>
+            {isFav ? '⭐' : '☆'}
+          </button>
+          {t.active ? (
+            <button onClick={e => { e.stopPropagation(); onSelect(t); }} style={{ background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 13px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>Alege</button>
+          ) : (
+            <span style={{ background: '#f1f5f9', color: '#94a3b8', borderRadius: 8, padding: '6px 10px', fontSize: 12 }}>Curând</span>
+          )}
+        </div>
+      </div>
+      {showPreview && <ContractPreviewSheet t={t} onSelect={onSelect} onClose={() => setShowPreview(false)} />}
+    </>
+  );
+}
+
+// ─── Contract preview sheet ───────────────────────────────────────────────────
+function ContractPreviewSheet({ t, onSelect, onClose }) {
+  const template = TEMPLATES.find(tp => tp.id === t.id);
+  const previewText = template ? buildContractBody(template, {}) : null;
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(2px)' }} />
+      <div className="slide-up" style={{ position: 'relative', width: '100%', maxWidth: 420, background: '#fff', borderRadius: '20px 20px 0 0', boxShadow: '0 -8px 40px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', maxHeight: '88vh' }}>
+        {/* Handle */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 0', flexShrink: 0 }}>
+          <div style={{ width: 36, height: 4, borderRadius: 99, background: '#e2e8f0' }} />
+        </div>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px 14px', borderBottom: '1px solid #f1f5f9', flexShrink: 0 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 11, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>{t.icon}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontWeight: 700, fontSize: 15 }}>{t.name}</p>
+            <p style={{ fontSize: 12, color: '#64748b' }}>{t.desc}</p>
+          </div>
+          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14, flexShrink: 0 }}>✕</button>
+        </div>
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '14px 20px' }}>
+          {previewText ? (
+            <pre style={{ fontFamily: 'ui-monospace, monospace', fontSize: 11, lineHeight: 1.75, color: '#334155', whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
+              {previewText}
+            </pre>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+              <p style={{ fontSize: 36, marginBottom: 12 }}>{t.icon}</p>
+              <p style={{ fontWeight: 600, color: '#334155', marginBottom: 6 }}>Template în pregătire</p>
+              <p style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.6 }}>Acest template va fi disponibil în curând. Poți adăuga contractul tău propriu dacă îl ai deja.</p>
+            </div>
+          )}
+        </div>
+        {/* Footer */}
+        <div style={{ padding: '12px 20px 28px', borderTop: '1px solid #f1f5f9', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {t.active ? (
+            <PrimaryBtn onClick={() => { onSelect(t); onClose(); }} bg="#2563eb">
+              Folosește acest template →
+            </PrimaryBtn>
+          ) : (
+            <div style={{ background: '#f1f5f9', borderRadius: 12, padding: '12px 16px', textAlign: 'center' }}>
+              <p style={{ fontSize: 13, color: '#64748b' }}>Disponibil în curând · <span style={{ color: '#2563eb', cursor: 'pointer', fontWeight: 600 }}>Notifică-mă</span></p>
+            </div>
+          )}
+          <button onClick={onClose} style={{ border: 'none', background: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer', padding: '4px' }}>Închide</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── All contracts sheet (categorized + search) ───────────────────────────────
+function AllContractsSheet({ favorites, onToggleFav, onSelect, onClose }) {
+  const [search, setSearch]     = React.useState('');
+  const [expanded, setExpanded] = React.useState({});
+
+  function toggleCat(cat) { setExpanded(prev => ({ ...prev, [cat]: !prev[cat] })); }
+
+  const filtered = search
+    ? ALL_TEMPLATE_LIST.filter(t =>
+        t.name.toLowerCase().includes(search.toLowerCase()) ||
+        t.category.toLowerCase().includes(search.toLowerCase()) ||
+        t.desc.toLowerCase().includes(search.toLowerCase())
+      )
+    : null;
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(2px)' }} />
+      <div className="slide-up" style={{ position: 'relative', width: '100%', maxWidth: 420, background: '#fff', borderRadius: '20px 20px 0 0', boxShadow: '0 -8px 40px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', maxHeight: '88vh' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 0', flexShrink: 0 }}>
+          <div style={{ width: 36, height: 4, borderRadius: 99, background: '#e2e8f0' }} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px 12px', flexShrink: 0 }}>
+          <p style={{ fontWeight: 700, fontSize: 16 }}>Toate contractele</p>
+          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14 }}>✕</button>
+        </div>
+        <div style={{ padding: '0 20px 12px', flexShrink: 0 }}>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍  Caută după nume sau categorie..."
+            style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #e2e8f0', borderRadius: 10, background: '#f8fafc', fontSize: 14, outline: 'none' }} />
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 28px' }}>
+          {search ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {filtered.length === 0
+                ? <p style={{ textAlign: 'center', color: '#94a3b8', padding: '32px 0', fontSize: 14 }}>Niciun contract găsit.</p>
+                : filtered.map(t => <TemplateCard key={t.id} t={t} isFav={favorites.includes(t.id)} onToggleFav={onToggleFav} onSelect={v => { onSelect(v); onClose(); }} />)
+              }
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {CATEGORIES.map(cat => {
+                const items = ALL_TEMPLATE_LIST.filter(t => t.category === cat.id);
+                if (!items.length) return null;
+                const isOpen = expanded[cat.id] !== false;
+                return (
+                  <div key={cat.id} style={{ border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
+                    <button onClick={() => toggleCat(cat.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 14px', border: 'none', background: isOpen ? '#f8fafc' : '#fff', cursor: 'pointer', textAlign: 'left' }}>
+                      <span style={{ fontSize: 20 }}>{cat.icon}</span>
+                      <span style={{ fontWeight: 700, flex: 1 }}>{cat.id}</span>
+                      <span style={{ fontSize: 11, color: '#94a3b8', background: '#f1f5f9', borderRadius: 20, padding: '2px 8px', fontWeight: 600 }}>{items.length}</span>
+                      <span style={{ color: '#94a3b8', fontSize: 16, display: 'inline-block', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}>›</span>
+                    </button>
+                    {isOpen && (
+                      <div style={{ borderTop: '1px solid #f1f5f9', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {items.map(t => <TemplateCard key={t.id} t={t} isFav={favorites.includes(t.id)} onToggleFav={onToggleFav} onSelect={v => { onSelect(v); onClose(); }} />)}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Upload contract sheet ────────────────────────────────────────────────────
+function UploadContractSheet({ onClose }) {
+  const [step, setStep]             = React.useState('form'); // form | success
+  const [fileName, setFileName]     = React.useState('');
+  const [description, setDesc]      = React.useState('');
+  const [submitting, setSubmitting] = React.useState(false);
+
+  async function handleSubmit() {
+    setSubmitting(true);
+    await new Promise(r => setTimeout(r, 1500));
+    setSubmitting(false);
+    setStep('success');
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <div onClick={step === 'success' ? onClose : undefined} style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(2px)' }} />
+      <div className="slide-up" style={{ position: 'relative', width: '100%', maxWidth: 420, background: '#fff', borderRadius: '20px 20px 0 0', boxShadow: '0 -8px 40px rgba(0,0,0,0.15)', paddingTop: 6 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: 10 }}>
+          <div style={{ width: 36, height: 4, borderRadius: 99, background: '#e2e8f0' }} />
+        </div>
+
+        {step === 'form' ? (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px 14px' }}>
+              <p style={{ fontWeight: 700, fontSize: 16 }}>Încarcă contractul tău</p>
+              <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14 }}>✕</button>
+            </div>
+            <div style={{ padding: '0 20px 28px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: '#64748b', marginBottom: 6 }}>Fișier contract *</label>
+                <button onClick={() => setFileName('Contract_Servicii.docx')} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', border: `1.5px dashed ${fileName ? '#6ee7b7' : '#e2e8f0'}`, borderRadius: 10, padding: 14, background: fileName ? '#f0fdf4' : '#f8fafc', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
+                  <span style={{ fontSize: 22 }}>{fileName ? '📄' : '📤'}</span>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontWeight: 600, fontSize: 14, color: fileName ? '#065f46' : '#334155' }}>{fileName || 'Selectează fișierul'}</p>
+                    <p style={{ fontSize: 12, color: '#94a3b8' }}>DOC, DOCX, PDF — max. 10 MB</p>
+                  </div>
+                  {fileName && <span style={{ color: '#10b981' }}>✓</span>}
+                </button>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: '#64748b', marginBottom: 8 }}>Ce se va scana pentru autocompletare *</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {[
+                    { id: 'ci',       icon: '🪪', label: 'Buletin / Carte de identitate' },
+                    { id: 'permis',   icon: '🚗', label: 'Permis de conducere' },
+                    { id: 'cui',      icon: '🏢', label: 'CUI / Date firmă (ANAF)' },
+                    { id: 'pasaport', icon: '📄', label: 'Pașaport' },
+                    { id: 'prop',     icon: '🏘️', label: 'Act de proprietate' },
+                    { id: 'alt',      icon: '📋', label: 'Alt document' },
+                  ].map(opt => {
+                    const checked = (description || '').includes(opt.id);
+                    return (
+                      <button key={opt.id} onClick={() => {
+                        const cur = description ? description.split(',').filter(Boolean) : [];
+                        const next = checked ? cur.filter(x => x !== opt.id) : [...cur, opt.id];
+                        setDesc(next.join(','));
+                      }} style={{
+                        display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                        border: `1.5px solid ${checked ? '#2563eb' : '#e2e8f0'}`,
+                        borderRadius: 10, padding: '9px 12px',
+                        background: checked ? '#eff6ff' : '#fff',
+                        cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
+                      }}>
+                        <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${checked ? '#2563eb' : '#cbd5e1'}`, background: checked ? '#2563eb' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
+                          {checked && <span style={{ color: '#fff', fontSize: 12, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+                        </div>
+                        <span style={{ fontSize: 16 }}>{opt.icon}</span>
+                        <span style={{ fontSize: 14, fontWeight: checked ? 600 : 400, color: checked ? '#1e40af' : '#374151' }}>{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '10px 12px', display: 'flex', gap: 8 }}>
+                <span style={{ fontSize: 14, flexShrink: 0 }}>ℹ️</span>
+                <p style={{ fontSize: 12, color: '#1e40af', lineHeight: 1.5 }}>Echipa RapidAct va analiza contractul și îl va digitiza cu câmpuri inteligente în 24-48h. Vei fi notificat pe email.</p>
+              </div>
+              <PrimaryBtn onClick={handleSubmit} disabled={!fileName || !description || submitting}>
+                {submitting ? <><SpinnerIcon size={18} /> Se trimite...</> : 'Trimite contractul →'}
+              </PrimaryBtn>
+            </div>
+          </>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 24px 40px', textAlign: 'center', gap: 12 }}>
+            <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 34 }}>✅</div>
+            <h3 style={{ fontSize: 18, fontWeight: 700 }}>Contract primit!</h3>
+            <p style={{ fontSize: 14, color: '#64748b', lineHeight: 1.6 }}>
+              Îl vom analiza și adăuga în profilul tău în <strong>24-48 ore</strong>.<br />
+              Vei fi notificat pe email.
+            </p>
+            <PrimaryBtn onClick={onClose} bg="#0f172a">Înțeles, mulțumesc!</PrimaryBtn>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LoadingBar() {
+  const [width, setWidth] = React.useState(10);
+  React.useEffect(() => {
+    const frames = [30, 55, 72, 88, 94];
+    let i = 0;
+    const id = setInterval(() => {
+      if (i < frames.length) { setWidth(frames[i]); i++; }
+      else clearInterval(id);
+    }, 450);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <div style={{ height: 4, background: '#e2e8f0', borderRadius: 99 }}>
+      <div style={{ height: '100%', width: `${width}%`, background: '#2563eb', borderRadius: 99, transition: 'width 0.4s ease' }} />
+    </div>
+  );
+}
+
+// ─── Step 3: Form ─────────────────────────────────────────────────────────────
+function StepForm({ template, ocrValues, ocrConfidence, profileValues, onDone, assets }) {
+  const [values, setValues] = React.useState({ ...profileValues, ...ocrValues });
+  const [showAssetPicker, setShowAssetPicker] = React.useState(false);
+  const [selectedAsset, setSelectedAsset] = React.useState(null);
+  const AssetPickerSheet = window.AssetPickerSheet;
+
+  function setField(key, val) {
+    setValues(prev => {
+      const next = { ...prev, [key]: val };
+      if ((key === 'predare_data_ora' || key === 'restituire_data_ora') && next.predare_data_ora && next.restituire_data_ora) {
+        const diff = new Date(next.restituire_data_ora) - new Date(next.predare_data_ora);
+        if (diff > 0) next.nr_zile = Math.ceil(diff / 86400000).toString();
+      }
+      if ((key === 'nr_zile' || key === 'tarif_zi') && next.nr_zile && next.tarif_zi) {
+        next.valoare_totala = (parseFloat(next.nr_zile) * parseFloat(next.tarif_zi)).toFixed(0);
+      }
+      return next;
+    });
+  }
+
+  function handleAssetSelect(asset) {
+    const cfg = window.ASSET_TYPES?.[asset.type];
+    if (cfg?.contractMap) {
+      const patch = {};
+      Object.entries(cfg.contractMap).forEach(([contractKey, assetKey]) => {
+        if (asset.details?.[assetKey]) patch[contractKey] = asset.details[assetKey];
+      });
+      setValues(prev => ({ ...prev, ...patch }));
+    }
+    setSelectedAsset(asset);
+    setShowAssetPicker(false);
+  }
+
+  const ocrFields    = template.fields.filter(f => f.source === 'ocr');
+  const manualFields = template.fields.filter(f => f.source === 'manual');
+  const carAssets    = (assets || []).filter(a => a.type === 'car');
+
+  const groups = [
+    { title: 'Vehicul',         keys: ['masina_marca','masina_model','masina_an','masina_nr_inmatr','masina_culoare','masina_serie_vin'] },
+    { title: 'Perioadă',        keys: ['predare_data_ora','restituire_data_ora','nr_zile','loc_predare'] },
+    { title: 'Tarife și plată', keys: ['tarif_zi','valoare_totala','garantie','mod_plata'] },
+    { title: 'Condiții',        keys: ['km_inclusi','fransiza','casco','km_predare','combustibil_predare'] },
+    { title: 'Contract',        keys: ['observatii','data_contract','loc_incheiere'] },
+  ];
+
+  const missingRequired = template.fields
+    .filter(f => f.required && !values[f.key])
+    .map(f => f.label);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px 24px' }}>
+        {/* OCR section */}
+        <FieldSection title="Date din CI — verifică" fields={ocrFields} values={values} onChange={setField} confidence={ocrConfidence} />
+
+        {/* Asset quick-select for rentacar template */}
+        {template.id === 'rentacar-standard' && (
+          <div style={{ marginBottom: 20 }}>
+            <SectionLabel>Vehicul</SectionLabel>
+            {selectedAsset ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: 12, padding: '11px 14px', marginBottom: 12 }}>
+                <span style={{ fontSize: 22 }}>🚗</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontWeight: 700, fontSize: 14, color: '#1e40af' }}>{selectedAsset.details?.plate}</p>
+                  <p style={{ fontSize: 12, color: '#3b82f6' }}>{[selectedAsset.details?.make, selectedAsset.details?.model, selectedAsset.details?.year].filter(Boolean).join(' ')}</p>
+                </div>
+                <button onClick={() => { setSelectedAsset(null); setShowAssetPicker(true); }} style={{ fontSize: 12, color: '#2563eb', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 600, flexShrink: 0 }}>
+                  Schimbă
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setShowAssetPicker(true)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', border: '1.5px dashed #bfdbfe', borderRadius: 12, padding: '12px 14px', background: '#f0f9ff', cursor: 'pointer', marginBottom: 12, textAlign: 'left', transition: 'all 0.15s' }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#2563eb'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = '#bfdbfe'}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🚗</div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontWeight: 600, fontSize: 14, color: '#1e40af' }}>
+                    {carAssets.length > 0 ? 'Alege mașina din registru' : 'Adaugă mașini în registru'}
+                  </p>
+                  <p style={{ fontSize: 12, color: '#3b82f6' }}>
+                    {carAssets.length > 0
+                      ? `${carAssets.length} mașin${carAssets.length === 1 ? 'ă' : 'i'} salvat${carAssets.length === 1 ? 'ă' : 'e'} · completare automată`
+                      : 'Economisești timp la contracte repetitive'}
+                  </p>
+                </div>
+                <ChevRightIcon size={16} color="#3b82f6" />
+              </button>
+            )}
+            {/* Vehicle fields inline (always editable) */}
+            <FieldSection title="" fields={manualFields.filter(f => groups[0].keys.includes(f.key))} values={values} onChange={setField} compact />
+          </div>
+        )}
+
+        {/* Remaining manual sections */}
+        {groups.slice(template.id === 'rentacar-standard' ? 1 : 0).map(g => {
+          const fields = manualFields.filter(f => g.keys.includes(f.key));
+          if (!fields.length) return null;
+          return <FieldSection key={g.title} title={g.title} fields={fields} values={values} onChange={setField} />;
+        })}
+      </div>
+      <div style={{ borderTop: '1px solid #e2e8f0', background: '#fff', padding: '14px 18px' }}>
+        {missingRequired.length > 0 && (
+          <p style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center', marginBottom: 8 }}>
+            {missingRequired.length} câmp{missingRequired.length > 1 ? 'uri' : ''} obligatori{missingRequired.length > 1 ? 'i' : 'u'} necomplet{missingRequired.length > 1 ? 'e' : ''}
+          </p>
+        )}
+        <PrimaryBtn onClick={() => onDone(values)}>
+          Preview contract →
+        </PrimaryBtn>
+      </div>
+
+      {showAssetPicker && AssetPickerSheet && (
+        <AssetPickerSheet
+          type="car"
+          assets={assets || []}
+          onSelect={handleAssetSelect}
+          onClose={() => setShowAssetPicker(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function FieldSection({ title, fields, values, onChange, confidence, compact }) {
+  return (
+    <div style={{ marginBottom: compact ? 0 : 24 }}>
+      {title ? <SectionLabel>{title}</SectionLabel> : null}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {fields.map(f => (
+          <div key={f.key}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: '#64748b' }}>{f.label}</label>
+              {f.required && <span style={{ color: '#f87171', fontSize: 12 }}>*</span>}
+              {confidence?.[f.key] === 'uncertain' && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 3, background: '#fef3c7', color: '#d97706', borderRadius: 5, padding: '1px 7px', fontSize: 10, fontWeight: 700 }}>
+                  <AlertCircleIcon size={10} /> Verifică
+                </span>
+              )}
+              {confidence?.[f.key] === 'missing' && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 3, background: '#fee2e2', color: '#dc2626', borderRadius: 5, padding: '1px 7px', fontSize: 10, fontWeight: 700 }}>
+                  <AlertCircleIcon size={10} /> Lipsă
+                </span>
+              )}
+            </div>
+            <FieldInput field={f} value={values[f.key] ?? ''} onChange={v => onChange(f.key, v)} confidence={confidence?.[f.key]} />
+            {f.hint && <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>{f.hint}</p>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Step 4: Preview ──────────────────────────────────────────────────────────
+function StepPreview({ template, values, onGenerate, generating, profile, navigate }) {
+  const body = buildContractBody(template, values);
+  const sig = profile?.signature;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+      <div style={{ borderBottom: '1px solid #f1f5f9', padding: '12px 18px' }}>
+        <SectionLabel>Preview contract</SectionLabel>
+        <p style={{ fontSize: 13, color: '#64748b' }}>Verifică textul înainte de generare.</p>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '14px 18px' }}>
+        <div style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: '16px', fontFamily: 'ui-monospace, monospace', fontSize: 11, lineHeight: 1.7, color: '#334155', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+          {body}
+        </div>
+
+        {/* Signature preview card */}
+        <div style={{ marginTop: 14, border: `1.5px solid ${sig ? '#6ee7b7' : '#fde68a'}`, borderRadius: 12, background: sig ? '#f0fdf4' : '#fffbeb', padding: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <span style={{ fontSize: 16 }}>✍️</span>
+            <p style={{ fontWeight: 700, fontSize: 13, color: sig ? '#065f46' : '#92400e' }}>
+              {sig ? 'Semnătura ta — va apărea pe contract' : 'Semnătura ta lipsește'}
+            </p>
+          </div>
+          {sig ? (
+            <div style={{ background: '#fff', border: '1px solid #d1fae5', borderRadius: 10, padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <img src={sig} alt="Semnătură" style={{ height: 48, maxWidth: 200, objectFit: 'contain' }} />
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#065f46' }}>LOCATOR</p>
+                <p style={{ fontSize: 11, color: '#059669' }}>{values.firma_reprezentant || profile?.legal_rep || '—'}</p>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <p style={{ fontSize: 12, color: '#92400e', lineHeight: 1.5 }}>
+                Pe contract va apărea o linie goală în locul semnăturii. Adaugă semnătura din Profil → Semnătura mea.
+              </p>
+              {navigate && (
+                <button onClick={() => navigate('settings')} style={{ background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  Adaugă →
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      <div style={{ borderTop: '1px solid #e2e8f0', background: '#fff', padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <PrimaryBtn onClick={onGenerate} disabled={generating} bg="#10b981">
+          {generating
+            ? <><SpinnerIcon size={18} /> Se generează PDF...</>
+            : <><FileTextIcon size={18} /> Generează PDF</>}
+        </PrimaryBtn>
+        <p style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8' }}>PDF-ul va fi salvat în istoricul contractelor</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Success screen ───────────────────────────────────────────────────────────
+function StepSuccess({ driverName, onNew, onHistory }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', textAlign: 'center', gap: 16, animation: 'fadeIn 0.3s ease' }}>
+      <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <CheckCircleIcon size={40} color="#10b981" />
+      </div>
+      <div>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a' }}>Contract generat!</h2>
+        <p style={{ marginTop: 6, fontSize: 14, color: '#64748b' }}>
+          {driverName ? `Contractul pentru ${driverName} a fost salvat.` : 'PDF-ul a fost salvat în arhivă.'}
+        </p>
+      </div>
+      <div style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1.5px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', gap: 10, cursor: 'not-allowed', opacity: 0.6 }}>
+        <DownloadIcon size={20} color="#94a3b8" />
+        <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>Descarcă PDF — în curând</span>
+      </div>
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <PrimaryBtn onClick={onNew}>
+          <span>+</span> Contract nou
+        </PrimaryBtn>
+        <button onClick={onHistory} style={{ border: 'none', background: 'none', color: '#64748b', fontSize: 14, cursor: 'pointer', textDecoration: 'underline' }}>
+          Vezi arhiva
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── ContractNew root ─────────────────────────────────────────────────────────
+function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
+  const props = { assets };  // passed down to StepForm
+  const STEPS = ['template', 'scan', 'form', 'preview'];
+  const [stepIdx, setStepIdx]     = React.useState(0);
+  const [template, setTemplate]   = React.useState(null);
+  const [ocr, setOcr]             = React.useState({ values: {}, confidence: {} });
+  const [formValues, setFormValues] = React.useState({});
+  const [generating, setGenerating] = React.useState(false);
+  const [done, setDone]           = React.useState(false);
+
+  const step = STEPS[stepIdx];
+
+  const profileValues = {
+    firma_nume:         profile.firm_name,
+    firma_cui:          profile.firm_cui,
+    firma_adresa:       profile.firm_address,
+    firma_reg:          profile.firm_reg,
+    firma_reprezentant: profile.legal_rep,
+    data_contract:      new Date().toISOString().split('T')[0],
+  };
+
+  function goBack() {
+    if (stepIdx === 0) navigate('dashboard');
+    else setStepIdx(i => i - 1);
+  }
+
+  async function handleGenerate() {
+    setGenerating(true);
+    await new Promise(r => setTimeout(r, 1800));
+    setGenerating(false);
+    const newContract = {
+      id: Date.now().toString(),
+      template_name: template.name,
+      status: 'generated',
+      parties: [{ name: formValues.sofer_nume || 'Necunoscut' }],
+      fields: formValues,
+      created_at: new Date().toISOString(),
+      pdf_url: null,
+    };
+    onContractCreated(newContract);
+    setDone(true);
+  }
+
+  function reset() {
+    setStepIdx(0); setTemplate(null);
+    setOcr({ values: {}, confidence: {} });
+    setFormValues({}); setDone(false);
+  }
+
+  const stepTitle = done ? 'Gata!' : template ? template.name : 'Contract nou';
+
+  return (
+    <AppFrame>
+      <header style={{ position: 'sticky', top: 0, zIndex: 10, display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid #e2e8f0', background: '#fff', padding: '14px 18px' }}>
+        <button onClick={goBack} style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+          <ChevLeftIcon size={18} color="#475569" />
+        </button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stepTitle}</p>
+          {!done && <p style={{ fontSize: 11, color: '#94a3b8' }}>Pasul {stepIdx + 1} din 4</p>}
+        </div>
+      </header>
+
+      {!done && <StepBar current={stepIdx} />}
+
+      {done ? (
+        <StepSuccess
+          driverName={formValues.sofer_nume}
+          onNew={reset}
+          onHistory={() => navigate('history')}
+        />
+      ) : step === 'template' ? (
+        <StepTemplate onSelect={t => { setTemplate(t); setStepIdx(1); }} />
+      ) : step === 'scan' ? (
+        <StepScan onDone={o => { setOcr(o); setStepIdx(2); }} />
+      ) : step === 'form' && template ? (
+        <StepForm
+          template={template}
+          ocrValues={ocr.values}
+          ocrConfidence={ocr.confidence}
+          profileValues={profileValues}
+          assets={assets}
+          onDone={v => { setFormValues(v); setStepIdx(3); }}
+        />
+      ) : step === 'preview' && template ? (
+        <StepPreview template={template} values={formValues} onGenerate={handleGenerate} generating={generating} profile={profile} navigate={navigate} />
+      ) : null}
+    </AppFrame>
+  );
+}
+
+Object.assign(window, { ContractNewScreen });

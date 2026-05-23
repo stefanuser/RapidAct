@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>RapidAct.ro — Prototip</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      font-size: 15px;
+      color: #0f172a;
+      background: #f1f5f9;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* Scrollbar hidden */
+    ::-webkit-scrollbar { width: 0; height: 0; background: transparent; }
+
+    /* App frame responsive */
+    @media (max-width: 460px) {
+      /* On real mobile: flush to edges */
+      body { background: #fff; }
+    }
+
+    /* Animations */
+    @keyframes spin    { to { transform: rotate(360deg); } }
+    @keyframes fadeIn  { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    .animate-spin { animation: spin 0.75s linear infinite; }
+    .fade-in      { animation: fadeIn 0.2s ease both; }
+    .slide-up     { animation: slideUp 0.25s cubic-bezier(0.32, 0.72, 0, 1) both; }
+
+    /* Form elements */
+    input, select, textarea, button { font-family: inherit; font-size: inherit; }
+    button { -webkit-tap-highlight-color: transparent; user-select: none; }
+    * { -webkit-tap-highlight-color: transparent; }
+
+    /* Range input */
+    input[type=range] { cursor: pointer; }
+
+    /* Remove autofill bg on iOS */
+    input:-webkit-autofill { -webkit-box-shadow: 0 0 0 50px white inset; }
+  </style>
+
+  <!-- React 18 + Babel (pinned) -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js"
+    integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L"
+    crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"
+    integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm"
+    crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"
+    integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y"
+    crossorigin="anonymous"></script>
+
+  <template id="__bundler_thumbnail">
+    <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg">
+      <rect width="120" height="80" fill="#f1f5f9"/>
+      <rect x="30" y="8" width="60" height="64" rx="8" fill="white" stroke="#e2e8f0" stroke-width="1"/>
+      <rect x="38" y="16" width="44" height="6" rx="3" fill="#2563eb"/>
+      <rect x="38" y="26" width="30" height="4" rx="2" fill="#e2e8f0"/>
+      <rect x="38" y="34" width="44" height="4" rx="2" fill="#e2e8f0"/>
+      <rect x="38" y="42" width="35" height="4" rx="2" fill="#e2e8f0"/>
+      <rect x="38" y="56" width="44" height="10" rx="4" fill="#2563eb"/>
+    </svg>
+  </template>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="proto/shared.jsx"></script>
+  <script type="text/babel" src="proto/pages-auth.jsx"></script>
+  <script type="text/babel" src="proto/pages-main.jsx"></script>
+  <script type="text/babel" src="proto/pages-firma.jsx"></script>
+  <script type="text/babel" src="proto/pages-assets.jsx"></script>
+  <script type="text/babel" src="proto/pages-contract.jsx"></script>
+  <script type="text/babel" src="proto/app.jsx"></script>
+</body>
+</html>
