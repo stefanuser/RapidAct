@@ -6,21 +6,7 @@ const {
   Building2Icon,
 } = window;
 
-// ANAF mock data — keyed by CUI for variety
-const ANAF_DB = {
-  default: {
-    firm_name: 'AutoLux SRL',
-    firm_address: 'Str. Victoriei nr. 45, București, Sector 1',
-    firm_reg: 'J40/1234/2020',
-    legal_rep: 'Popescu Ion',
-  },
-  'RO87654321': {
-    firm_name: 'TechCorp SRL',
-    firm_address: 'Bd. Unirii nr. 10, București, Sector 3',
-    firm_reg: 'J40/5678/2019',
-    legal_rep: 'Ionescu Maria',
-  },
-};
+const ANAF_ENDPOINT = 'https://wfresisyrlrawquzwlrs.supabase.co/functions/v1/anaf-lookup';
 
 function DateFirmaScreen({ navigate, profile, setProfile }) {
   const init = {
@@ -46,14 +32,20 @@ function DateFirmaScreen({ navigate, profile, setProfile }) {
     if ((data.firm_cui || '').replace(/\D/g, '').length < 5) return;
     setAnaf(true);
     setFresh(false);
-    await new Promise(r => setTimeout(r, 1100));
-    const result = ANAF_DB[data.firm_cui] || ANAF_DB.default;
-    setData(p => ({ ...p, ...result }));
-    setAnaf(false);
-    setFresh(true);
-    setSaved(false);
-    setToast('Date preluate de la ANAF');
-    setTimeout(() => setToast(''), 2500);
+    try {
+      const res  = await fetch(`${ANAF_ENDPOINT}?cui=${encodeURIComponent(data.firm_cui)}`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Eroare ANAF');
+      setData(p => ({ ...p, firm_name: json.firm_name, firm_cui: json.firm_cui, firm_address: json.firm_address, firm_reg: json.firm_reg }));
+      setFresh(true);
+      setSaved(false);
+      setToast('Date preluate de la ANAF ✓');
+    } catch (err) {
+      setToast('⚠️ ' + err.message);
+    } finally {
+      setAnaf(false);
+      setTimeout(() => setToast(''), 3000);
+    }
   }
 
   function handleSave() {

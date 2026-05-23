@@ -246,14 +246,20 @@ function OnboardingScreen({ navigate }) {
   const [saving, setSaving] = React.useState(false);
 
   async function lookupCui() {
-    if (firmCui.length < 6) return;
+    if (firmCui.replace(/\D/g, '').length < 5) return;
     setCuiLoading(true);
-    await new Promise(r => setTimeout(r, 1100));
-    setFirmName('AutoLux SRL');
-    setFirmAddress('Str. Victoriei nr. 45, București, Sector 1');
-    setFirmReg('J40/1234/2020');
-    setLegalRep('Popescu Ion');
-    setCuiLoading(false);
+    try {
+      const res  = await fetch(`https://wfresisyrlrawquzwlrs.supabase.co/functions/v1/anaf-lookup?cui=${encodeURIComponent(firmCui)}`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Eroare ANAF');
+      setFirmName(json.firm_name    || '');
+      setFirmAddress(json.firm_address || '');
+      setFirmReg(json.firm_reg      || '');
+    } catch (err) {
+      console.error('ANAF lookup:', err.message);
+    } finally {
+      setCuiLoading(false);
+    }
   }
 
   async function handleFinish() {
