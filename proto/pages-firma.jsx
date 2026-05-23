@@ -48,9 +48,14 @@ function DateFirmaScreen({ navigate, profile, setProfile }) {
     }
   }
 
-  function handleSave() {
+  async function handleSave() {
     setProfile(p => ({ ...p, ...data }));
     setSaved(true);
+    // Sync to DB
+    const { data: { user } } = await window.sb.auth.getUser();
+    if (user) {
+      await window.sb.from('profiles').update({ ...data, updated_at: new Date().toISOString() }).eq('id', user.id);
+    }
     setToast('Datele au fost salvate');
     setTimeout(() => setToast(''), 2500);
   }

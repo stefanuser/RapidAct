@@ -7,25 +7,20 @@ const {
   ContractNewScreen, GearIcon,
 } = window;
 
-// ─── Mock profile ─────────────────────────────────────────────────────────────
-const MOCK_PROFILE = {
-  email: 'contact@autolux.ro',
-  firm_name: 'AutoLux SRL',
-  firm_cui: 'RO12345678',
-  firm_address: 'Str. Victoriei nr. 45, București, Sector 1',
-  firm_reg: 'J40/1234/2020',
-  legal_rep: 'Popescu Ion',
+// ─── Profile default ──────────────────────────────────────────────────────────
+const EMPTY_PROFILE = {
+  email: '',
+  firm_name: '',
+  firm_cui: '',
+  firm_address: '',
+  firm_reg: '',
+  legal_rep: '',
   profile_type: 'rentacar',
-  plan: 'starter',
-  contracts_used: 14,
-  contracts_limit: 20,
-  watermark_enabled: false,
-  // Personal data (CI) — pre-populated for demo
-  cnp: '1850315400123',
-  ci_serie: 'RX',
-  ci_nr: '412305',
-  data_nastere: '1985-03-15',
-  adresa: 'Str. Victoriei nr. 45, București, Sector 1',
+  plan: 'free',
+  contracts_used: 0,
+  contracts_limit: 5,
+  watermark_enabled: true,
+  cnp: '', ci_serie: '', ci_nr: '', data_nastere: '', adresa: '', signature: null,
 };
 
 // ─── Mock contracts ───────────────────────────────────────────────────────────
@@ -130,23 +125,65 @@ function TweaksPanel({ profile, setProfile, onClose }) {
 
 // ─── Root App ─────────────────────────────────────────────────────────────────
 function App() {
-  const [screen, setScreen]         = React.useState('landing');
-  const [profile, setProfile]       = React.useState(MOCK_PROFILE);
+  const [screen, setScreen]         = React.useState('loading');
+  const [profile, setProfile]       = React.useState(EMPTY_PROFILE);
   const [contracts, setContracts]   = React.useState(MOCK_CONTRACTS);
   const [assets, setAssets]         = React.useState(MOCK_ASSETS);
   const [showTweaks, setShowTweaks] = React.useState(false);
 
+  async function loadProfile(userId, userEmail) {
+    const { data } = await window.sb.from('profiles').select('*').eq('id', userId).single();
+    if (data) {
+      setProfile({ ...EMPTY_PROFILE, ...data });
+      return true;
+    }
+    setProfile(p => ({ ...p, email: userEmail }));
+    return false;
+  }
+
   React.useEffect(() => {
+    // Mesaje tweaks panel
     function onMsg(e) {
       if (e.data?.type === '__activate_edit_mode')   setShowTweaks(true);
       if (e.data?.type === '__deactivate_edit_mode') setShowTweaks(false);
     }
     window.addEventListener('message', onMsg);
     window.parent.postMessage({ type: '__edit_mode_available' }, '*');
-    return () => window.removeEventListener('message', onMsg);
+
+    // Verifică sesiunea existentă la mount
+    window.sb.auth.getSession().then(async ({ data: { session } }) => {
+      if (session) {
+        const hasProfile = await loadProfile(session.user.id, session.user.email);
+        setScreen(hasProfile ? 'dashboard' : 'onboarding');
+      } else {
+        setScreen('landing');
+      }
+    });
+
+    // Ascultă schimbări de auth (login / logout)
+    const { data: { subscription } } = window.sb.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        const hasProfile = await loadProfile(session.user.id, session.user.email);
+        setScreen(hasProfile ? 'dashboard' : 'onboarding');
+      }
+      if (event === 'SIGNED_OUT') {
+        setProfile(EMPTY_PROFILE);
+        setScreen('landing');
+      }
+    });
+
+    return () => {
+      window.removeEventListener('message', onMsg);
+      subscription.unsubscribe();
+    };
   }, []);
 
   function navigate(to) { setScreen(to); setShowTweaks(false); }
+
+  async function logout() {
+    await window.sb.auth.signOut();
+    // onAuthStateChange gestionează navigarea
+  }
 
   function addContract(c) {
     setContracts(prev => [c, ...prev]);
@@ -158,7 +195,19 @@ function App() {
     window.parent.postMessage({ type: '__edit_mode_dismissed' }, '*');
   }
 
-  const shared = { navigate, profile, setProfile, contracts, assets, setAssets };
+  // Loading screen în timp ce verificăm sesiunea
+  if (screen === 'loading') {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>⚡</div>
+          <p style={{ color: '#64748b', fontSize: 14, fontWeight: 500 }}>RapidAct.ro</p>
+        </div>
+      </div>
+    );
+  }
+
+  const shared = { navigate, profile, setProfile, contracts, assets, setAssets, logout };
 
   const screens = {
     landing:        <LandingScreen navigate={navigate} />,

@@ -111,9 +111,10 @@ function LoginScreen({ navigate }) {
     e.preventDefault();
     if (!email || !password) { setError('Completează toate câmpurile.'); return; }
     setError(''); setLoading(true);
-    await new Promise(r => setTimeout(r, 1200));
+    const { error } = await window.sb.auth.signInWithPassword({ email, password });
     setLoading(false);
-    navigate('dashboard');
+    if (error) { setError(error.message); return; }
+    // onAuthStateChange din App.jsx gestionează navigarea
   }
 
   return (
@@ -172,8 +173,14 @@ function RegisterScreen({ navigate }) {
     if (password !== confirm) { setError('Parolele nu coincid.'); return; }
     if (password.length < 6) { setError('Parola trebuie să aibă minim 6 caractere.'); return; }
     setError(''); setLoading(true);
-    await new Promise(r => setTimeout(r, 1400));
+    const { data, error } = await window.sb.auth.signUp({ email, password });
     setLoading(false);
+    if (error) { setError(error.message); return; }
+    // Dacă e confirmare email necesară, sesiunea e null
+    if (!data.session) {
+      setError('✉️ Verifică emailul pentru confirmare, apoi conectează-te.');
+      return;
+    }
     navigate('onboarding');
   }
 
@@ -264,7 +271,24 @@ function OnboardingScreen({ navigate }) {
 
   async function handleFinish() {
     setSaving(true);
-    await new Promise(r => setTimeout(r, 1200));
+    const { data: { user } } = await window.sb.auth.getUser();
+    if (user) {
+      await window.sb.from('profiles').upsert({
+        id: user.id,
+        email: user.email,
+        firm_name: firmName,
+        firm_cui: firmCui,
+        firm_address: firmAddress,
+        firm_reg: firmReg,
+        legal_rep: legalRep,
+        profile_type: profileType,
+        plan: 'free',
+        contracts_used: 0,
+        contracts_limit: 5,
+        watermark_enabled: true,
+        updated_at: new Date().toISOString(),
+      });
+    }
     setSaving(false);
     navigate('dashboard');
   }
