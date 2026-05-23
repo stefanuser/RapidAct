@@ -195,15 +195,15 @@ function HistoryScreen({ navigate, contracts }) {
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
-function SettingsScreen({ navigate, profile, setProfile }) {
+function SettingsScreen({ navigate, profile, setProfile, logout }) {
   const [signingOut, setSigning]       = React.useState(false);
   const [showTypePicker, setShowType]  = React.useState(false);
   const [showSignature, setShowSig]    = React.useState(false);
 
   async function handleSignOut() {
     setSigning(true);
-    await new Promise(r => setTimeout(r, 900));
-    navigate('landing');
+    await logout();
+    // onAuthStateChange din App gestionează navigarea la 'landing'
   }
 
   const used  = profile.contracts_used;
