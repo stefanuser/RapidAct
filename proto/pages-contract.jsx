@@ -189,27 +189,65 @@ function StepScan({ onDone }) {
   function resetMode()    { setMode(null); setCompleted({}); setScanningId(null); setCui(''); }
   function skipStep(step) { setCompleted(prev => ({ ...prev, [step.id]: { values: {}, confidence: {}, skipped: true } })); if (step.kind === 'anaf') setCui(''); }
 
-  async function simulateScan(step) {
+  async function realScan(step, file) {
     setScanningId(step.id);
-    await new Promise(r => setTimeout(r, 2200));
-    setCompleted(prev => ({ ...prev, [step.id]: { values: step.values, confidence: step.confidence } }));
-    setScanningId(null);
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const ocrMode = step.id === 'permis' ? 'ci_permis' : 'ci';
+      const res  = await fetch('https://wfresisyrlrawquzwlrs.supabase.co/functions/v1/ocr-ci', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64, mode: ocrMode }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Eroare OCR');
+      const values = {}, confidence = {};
+      function toISO(s) { if (!s) return s; const m = s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/); return m ? `${m[3]}-${m[2]}-${m[1]}` : s; }
+      const fn = json.first_name || '', ln = json.last_name || '';
+      if (fn || ln) { values.sofer_nume = [fn, ln].filter(Boolean).join(' '); confidence.sofer_nume = 'confident'; }
+      if (json.cnp)       { values.sofer_cnp        = json.cnp;                   confidence.sofer_cnp        = 'confident'; }
+      if (json.ci_series) { values.sofer_ci_serie    = json.ci_series;             confidence.sofer_ci_serie   = 'confident'; }
+      if (json.ci_number) { values.sofer_ci_nr       = json.ci_number;             confidence.sofer_ci_nr      = 'confident'; }
+      if (json.address)   { values.sofer_adresa      = json.address;               confidence.sofer_adresa     = 'uncertain'; }
+      if (json.birthdate) { values.sofer_data_nastere = toISO(json.birthdate);     confidence.sofer_data_nastere = 'confident'; }
+      if (step.id === 'permis') {
+        if (json.permis_number)     { values.permis_nr       = json.permis_number;     confidence.permis_nr       = 'confident'; }
+        if (json.permis_categories) { values.permis_categorii = json.permis_categories; confidence.permis_categorii = 'confident'; }
+        if (json.permis_expiry)     { values.permis_expirare  = toISO(json.permis_expiry); confidence.permis_expirare = 'uncertain'; }
+      }
+      setCompleted(prev => ({ ...prev, [step.id]: { values, confidence } }));
+    } catch (err) {
+      setCompleted(prev => ({ ...prev, [step.id]: { values: {}, confidence: {}, error: err.message } }));
+    } finally {
+      setScanningId(null);
+    }
   }
 
   async function lookupAnaf(step) {
-    if (cui.length < 5) return;
+    if (cui.replace(/\D/g, '').length < 5) return;
     setCuiLoading(true);
-    await new Promise(r => setTimeout(r, 1100));
-    setCuiLoading(false);
-    const values = {
-      client_firma:   'Global Trade SA',
-      client_cui:     cui,
-      client_adresa:  'Bd. Unirii nr. 10, București',
-      client_reg:     'J40/5678/2019',
-      client_contact: 'Ionescu Maria',
-    };
-    const confidence = Object.fromEntries(Object.keys(values).map(k => [k, 'confident']));
-    setCompleted(prev => ({ ...prev, [step.id]: { values, confidence } }));
+    try {
+      const res  = await fetch(`https://wfresisyrlrawquzwlrs.supabase.co/functions/v1/anaf-lookup?cui=${encodeURIComponent(cui)}`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Eroare ANAF');
+      const values = {
+        client_firma:  json.firm_name    || '',
+        client_cui:    json.firm_cui     || cui,
+        client_adresa: json.firm_address || '',
+        client_reg:    json.firm_reg     || '',
+      };
+      const confidence = Object.fromEntries(Object.keys(values).map(k => [k, 'confident']));
+      setCompleted(prev => ({ ...prev, [step.id]: { values, confidence } }));
+    } catch (err) {
+      setCompleted(prev => ({ ...prev, [step.id]: { values: {}, confidence: {}, error: err.message } }));
+    } finally {
+      setCuiLoading(false);
+    }
   }
 
   function finish() {
@@ -329,7 +367,7 @@ function StepScan({ onDone }) {
               step={nextStep}
               stepIdx={stepIdx}
               totalSteps={steps.length}
-              onScan={() => simulateScan(nextStep)}
+              onScanFile={(file) => realScan(nextStep, file)}
               onSkip={onSkip}
             />
           ) : (
@@ -398,10 +436,22 @@ function ScanProgress({ steps, completed, scanningId }) {
   );
 }
 
-function ScanPromptCard({ step, stepIdx, totalSteps, onScan, onSkip }) {
-  const subject = step.id === 'permis' ? 'permisului' : 'CI-ului';
+function ScanPromptCard({ step, stepIdx, totalSteps, onScanFile, onSkip }) {
+  const cameraRef  = React.useRef(null);
+  const galleryRef = React.useRef(null);
+  const subject    = step.id === 'permis' ? 'permisului' : 'CI-ului';
+
+  function handleFile(e) {
+    const file = e.target.files?.[0];
+    if (file) onScanFile(file);
+    e.target.value = '';
+  }
+
   return (
     <div style={{ border: '1.5px solid #93c5fd', borderRadius: 12, background: '#eff6ff', padding: 14 }}>
+      <input ref={cameraRef}  type="file" accept="image/*" capture="environment" onChange={handleFile} style={{ display: 'none' }} />
+      <input ref={galleryRef} type="file" accept="image/*"                       onChange={handleFile} style={{ display: 'none' }} />
+
       {totalSteps > 1 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <span style={{ background: '#2563eb', color: '#fff', borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 800, letterSpacing: 0.4 }}>
@@ -411,7 +461,7 @@ function ScanPromptCard({ step, stepIdx, totalSteps, onScan, onSkip }) {
         </div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <button onClick={onScan} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: '2px solid #2563eb', borderRadius: 11, padding: '14px 14px', background: '#fff', cursor: 'pointer', textAlign: 'left' }}>
+        <button onClick={() => cameraRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: '2px solid #2563eb', borderRadius: 11, padding: '14px 14px', background: '#fff', cursor: 'pointer', textAlign: 'left' }}>
           <div style={{ width: 44, height: 44, borderRadius: 11, background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <CameraIcon size={22} color="#fff" />
           </div>
@@ -420,13 +470,13 @@ function ScanPromptCard({ step, stepIdx, totalSteps, onScan, onSkip }) {
             <p style={{ fontSize: 12, color: '#3b82f6', marginTop: 1 }}>Deschide camera telefonului</p>
           </div>
         </button>
-        <button onClick={onScan} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: '1.5px solid #e2e8f0', borderRadius: 11, padding: '14px 14px', background: '#fff', cursor: 'pointer', textAlign: 'left' }}>
+        <button onClick={() => galleryRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: '1.5px solid #e2e8f0', borderRadius: 11, padding: '14px 14px', background: '#fff', cursor: 'pointer', textAlign: 'left' }}>
           <div style={{ width: 44, height: 44, borderRadius: 11, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <UploadIcon size={22} color="#64748b" />
           </div>
           <div>
             <p style={{ fontWeight: 600, fontSize: 14 }}>Încarcă din galerie</p>
-            <p style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>JPG, PNG, PDF — max. 10 MB</p>
+            <p style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>JPG, PNG — max. 10 MB</p>
           </div>
         </button>
         {onSkip && (
