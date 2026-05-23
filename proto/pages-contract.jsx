@@ -1307,8 +1307,8 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
 
       const { PDFDocument, rgb } = window.PDFLib;
 
-      // Roboto embeds full Unicode so Romanian diacritics (ă â î ș ț) render correctly
-      const fontBytes = await fetch('./assets/fonts/Roboto-Regular.ttf').then(r => r.arrayBuffer());
+      // NotoSans embeds full Unicode so Romanian diacritics (ă â î ș ț) render correctly
+      const fontBytes = await fetch('./assets/fonts/NotoSans-Regular.ttf').then(r => r.arrayBuffer());
       const pdfDoc = await PDFDocument.create();
       pdfDoc.registerFontkit(window.fontkit);
       const font = await pdfDoc.embedFont(fontBytes);
