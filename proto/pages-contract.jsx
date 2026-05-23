@@ -1254,9 +1254,9 @@ function StepSuccess({ driverName, onNew, onHistory }) {
           {driverName ? `Contractul pentru ${driverName} a fost salvat.` : 'PDF-ul a fost salvat în arhivă.'}
         </p>
       </div>
-      <div style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1.5px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', gap: 10, cursor: 'not-allowed', opacity: 0.6 }}>
-        <DownloadIcon size={20} color="#94a3b8" />
-        <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>Descarcă PDF — în curând</span>
+      <div style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1.5px solid #dcfce7', background: '#f0fdf4', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <DownloadIcon size={20} color="#10b981" />
+        <span style={{ fontSize: 14, color: '#065f46', fontWeight: 500 }}>PDF descărcat automat pe dispozitiv</span>
       </div>
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
         <PrimaryBtn onClick={onNew}>
@@ -1299,19 +1299,102 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
 
   async function handleGenerate() {
     setGenerating(true);
-    await new Promise(r => setTimeout(r, 1800));
-    setGenerating(false);
-    const newContract = {
-      id: Date.now().toString(),
-      template_name: template.name,
-      status: 'generated',
-      parties: [{ name: formValues.sofer_nume || 'Necunoscut' }],
-      fields: formValues,
-      created_at: new Date().toISOString(),
-      pdf_url: null,
-    };
-    onContractCreated(newContract);
-    setDone(true);
+    try {
+      const contractBody = buildContractBody(template, formValues);
+      const driverName   = formValues.sofer_nume || 'client';
+      const contractDate = formValues.data_contract || new Date().toISOString().split('T')[0];
+      const filename     = `Contract_${driverName.replace(/\s+/g, '_')}_${contractDate}.pdf`;
+
+      const { PDFDocument, rgb } = window.PDFLib;
+
+      // Roboto embeds full Unicode so Romanian diacritics (ă â î ș ț) render correctly
+      const fontBytes = await fetch('./assets/fonts/Roboto-Regular.ttf').then(r => r.arrayBuffer());
+      const pdfDoc = await PDFDocument.create();
+      pdfDoc.registerFontkit(window.fontkit);
+      const font = await pdfDoc.embedFont(fontBytes);
+
+      const PW = 595.28, PH = 841.89, MX = 51, MY = 45;
+      const TW = PW - MX * 2;
+      const FS = 9.5, LH = FS * 1.55;
+
+      function wrapText(text, maxW) {
+        if (!text.trim()) return [''];
+        const words = text.split(' ');
+        const lines = [];
+        let cur = '';
+        for (const w of words) {
+          const candidate = cur ? cur + ' ' + w : w;
+          if (font.widthOfTextAtSize(candidate, FS) <= maxW) {
+            cur = candidate;
+          } else {
+            if (cur) lines.push(cur);
+            cur = w;
+          }
+        }
+        if (cur) lines.push(cur);
+        return lines.length ? lines : [''];
+      }
+
+      let page = pdfDoc.addPage([PW, PH]);
+      let y = PH - MY;
+
+      // Header
+      page.drawText('RapidAct.ro', { x: MX, y, font, size: 14, color: rgb(0.145, 0.388, 0.922) });
+      const dateStr = 'Generat: ' + new Date().toLocaleDateString('ro-RO');
+      const dateW = font.widthOfTextAtSize(dateStr, 8);
+      page.drawText(dateStr, { x: PW - MX - dateW, y, font, size: 8, color: rgb(0.39, 0.455, 0.545) });
+      y -= 8;
+      page.drawLine({ start: { x: MX, y }, end: { x: PW - MX, y }, thickness: 0.4, color: rgb(0.145, 0.388, 0.922) });
+      y -= 20;
+
+      // Contract body
+      for (const rawLine of contractBody.split('\n')) {
+        for (const wl of wrapText(rawLine, TW)) {
+          if (y < MY) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
+          if (wl) page.drawText(wl, { x: MX, y, font, size: FS, color: rgb(0, 0, 0) });
+          y -= LH;
+        }
+      }
+
+      // Signature block
+      if (profile?.signature) {
+        if (y < MY + 60) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
+        y -= 14;
+        page.drawLine({ start: { x: MX, y }, end: { x: PW - MX, y }, thickness: 0.3, color: rgb(0.86, 0.86, 0.86) });
+        y -= 18;
+        page.drawText('LOCATOR', { x: MX + 51, y, font, size: 7, color: rgb(0.39, 0.455, 0.545) });
+        page.drawText('LOCATAR', { x: PW - MX - 113, y, font, size: 7, color: rgb(0.39, 0.455, 0.545) });
+        y -= 40;
+        const sigBase64 = profile.signature.split(',')[1];
+        const sigBytes  = Uint8Array.from(atob(sigBase64), c => c.charCodeAt(0));
+        const sigImg    = await pdfDoc.embedPng(sigBytes);
+        page.drawImage(sigImg, { x: MX, y, width: 102, height: 40 });
+        page.drawLine({ start: { x: PW - MX - 142, y: y + 40 }, end: { x: PW - MX, y: y + 40 }, thickness: 0.3, color: rgb(0, 0, 0) });
+      }
+
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      console.error('PDF error:', err);
+    } finally {
+      setGenerating(false);
+      const newContract = {
+        id: Date.now().toString(),
+        template_name: template.name,
+        status: 'generated',
+        parties: [{ name: formValues.sofer_nume || 'Necunoscut' }],
+        fields: formValues,
+        created_at: new Date().toISOString(),
+        pdf_url: null,
+      };
+      onContractCreated(newContract);
+      setDone(true);
+    }
   }
 
   function reset() {

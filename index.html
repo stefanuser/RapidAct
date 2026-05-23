@@ -47,6 +47,10 @@
     input:-webkit-autofill { -webkit-box-shadow: 0 0 0 50px white inset; }
   </style>
 
+  <!-- PDF generation (pdf-lib + fontkit for proper Unicode/diacritics) -->
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+
   <!-- React 18 + Babel (pinned) -->
   <script src="https://unpkg.com/react@18.3.1/umd/react.development.js"
     integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L"
