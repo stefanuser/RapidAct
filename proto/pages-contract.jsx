@@ -4,6 +4,7 @@ const {
   AppFrame, StepBar, FieldInput, PrimaryBtn, SecondaryBtn, SectionLabel,
   ChevLeftIcon, ChevRightIcon, CameraIcon, UploadIcon, CheckCircleIcon,
   AlertCircleIcon, FileTextIcon, SpinnerIcon, CheckIcon, DownloadIcon,
+  BottomNav,
 } = window;
 
 // AssetPickerSheet + ASSET_TYPES loaded from pages-assets.jsx (via window)
@@ -795,6 +796,82 @@ function TemplateCard({ t, isFav, onToggleFav, onSelect }) {
 function ContractPreviewSheet({ t, onSelect, onClose }) {
   const template = TEMPLATES.find(tp => tp.id === t.id);
   const previewText = template ? buildContractBody(template, {}) : null;
+  const [downloading, setDownloading] = React.useState(false);
+
+  async function generateBlankPDF() {
+    const { PDFDocument, rgb } = window.PDFLib;
+    const fontBytes = await fetch('./assets/fonts/NotoSans-Regular.ttf').then(r => r.arrayBuffer());
+    const pdfDoc = await PDFDocument.create();
+    pdfDoc.registerFontkit(window.fontkit);
+    const font = await pdfDoc.embedFont(fontBytes);
+    const PW = 595.28, PH = 841.89, MX = 51, MY = 45;
+    const TW = PW - MX * 2;
+    const FS = 9.5, LH = FS * 1.55;
+    function wrapText(text, maxW) {
+      if (!text.trim()) return [''];
+      const words = text.split(' '); const lines = []; let cur = '';
+      for (const w of words) {
+        const candidate = cur ? cur + ' ' + w : w;
+        if (font.widthOfTextAtSize(candidate, FS) <= maxW) { cur = candidate; }
+        else { if (cur) lines.push(cur); cur = w; }
+      }
+      if (cur) lines.push(cur);
+      return lines.length ? lines : [''];
+    }
+    let page = pdfDoc.addPage([PW, PH]);
+    let y = PH - MY;
+    page.drawText('RapidAct.ro', { x: MX, y, font, size: 14, color: rgb(0.145, 0.388, 0.922) });
+    const hdr = 'Template necompletat · ' + t.name;
+    const hdrW = font.widthOfTextAtSize(hdr, 8);
+    page.drawText(hdr, { x: PW - MX - hdrW, y, font, size: 8, color: rgb(0.39, 0.455, 0.545) });
+    y -= 8;
+    page.drawLine({ start: { x: MX, y }, end: { x: PW - MX, y }, thickness: 0.4, color: rgb(0.145, 0.388, 0.922) });
+    y -= 20;
+    for (const rawLine of previewText.split('\n')) {
+      for (const wl of wrapText(rawLine, TW)) {
+        if (y < MY) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
+        if (wl) page.drawText(wl, { x: MX, y, font, size: FS, color: rgb(0, 0, 0) });
+        y -= LH;
+      }
+    }
+    return await pdfDoc.save();
+  }
+
+  async function handleDownloadBlank() {
+    if (!template || downloading) return;
+    setDownloading(true);
+    try {
+      const pdfBytes = await generateBlankPDF();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `${t.name.replace(/\s+/g, '_')}_Template.pdf`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch(err) { console.error('PDF blank error:', err); }
+    finally { setDownloading(false); }
+  }
+
+  async function handleShare() {
+    if (!template || downloading) return;
+    setDownloading(true);
+    try {
+      const pdfBytes = await generateBlankPDF();
+      const fname = `${t.name.replace(/\s+/g, '_')}_Template.pdf`;
+      const file = new File([pdfBytes], fname, { type: 'application/pdf' });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: t.name, text: `Template contract: ${t.name}` });
+      } else {
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = fname;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+    } catch(err) { if (err.name !== 'AbortError') console.error('Share error:', err); }
+    finally { setDownloading(false); }
+  }
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
@@ -811,7 +888,12 @@ function ContractPreviewSheet({ t, onSelect, onClose }) {
             <p style={{ fontWeight: 700, fontSize: 15 }}>{t.name}</p>
             <p style={{ fontSize: 12, color: '#64748b' }}>{t.desc}</p>
           </div>
-          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14, flexShrink: 0 }}>✕</button>
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            {template && (
+              <button onClick={handleShare} title="Distribuie template" disabled={downloading} style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: downloading ? 'wait' : 'pointer', fontSize: 14, opacity: downloading ? 0.6 : 1 }}>📤</button>
+            )}
+            <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14 }}>✕</button>
+          </div>
         </div>
         {/* Body */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '14px 20px' }}>
@@ -830,9 +912,14 @@ function ContractPreviewSheet({ t, onSelect, onClose }) {
         {/* Footer */}
         <div style={{ padding: '12px 20px 28px', borderTop: '1px solid #f1f5f9', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {t.active ? (
-            <PrimaryBtn onClick={() => { onSelect(t); onClose(); }} bg="#2563eb">
-              Folosește acest template →
-            </PrimaryBtn>
+            <>
+              <PrimaryBtn onClick={() => { onSelect(t); onClose(); }} bg="#2563eb">
+                Folosește acest template →
+              </PrimaryBtn>
+              <SecondaryBtn onClick={handleDownloadBlank} disabled={downloading}>
+                {downloading ? '⏳ Se generează...' : '⬇️  Descarcă template gol'}
+              </SecondaryBtn>
+            </>
           ) : (
             <div style={{ background: '#f1f5f9', borderRadius: 12, padding: '12px 16px', textAlign: 'center' }}>
               <p style={{ fontSize: 13, color: '#64748b' }}>Disponibil în curând · <span style={{ color: '#2563eb', cursor: 'pointer', fontWeight: 600 }}>Notifică-mă</span></p>
@@ -1357,9 +1444,9 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
 
       // Header
       page.drawText('RapidAct.ro', { x: MX, y, font, size: 14, color: rgb(0.145, 0.388, 0.922) });
-      const dateStr = 'Generat: ' + new Date().toLocaleDateString('ro-RO');
-      const dateW = font.widthOfTextAtSize(dateStr, 8);
-      page.drawText(dateStr, { x: PW - MX - dateW, y, font, size: 8, color: rgb(0.39, 0.455, 0.545) });
+      const headerDate = 'Generat: ' + new Date().toLocaleDateString('ro-RO');
+      const dateW = font.widthOfTextAtSize(headerDate, 8);
+      page.drawText(headerDate, { x: PW - MX - dateW, y, font, size: 8, color: rgb(0.39, 0.455, 0.545) });
       y -= 8;
       page.drawLine({ start: { x: MX, y }, end: { x: PW - MX, y }, thickness: 0.4, color: rgb(0.145, 0.388, 0.922) });
       y -= 20;
@@ -1461,4 +1548,96 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
   );
 }
 
-Object.assign(window, { ContractNewScreen });
+// ─── ContractTemplates Screen ─────────────────────────────────────────────────
+function ContractTemplatesScreen({ navigate }) {
+  const [favorites, setFavorites] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem('ra_fav_tpl') || '[]'); } catch { return []; }
+  });
+  const [showAll, setShowAll]       = React.useState(false);
+  const [showUpload, setShowUpload] = React.useState(false);
+
+  function toggleFav(id) {
+    setFavorites(prev => {
+      const next = prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id];
+      localStorage.setItem('ra_fav_tpl', JSON.stringify(next));
+      return next;
+    });
+  }
+
+  function handleSelect(t) {
+    if (!t.active) return;
+    navigate('contract-new');
+  }
+
+  const favList    = ALL_TEMPLATE_LIST.filter(t => favorites.includes(t.id));
+  const activeList = ALL_TEMPLATE_LIST.filter(t => t.active);
+
+  return (
+    <AppFrame>
+      <header style={{ position: 'sticky', top: 0, zIndex: 10, background: '#fff', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px' }}>
+        <button onClick={() => navigate('settings')} style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+          <ChevLeftIcon size={16} color="#475569" />
+        </button>
+        <p style={{ fontWeight: 700, fontSize: 17 }}>Contractele mele</p>
+      </header>
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: '18px 18px 100px' }}>
+        <p style={{ fontSize: 13, color: '#64748b', marginBottom: 18 }}>Gestionează template-urile favorite și alege contractul potrivit.</p>
+
+        {/* Favorites */}
+        {favList.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <SectionLabel>⭐ Favorite</SectionLabel>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {favList.map(t => <TemplateCard key={t.id} t={t} isFav onToggleFav={toggleFav} onSelect={handleSelect} />)}
+            </div>
+          </div>
+        )}
+
+        {/* All active + browse all */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <SectionLabel>Toate contractele</SectionLabel>
+            <button onClick={() => setShowAll(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f1f5f9', border: 'none', borderRadius: 8, padding: '5px 10px', fontSize: 12, fontWeight: 600, color: '#475569', cursor: 'pointer', marginBottom: 8 }}
+              onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
+              onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}>
+              🗂️ Browse ({ALL_TEMPLATE_LIST.length})
+            </button>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {activeList.map(t => <TemplateCard key={t.id} t={t} isFav={favorites.includes(t.id)} onToggleFav={toggleFav} onSelect={handleSelect} />)}
+          </div>
+          <button onClick={() => setShowAll(true)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', border: '1px dashed #e2e8f0', borderRadius: 10, padding: '11px 14px', background: 'none', cursor: 'pointer', marginTop: 8, transition: 'background 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+            onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+            <span style={{ fontSize: 16 }}>🔍</span>
+            <span style={{ fontSize: 13, color: '#94a3b8', flex: 1, textAlign: 'left' }}>+{ALL_TEMPLATE_LIST.filter(t => !t.active).length} template-uri în curând — Explorează toate categoriile</span>
+            <ChevRightIcon size={15} color="#94a3b8" />
+          </button>
+        </div>
+
+        {/* Upload own */}
+        <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 16 }}>
+          <SectionLabel>Contract propriu</SectionLabel>
+          <button onClick={() => setShowUpload(true)} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: '1.5px dashed #cbd5e1', borderRadius: 12, padding: '14px 16px', background: '#f8fafc', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = '#64748b'; e.currentTarget.style.background = '#f1f5f9'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; }}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>📤</div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontWeight: 600, color: '#334155' }}>Încarcă contractul tău</p>
+              <p style={{ fontSize: 12, color: '#94a3b8' }}>Îl vom adăuga în profilul tău în 24-48h</p>
+            </div>
+            <ChevRightIcon size={16} color="#94a3b8" />
+          </button>
+        </div>
+      </div>
+
+      <BottomNav active="settings" navigate={navigate} />
+
+      {showAll    && <AllContractsSheet favorites={favorites} onToggleFav={toggleFav} onSelect={handleSelect} onClose={() => setShowAll(false)} />}
+      {showUpload && <UploadContractSheet onClose={() => setShowUpload(false)} />}
+    </AppFrame>
+  );
+}
+
+Object.assign(window, { ContractNewScreen, ContractTemplatesScreen });

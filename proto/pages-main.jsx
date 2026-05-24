@@ -451,10 +451,11 @@ function SettingsScreen({ navigate, profile, setProfile, logout }) {
               ? `${profile.firm_name} · ${profile.firm_cui}`
               : 'Necompletat';
             const items = [
-              { Icon: UserIcon,       label: 'Date personale',  sub: personalSub, onClick: () => navigate('date-personale') },
-              { Icon: Building2Icon,  label: 'Date firmă',      sub: firmaSub,    onClick: () => navigate('date-firma') },
-              { Icon: CreditCardIcon, label: 'Plan și plăți',   sub: `Plan ${profile.plan} · ${used}/${limit} contracte`, onClick: () => setToast('Plan și plăți — vine în curând 🚀') },
-              { Icon: ShieldIcon,     label: 'Securitate',      sub: 'Parolă, 2FA', onClick: () => setToast('Securitate (parolă, 2FA) — vine în curând 🔐') },
+              { Icon: UserIcon,       label: 'Date personale',   sub: personalSub, onClick: () => navigate('date-personale') },
+              { Icon: Building2Icon,  label: 'Date firmă',       sub: firmaSub,    onClick: () => navigate('date-firma') },
+              { Icon: FileTextIcon,   label: 'Contractele mele', sub: 'Template-uri, favorite, încărcate', onClick: () => navigate('contracte') },
+              { Icon: CreditCardIcon, label: 'Plan și plăți',    sub: `Plan ${profile.plan} · ${used}/${limit} contracte`, onClick: () => setToast('Plan și plăți — vine în curând 🚀') },
+              { Icon: ShieldIcon,     label: 'Securitate',       sub: 'Parolă, 2FA', onClick: () => setToast('Securitate (parolă, 2FA) — vine în curând 🔐') },
             ];
             return items.map(({ Icon, label, sub, onClick }, i) => (
               <MenuItem key={label} Icon={Icon} label={label} sub={sub} last={i === items.length - 1} onClick={onClick} />

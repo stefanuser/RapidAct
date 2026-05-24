@@ -4,7 +4,7 @@ const {
   LandingScreen, LoginScreen, RegisterScreen, OnboardingScreen,
   DashboardScreen, AssetsScreen, HistoryScreen, SettingsScreen,
   DatePersonaleScreen, DateFirmaScreen,
-  ContractNewScreen, GearIcon,
+  ContractNewScreen, ContractTemplatesScreen, GearIcon,
 } = window;
 
 // ─── Profile default ──────────────────────────────────────────────────────────
@@ -259,6 +259,7 @@ function App() {
     'date-personale': <DatePersonaleScreen {...shared} />,
     'date-firma':     <DateFirmaScreen {...shared} />,
     'contract-new': <ContractNewScreen {...shared} onContractCreated={addContract} />,
+    'contracte':    <ContractTemplatesScreen {...shared} />,
   };
 
   return (
