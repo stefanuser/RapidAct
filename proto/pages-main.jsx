@@ -340,7 +340,14 @@ function SettingsScreen({ navigate, profile, setProfile, logout }) {
   const [showTypePicker, setShowType]  = React.useState(false);
   const [showSignature, setShowSig]    = React.useState(false);
   const [toast, setToast]              = React.useState('');
+  const [appVer, setAppVer]            = React.useState(null);
   React.useEffect(() => { if (toast) { const t = setTimeout(() => setToast(''), 2800); return () => clearTimeout(t); } }, [toast]);
+  React.useEffect(() => {
+    fetch('./version.json?_=' + Date.now())
+      .then(r => r.json())
+      .then(d => setAppVer(d))
+      .catch(() => {});
+  }, []);
 
   async function handleSignOut() {
     setSigning(true);
@@ -473,7 +480,12 @@ function SettingsScreen({ navigate, profile, setProfile, logout }) {
           </button>
         </div>
 
-        <p style={{ textAlign: 'center', fontSize: 12, color: '#cbd5e1' }}>RapidAct.ro · v1.0.0</p>
+        <p style={{ textAlign: 'center', fontSize: 12, color: '#cbd5e1', lineHeight: 1.6 }}>
+          RapidAct.ro · v{appVer ? appVer.version : '1.0.0'}
+          {appVer && appVer.commit !== 'dev' && (
+            <><br /><span style={{ fontSize: 10, color: '#e2e8f0', opacity: 0.6 }}>#{appVer.commit} · {appVer.date} {appVer.time}</span></>
+          )}
+        </p>
       </div>
 
       <BottomNav active="settings" navigate={navigate} />
@@ -1050,28 +1062,62 @@ function ProfileScanSheet({ onDone, onClose }) {
     setStatus(isPermis ? 'loading_permis' : 'loading');
     setBarW(0); setErrMsg('');
     let stop = false;
+    // Progress bar — avansează până la 88%, apoi pulsează (nu se blochează vizual)
     (async () => {
-      const steps = [15,30,48,65,80,90];
+      const steps = [12,25,40,55,68,78,85,88];
       for (const w of steps) {
         if (stop) break;
-        await new Promise(r => setTimeout(r, 700));
+        await new Promise(r => setTimeout(r, 800));
         if (!stop) setBarW(w);
+      }
+      // după 88% pulsează între 88-92 până vine răspunsul
+      let pulse = 88; let dir = 1;
+      while (!stop) {
+        await new Promise(r => setTimeout(r, 600));
+        if (stop) break;
+        pulse += dir * 2;
+        if (pulse >= 92) dir = -1;
+        if (pulse <= 88) dir = 1;
+        setBarW(pulse);
       }
     })();
     try {
+      // Compresie imagine: resize la max 1300px, JPEG 0.82 — reduce 4-8MB → ~200KB
       const base64 = await new Promise((res, rej) => {
-        const r = new FileReader();
-        r.onload  = () => res(r.result.split(',')[1]);
-        r.onerror = rej;
-        r.readAsDataURL(file);
+        const img = new Image();
+        const objUrl = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(objUrl);
+          const MAX = 1300;
+          let w = img.width, h = img.height;
+          if (w > MAX || h > MAX) {
+            if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+            else       { w = Math.round(w * MAX / h); h = MAX; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          res(canvas.toDataURL('image/jpeg', 0.82).split(',')[1]);
+        };
+        img.onerror = rej;
+        img.src = objUrl;
       });
       const apiMode = isPermis ? 'ci_permis' : 'ci';
       const { data: { session } } = await window.sb.auth.getSession();
-      const resp = await fetch('https://wfresisyrlrawquzwlrs.supabase.co/functions/v1/ocr-ci', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(session ? { 'Authorization': `Bearer ${session.access_token}` } : {}) },
-        body: JSON.stringify({ imageBase64: base64, mode: apiMode }),
-      });
+      // Timeout 30s — fără asta fetch poate atârna la infinit
+      const ctrl = new AbortController();
+      const timeoutId = setTimeout(() => ctrl.abort(), 30000);
+      let resp;
+      try {
+        resp = await fetch('https://wfresisyrlrawquzwlrs.supabase.co/functions/v1/ocr-ci', {
+          method: 'POST',
+          signal: ctrl.signal,
+          headers: { 'Content-Type': 'application/json', ...(session ? { 'Authorization': `Bearer ${session.access_token}` } : {}) },
+          body: JSON.stringify({ imageBase64: base64, mode: apiMode }),
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
       const json = await resp.json();
       if (!resp.ok) throw new Error(json.error || 'Eroare server OCR');
       const vals = {}, conf = {};
@@ -1108,7 +1154,10 @@ function ProfileScanSheet({ onDone, onClose }) {
       }
     } catch(err) {
       stop = true;
-      setErrMsg(err.message || 'Eroare la scanare. Încearcă din nou.');
+      const msg = err.name === 'AbortError'
+        ? 'Timeout — scanarea a durat prea mult. Încearcă cu o poză mai clară sau mai mică.'
+        : (err.message || 'Eroare la scanare. Încearcă din nou.');
+      setErrMsg(msg);
       setStatus('error');
     }
   }
