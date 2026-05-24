@@ -1033,17 +1033,22 @@ const FIELD_LABELS = {
 
 function ProfileScanSheet({ onDone, onClose }) {
   const [mode, setMode]           = React.useState(null);
-  const [status, setStatus]       = React.useState('idle'); // idle | loading | done | error
+  const [status, setStatus]       = React.useState('idle');
+  // idle | loading | loading_permis | done_ci | idle_permis | done | error
+  const [scanStep, setScanStep]   = React.useState('ci'); // 'ci' | 'permis'
   const [barW, setBarW]           = React.useState(0);
   const [resultValues, setResult] = React.useState({});
   const [resultConf, setConf]     = React.useState({});
+  const [ciValues, setCiValues]   = React.useState({});
+  const [ciConf, setCiConf]       = React.useState({});
   const [errMsg, setErrMsg]       = React.useState('');
-  const cameraRef = React.useRef(null);
+  const cameraRef  = React.useRef(null);
   const galleryRef = React.useRef(null);
 
-  async function doOcr(file) {
-    setStatus('loading'); setBarW(0); setErrMsg('');
-    // Animate progress while waiting for API
+  async function doOcr(file, step) {
+    const isPermis = step === 'permis';
+    setStatus(isPermis ? 'loading_permis' : 'loading');
+    setBarW(0); setErrMsg('');
     let stop = false;
     (async () => {
       const steps = [15,30,48,65,80,90];
@@ -1060,33 +1065,47 @@ function ProfileScanSheet({ onDone, onClose }) {
         r.onerror = rej;
         r.readAsDataURL(file);
       });
-      const ocrMode = mode?.id === 'ci_permis' ? 'ci_permis' : 'ci';
+      const apiMode = isPermis ? 'ci_permis' : 'ci';
       const { data: { session } } = await window.sb.auth.getSession();
       const resp = await fetch('https://wfresisyrlrawquzwlrs.supabase.co/functions/v1/ocr-ci', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(session ? { 'Authorization': `Bearer ${session.access_token}` } : {}) },
-        body: JSON.stringify({ imageBase64: base64, mode: ocrMode }),
+        body: JSON.stringify({ imageBase64: base64, mode: apiMode }),
       });
       const json = await resp.json();
       if (!resp.ok) throw new Error(json.error || 'Eroare server OCR');
       const vals = {}, conf = {};
       function toISO(s) { if (!s) return s; const m = s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/); return m ? `${m[3]}-${m[2]}-${m[1]}` : s; }
-      const fn = json.first_name || '', ln = json.last_name || '';
-      if (fn || ln) { vals.legal_rep = [fn, ln].filter(Boolean).join(' '); conf.legal_rep = 'confident'; }
-      if (json.cnp)       { vals.cnp        = json.cnp;               conf.cnp        = 'confident'; }
-      if (json.ci_series) { vals.ci_serie   = json.ci_series;         conf.ci_serie   = 'confident'; }
-      if (json.ci_number) { vals.ci_nr      = json.ci_number;         conf.ci_nr      = 'confident'; }
-      if (json.address)   { vals.adresa     = json.address;           conf.adresa     = 'uncertain'; }
-      if (json.birthdate) { vals.data_nastere = toISO(json.birthdate); conf.data_nastere = 'confident'; }
-      if (ocrMode === 'ci_permis') {
-        if (json.permis_number)     { vals.permis_nr       = json.permis_number;      conf.permis_nr       = 'confident'; }
-        if (json.permis_categories) { vals.permis_categorii = json.permis_categories; conf.permis_categorii = 'confident'; }
-        if (json.permis_expiry)     { vals.permis_expirare = toISO(json.permis_expiry); conf.permis_expirare = 'uncertain'; }
-        if (json.permis_series)     { vals.permis_serie    = json.permis_series;      conf.permis_serie    = 'confident'; }
+
+      if (!isPermis) {
+        // Parse CI fields only
+        const fn = json.first_name || '', ln = json.last_name || '';
+        if (fn || ln) { vals.legal_rep = [fn, ln].filter(Boolean).join(' '); conf.legal_rep = 'confident'; }
+        if (json.cnp)       { vals.cnp          = json.cnp;               conf.cnp          = 'confident'; }
+        if (json.ci_series) { vals.ci_serie     = json.ci_series;         conf.ci_serie     = 'confident'; }
+        if (json.ci_number) { vals.ci_nr        = json.ci_number;         conf.ci_nr        = 'confident'; }
+        if (json.address)   { vals.adresa       = json.address;           conf.adresa       = 'uncertain'; }
+        if (json.birthdate) { vals.data_nastere = toISO(json.birthdate);  conf.data_nastere = 'confident'; }
+        stop = true; setBarW(100);
+        if (mode && mode.id === 'ci_permis') {
+          setCiValues(vals); setCiConf(conf);
+          setResult(vals); setConf(conf);
+          setStatus('done_ci');
+        } else {
+          setResult(vals); setConf(conf);
+          setStatus('done');
+        }
+      } else {
+        // Parse Permis fields only
+        if (json.permis_number)     { vals.permis_nr        = json.permis_number;       conf.permis_nr        = 'confident'; }
+        if (json.permis_categories) { vals.permis_categorii = json.permis_categories;   conf.permis_categorii = 'confident'; }
+        if (json.permis_expiry)     { vals.permis_expirare  = toISO(json.permis_expiry); conf.permis_expirare = 'uncertain'; }
+        if (json.permis_series)     { vals.permis_serie     = json.permis_series;        conf.permis_serie    = 'confident'; }
+        stop = true; setBarW(100);
+        setResult(prev => ({ ...prev, ...vals }));
+        setConf(prev => ({ ...prev, ...conf }));
+        setStatus('done');
       }
-      stop = true; setBarW(100);
-      setResult(vals); setConf(conf);
-      setStatus('done');
     } catch(err) {
       stop = true;
       setErrMsg(err.message || 'Eroare la scanare. Încearcă din nou.');
@@ -1094,10 +1113,36 @@ function ProfileScanSheet({ onDone, onClose }) {
     }
   }
 
-  function onFile(e) { const f = e.target.files?.[0]; e.target.value = ''; if (f) doOcr(f); }
-  function reset() { setMode(null); setStatus('idle'); setBarW(0); setResult({}); setConf({}); setErrMsg(''); }
+  function onFile(e) { const f = e.target.files?.[0]; e.target.value = ''; if (f) doOcr(f, scanStep); }
 
-  const uncertain = status === 'done' && Object.values(resultConf).some(c => c === 'uncertain');
+  function reset() {
+    setMode(null); setStatus('idle'); setScanStep('ci');
+    setBarW(0); setResult({}); setConf({});
+    setCiValues({}); setCiConf({}); setErrMsg('');
+  }
+
+  function goBack() {
+    if (status === 'idle_permis') { setStatus('done_ci'); setScanStep('ci'); }
+    else if (status === 'done_ci') { setStatus('idle'); }
+    else { reset(); }
+  }
+
+  const uncertain  = status === 'done' && Object.values(resultConf).some(c => c === 'uncertain');
+  const isLoading  = status === 'loading' || status === 'loading_permis';
+
+  function getTitle() {
+    if (!mode) return 'Scanează documente';
+    if (mode.id === 'ci_permis') {
+      if (status === 'idle')             return 'Pasul 1 din 2 — CI';
+      if (status === 'loading')          return 'Se analizează CI...';
+      if (status === 'done_ci')          return 'CI scanat ✓';
+      if (status === 'idle_permis')      return 'Pasul 2 din 2 — Permis';
+      if (status === 'loading_permis')   return 'Se analizează Permisul...';
+      if (status === 'done')             return 'Scanare completă ✓';
+      if (status === 'error')            return 'Eroare scanare';
+    }
+    return mode.label;
+  }
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
@@ -1113,15 +1158,21 @@ function ProfileScanSheet({ onDone, onClose }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px 14px', flexShrink: 0, borderBottom: '1px solid #f1f5f9' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {mode && (
-              <button onClick={reset} style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+              <button onClick={goBack} style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
                 <ChevLeftIcon size={14} color="#475569" />
               </button>
             )}
-            <p style={{ fontWeight: 700, fontSize: 16 }}>
-              {!mode ? 'Scanează documente' : mode.label}
-            </p>
+            <p style={{ fontWeight: 700, fontSize: 16 }}>{getTitle()}</p>
           </div>
-          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14 }}>✕</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {mode && mode.id === 'ci_permis' && !['done','error'].includes(status) && (
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <div style={{ width: 22, height: 4, borderRadius: 99, background: '#2563eb' }} />
+                <div style={{ width: 22, height: 4, borderRadius: 99, background: ['idle_permis','loading_permis'].includes(status) ? '#2563eb' : '#e2e8f0' }} />
+              </div>
+            )}
+            <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14 }}>✕</button>
+          </div>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px 36px' }}>
@@ -1131,7 +1182,7 @@ function ProfileScanSheet({ onDone, onClose }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <p style={{ fontSize: 13, color: '#64748b', marginBottom: 6 }}>Alege ce documente dorești să scanezi:</p>
               {PROFILE_SCAN_MODES.map(m => (
-                <button key={m.id} onClick={() => setMode(m)} style={{
+                <button key={m.id} onClick={() => { setMode(m); setScanStep('ci'); }} style={{
                   position: 'relative', display: 'flex', alignItems: 'center', gap: 14,
                   width: '100%', border: `2px solid ${m.recommended ? '#2563eb' : '#e2e8f0'}`,
                   borderRadius: 14, padding: '15px 16px',
@@ -1151,7 +1202,9 @@ function ProfileScanSheet({ onDone, onClose }) {
                   </div>
                   <div style={{ flex: 1 }}>
                     <p style={{ fontWeight: 700, fontSize: 14, color: m.recommended ? '#1e40af' : '#0f172a' }}>{m.label}</p>
-                    <p style={{ fontSize: 12, color: m.recommended ? '#3b82f6' : '#64748b', marginTop: 3 }}>{m.sub}</p>
+                    <p style={{ fontSize: 12, color: m.recommended ? '#3b82f6' : '#64748b', marginTop: 3 }}>
+                      {m.id === 'ci_permis' ? '2 pași: CI separat, apoi Permis separat' : m.sub}
+                    </p>
                   </div>
                   <ChevRightIcon size={18} color={m.recommended ? '#93c5fd' : '#cbd5e1'} />
                 </button>
@@ -1159,19 +1212,20 @@ function ProfileScanSheet({ onDone, onClose }) {
             </div>
           )}
 
-          {/* Camera / upload */}
+          {/* Camera / upload — Step 1: CI (or single CI mode) */}
           {mode && status === 'idle' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {mode.id === 'ci_permis' && (
-                <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '10px 14px', display: 'flex', gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontSize: 15, flexShrink: 0 }}>💡</span>
-                  <p style={{ fontSize: 12, color: '#92400e', lineHeight: 1.55 }}>Scanează mai întâi <strong>CI-ul</strong>, apoi <strong>permisul de conducere</strong>. Poți face poze separat.</p>
+                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '10px 14px', display: 'flex', gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontSize: 16, flexShrink: 0 }}>🪪</span>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: '#1e40af' }}>Pasul 1 — Scanează CI-ul</p>
+                    <p style={{ fontSize: 12, color: '#3b82f6', marginTop: 2 }}>Permisul de conducere se face în pasul următor, separat.</p>
+                  </div>
                 </div>
               )}
-              {/* Hidden file inputs */}
               <input ref={cameraRef}  type="file" accept="image/*" capture="environment" onChange={onFile} style={{ display: 'none' }} />
               <input ref={galleryRef} type="file" accept="image/*,application/pdf"        onChange={onFile} style={{ display: 'none' }} />
-
               <button onClick={() => cameraRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: '2px solid #93c5fd', borderRadius: 13, padding: '18px 16px', background: '#eff6ff', cursor: 'pointer', textAlign: 'left' }}>
                 <div style={{ width: 50, height: 50, borderRadius: 13, background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <CameraIcon size={24} color="#fff" />
@@ -1195,28 +1249,102 @@ function ProfileScanSheet({ onDone, onClose }) {
             </div>
           )}
 
+          {/* CI done — intermediate step for ci_permis mode */}
+          {mode && mode.id === 'ci_permis' && status === 'done_ci' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ border: '1.5px solid #6ee7b7', borderRadius: 14, background: '#f0fdf4', padding: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <CheckCircleIcon size={16} color="#10b981" />
+                  <p style={{ fontWeight: 700, color: '#065f46', fontSize: 13 }}>CI extras cu succes ✓</p>
+                  <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 800, background: '#dcfce7', color: '#166534', borderRadius: 6, padding: '2px 9px' }}>GPT-4o</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  {['legal_rep','cnp','ci_serie','ci_nr','data_nastere','adresa'].filter(k => ciValues[k]).map(key => (
+                    <div key={key} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '2px 0', borderBottom: '1px solid #d1fae5' }}>
+                      <span style={{ fontSize: 11, color: '#059669', flexShrink: 0 }}>{FIELD_LABELS[key]}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, textAlign: 'right', color: ciConf[key] === 'uncertain' ? '#d97706' : '#064e3b' }}>
+                        {ciValues[key]}{ciConf[key] === 'uncertain' ? ' ⚠️' : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ background: '#f0f9ff', border: '1.5px solid #bae6fd', borderRadius: 12, padding: '14px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <span style={{ fontSize: 22 }}>🚗</span>
+                  <div>
+                    <p style={{ fontWeight: 700, fontSize: 14, color: '#0c4a6e' }}>Pasul 2 — Permis de conducere</p>
+                    <p style={{ fontSize: 12, color: '#0284c7', marginTop: 2 }}>Scanează acum permisul pentru a completa toate datele.</p>
+                  </div>
+                </div>
+                <button onClick={() => { setScanStep('permis'); setStatus('idle_permis'); }} style={{ width: '100%', padding: '12px', borderRadius: 10, background: '#0284c7', color: '#fff', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <CameraIcon size={17} color="#fff" /> Scanează Permisul →
+                </button>
+              </div>
+
+              <button onClick={() => { setResult({ ...ciValues }); setConf({ ...ciConf }); setStatus('done'); }} style={{ border: 'none', background: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer', padding: '4px', textDecoration: 'underline' }}>
+                Sari peste permis — salvează doar CI
+              </button>
+            </div>
+          )}
+
+          {/* Camera / upload — Step 2: Permis */}
+          {mode && status === 'idle_permis' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: '10px 14px', display: 'flex', gap: 8, marginBottom: 4 }}>
+                <span style={{ fontSize: 16, flexShrink: 0 }}>🚗</span>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#0c4a6e' }}>Pasul 2 — Scanează Permisul</p>
+                  <p style={{ fontSize: 12, color: '#0284c7', marginTop: 2 }}>Fotografiază fața permisului de conducere.</p>
+                </div>
+              </div>
+              <input ref={cameraRef}  type="file" accept="image/*" capture="environment" onChange={onFile} style={{ display: 'none' }} />
+              <input ref={galleryRef} type="file" accept="image/*,application/pdf"        onChange={onFile} style={{ display: 'none' }} />
+              <button onClick={() => cameraRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: '2px solid #7dd3fc', borderRadius: 13, padding: '18px 16px', background: '#f0f9ff', cursor: 'pointer', textAlign: 'left' }}>
+                <div style={{ width: 50, height: 50, borderRadius: 13, background: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <CameraIcon size={24} color="#fff" />
+                </div>
+                <div>
+                  <p style={{ fontWeight: 700, color: '#0c4a6e' }}>Fă o poză Permisului</p>
+                  <p style={{ fontSize: 13, color: '#0284c7', marginTop: 2 }}>Deschide camera telefonului</p>
+                </div>
+              </button>
+              <button onClick={() => galleryRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: '2px solid #e2e8f0', borderRadius: 13, padding: '18px 16px', background: '#fff', cursor: 'pointer', textAlign: 'left' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#fff'; }}>
+                <div style={{ width: 50, height: 50, borderRadius: 13, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <UploadIcon size={24} color="#64748b" />
+                </div>
+                <div>
+                  <p style={{ fontWeight: 700, color: '#334155' }}>Încarcă din galerie</p>
+                  <p style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>JPG, PNG, PDF — max. 10 MB</p>
+                </div>
+              </button>
+            </div>
+          )}
+
           {/* Loading */}
-          {mode && status === 'loading' && (
+          {mode && isLoading && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, padding: '52px 0' }}>
               <div style={{ position: 'relative', width: 84, height: 84, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '4px solid #f1f5f9', borderTopColor: '#2563eb', animation: 'spin 0.85s linear infinite' }} />
-                <span style={{ fontSize: 34 }}>{mode.icon}</span>
+                <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '4px solid #f1f5f9', borderTopColor: status === 'loading_permis' ? '#0284c7' : '#2563eb', animation: 'spin 0.85s linear infinite' }} />
+                <span style={{ fontSize: 34 }}>{status === 'loading_permis' ? '🚗' : mode.icon}</span>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <p style={{ fontWeight: 700, color: '#334155', fontSize: 16 }}>Se extrag datele...</p>
+                <p style={{ fontWeight: 700, color: '#334155', fontSize: 16 }}>{status === 'loading_permis' ? 'Se extrag datele permisului...' : 'Se extrag datele...'}</p>
                 <p style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>Analizăm documentul cu AI · GPT-4o</p>
               </div>
               <div style={{ width: 200, height: 5, background: '#e2e8f0', borderRadius: 99, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${barW}%`, background: 'linear-gradient(90deg, #2563eb, #10b981)', borderRadius: 99, transition: 'width 0.38s ease' }} />
+                <div style={{ height: '100%', width: `${barW}%`, background: status === 'loading_permis' ? 'linear-gradient(90deg,#0284c7,#10b981)' : 'linear-gradient(90deg,#2563eb,#10b981)', borderRadius: 99, transition: 'width 0.38s ease' }} />
               </div>
               <p style={{ fontSize: 12, color: '#cbd5e1' }}>{barW}%</p>
             </div>
           )}
 
-          {/* Done */}
+          {/* Done — final results */}
           {mode && status === 'done' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {/* Results card */}
               <div style={{ border: '1.5px solid #6ee7b7', borderRadius: 14, background: '#f0fdf4', padding: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                   <CheckCircleIcon size={18} color="#10b981" />
@@ -1224,7 +1352,6 @@ function ProfileScanSheet({ onDone, onClose }) {
                   <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 800, background: '#dcfce7', color: '#166534', borderRadius: 6, padding: '2px 9px' }}>GPT-4o</span>
                 </div>
 
-                {/* CI data */}
                 <p style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: '#059669', marginBottom: 6 }}>🪪 Act de identitate</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
                   {['legal_rep','cnp','ci_serie','ci_nr','data_nastere','adresa'].filter(k => resultValues[k]).map(key => (
@@ -1237,8 +1364,7 @@ function ProfileScanSheet({ onDone, onClose }) {
                   ))}
                 </div>
 
-                {/* Permis data */}
-                {mode?.id === 'ci_permis' && (
+                {mode.id === 'ci_permis' && ['permis_serie','permis_nr','permis_categorii','permis_expirare'].some(k => resultValues[k]) && (
                   <>
                     <p style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: '#059669', marginBottom: 6, marginTop: 8 }}>🚗 Permis de conducere</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -1255,13 +1381,13 @@ function ProfileScanSheet({ onDone, onClose }) {
                 )}
 
                 {Object.keys(resultValues).length === 0 && (
-                  <p style={{ fontSize: 12, color: '#64748b', fontStyle: 'italic' }}>Nu s-au putut extrage date din document. Completează manual.</p>
+                  <p style={{ fontSize: 12, color: '#64748b', fontStyle: 'italic' }}>Nu s-au putut extrage date. Completează manual.</p>
                 )}
               </div>
 
               {uncertain && (
                 <div style={{ display: 'flex', gap: 10, border: '1px solid #fde68a', borderRadius: 10, background: '#fffbeb', padding: '10px 14px' }}>
-                  <AlertCircleIcon size={16} color="#d97706" style={{ flexShrink: 0, marginTop: 1 }} />
+                  <AlertCircleIcon size={16} color="#d97706" />
                   <p style={{ fontSize: 12, color: '#92400e', lineHeight: 1.55 }}>Câmpurile cu <strong>⚠️</strong> au încredere scăzută — verifică-le după salvare.</p>
                 </div>
               )}
@@ -1269,7 +1395,7 @@ function ProfileScanSheet({ onDone, onClose }) {
               <button onClick={() => onDone(resultValues, resultConf)} style={{ width: '100%', padding: '14px', borderRadius: 12, background: '#2563eb', color: '#fff', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 <CheckIcon size={18} color="#fff" /> Confirmă și salvează datele
               </button>
-              <button onClick={() => setStatus('idle')} style={{ width: '100%', padding: '11px', borderRadius: 12, border: '1.5px solid #e2e8f0', background: '#fff', color: '#475569', fontWeight: 500, fontSize: 14, cursor: 'pointer' }}>
+              <button onClick={reset} style={{ width: '100%', padding: '11px', borderRadius: 12, border: '1.5px solid #e2e8f0', background: '#fff', color: '#475569', fontWeight: 500, fontSize: 14, cursor: 'pointer' }}>
                 Scanează din nou
               </button>
             </div>
@@ -1283,7 +1409,7 @@ function ProfileScanSheet({ onDone, onClose }) {
                 <p style={{ fontWeight: 700, color: '#7f1d1d', marginTop: 8 }}>Scanare eșuată</p>
                 <p style={{ fontSize: 13, color: '#ef4444', marginTop: 4, lineHeight: 1.5 }}>{errMsg}</p>
               </div>
-              <button onClick={() => setStatus('idle')} style={{ width: '100%', padding: '13px', borderRadius: 12, background: '#2563eb', color: '#fff', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer' }}>
+              <button onClick={() => setStatus(scanStep === 'permis' ? 'idle_permis' : 'idle')} style={{ width: '100%', padding: '13px', borderRadius: 12, background: '#2563eb', color: '#fff', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer' }}>
                 Încearcă din nou
               </button>
             </div>
