@@ -77,11 +77,12 @@ function BottomNav({ active, navigate }) {
 
 // ─── StatusBadge ─────────────────────────────────────────────────────────────
 const STATUS_MAP = {
-  signed:    { label: 'Semnat',  bg: '#dcfce7', color: '#166534' },
-  generated: { label: 'Generat', bg: '#dbeafe', color: '#1e40af' },
-  draft:     { label: 'Ciornă',  bg: '#f1f5f9', color: '#475569' },
-  archived:  { label: 'Arhivat', bg: '#f1f5f9', color: '#64748b' },
-  expired:   { label: 'Expirat', bg: '#fee2e2', color: '#dc2626' },
+  signed:    { label: 'Semnat',   bg: '#dcfce7', color: '#166534' },
+  generated: { label: 'Generat',  bg: '#dbeafe', color: '#1e40af' },
+  draft:     { label: 'Ciornă',   bg: '#f1f5f9', color: '#475569' },
+  archived:  { label: 'Arhivat',  bg: '#f1f5f9', color: '#64748b' },
+  expired:   { label: 'Expirat',  bg: '#fee2e2', color: '#dc2626' },
+  uploaded:  { label: 'Încărcat', bg: '#f3e8ff', color: '#6b21a8' },
 };
 function StatusBadge({ status }) {
   const s = STATUS_MAP[status] ?? STATUS_MAP.draft;

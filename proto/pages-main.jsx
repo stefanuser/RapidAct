@@ -117,13 +117,17 @@ function ContractRow({ contract: c }) {
 }
 
 // ─── History ──────────────────────────────────────────────────────────────────
-function HistoryScreen({ navigate, contracts }) {
-  const [search, setSearch]           = React.useState('');
-  const [selected, setSelected]       = React.useState(null);
-  const archived = contracts.filter(c => ['signed', 'archived', 'expired'].includes(c.status));
-  const filtered = archived.filter(c => {
+function HistoryScreen({ navigate, contracts, addContract }) {
+  const [search, setSearch]     = React.useState('');
+  const [selected, setSelected] = React.useState(null);
+  const [showUpload, setUpload] = React.useState(false);
+
+  const filtered = contracts.filter(c => {
     if (!search) return true;
-    return (c.parties?.[0]?.name ?? '').toLowerCase().includes(search.toLowerCase());
+    const name = (c.parties?.[0]?.name ?? '').toLowerCase();
+    const tpl  = (c.template_name ?? '').toLowerCase();
+    const q    = search.toLowerCase();
+    return name.includes(q) || tpl.includes(q);
   });
 
   const groups = {};
@@ -138,7 +142,12 @@ function HistoryScreen({ navigate, contracts }) {
       <header style={{ position: 'sticky', top: 0, zIndex: 10, borderBottom: '1px solid #e2e8f0', background: '#fff' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px 10px' }}>
           <p style={{ fontWeight: 700, fontSize: 18 }}>Arhivă</p>
-          <span style={{ background: '#f1f5f9', borderRadius: 20, padding: '3px 10px', fontSize: 12, fontWeight: 600, color: '#64748b' }}>{archived.length} total</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ background: '#f1f5f9', borderRadius: 20, padding: '3px 10px', fontSize: 12, fontWeight: 600, color: '#64748b' }}>{contracts.length} total</span>
+            <button onClick={() => setUpload(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#2563eb', color: '#fff', borderRadius: 10, padding: '6px 12px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
+              <PlusIcon size={14} /> Adaugă
+            </button>
+          </div>
         </div>
         <div style={{ padding: '0 18px 12px' }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍  Caută după nume..."
@@ -147,14 +156,19 @@ function HistoryScreen({ navigate, contracts }) {
       </header>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 18px 100px' }}>
-        {archived.length === 0 ? (
+        {contracts.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 80, textAlign: 'center' }}>
             <div style={{ width: 64, height: 64, borderRadius: 18, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
               <ArchiveIcon size={28} color="#94a3b8" />
             </div>
             <p style={{ fontWeight: 600, color: '#334155' }}>Arhiva e goală</p>
-            <p style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>Contractele finalizate apar aici.</p>
+            <p style={{ fontSize: 13, color: '#94a3b8', marginTop: 6 }}>Generează un contract sau adaugă unul existent.</p>
+            <button onClick={() => setUpload(true)} style={{ marginTop: 14, background: '#2563eb', color: '#fff', borderRadius: 10, padding: '10px 18px', fontSize: 14, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
+              + Adaugă contract
+            </button>
           </div>
+        ) : filtered.length === 0 ? (
+          <p style={{ textAlign: 'center', color: '#94a3b8', marginTop: 60, fontSize: 14 }}>Niciun rezultat pentru „{search}".</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             {Object.entries(groups).map(([month, items]) => (
@@ -164,10 +178,12 @@ function HistoryScreen({ navigate, contracts }) {
                   {items.map(c => (
                     <div key={c.id}
                       onClick={() => setSelected(c)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1px solid #e2e8f0', borderRadius: 12, padding: '12px 14px', cursor: 'pointer', background: '#fff', transition: 'background 0.1s' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, border: `1px solid ${c.source === 'uploaded' ? '#e9d5ff' : '#e2e8f0'}`, borderRadius: 12, padding: '12px 14px', cursor: 'pointer', background: '#fff', transition: 'background 0.1s' }}
                       onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
                       onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                      <Avatar name={c.parties?.[0]?.name ?? '—'} size={38} from="#64748b" to="#334155" />
+                      <Avatar name={c.parties?.[0]?.name ?? '—'} size={38}
+                        from={c.source === 'uploaded' ? '#7c3aed' : '#64748b'}
+                        to={c.source === 'uploaded' ? '#a855f7' : '#334155'} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.parties?.[0]?.name ?? '—'}</p>
                         <p style={{ fontSize: 12, color: '#64748b' }}>{c.template_name} · {new Date(c.created_at).toLocaleDateString('ro-RO', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
@@ -184,13 +200,137 @@ function HistoryScreen({ navigate, contracts }) {
 
       <BottomNav active="history" navigate={navigate} />
 
-      {selected && (
-        <ContractDetailSheet
-          contract={selected}
-          onClose={() => setSelected(null)}
-        />
-      )}
+      {selected && <ContractDetailSheet contract={selected} onClose={() => setSelected(null)} />}
+      {showUpload && <AddContractSheet onClose={() => setUpload(false)} onAdd={addContract} />}
     </AppFrame>
+  );
+}
+
+// ─── Upload Contract Sheet ────────────────────────────────────────────────────
+const CONTRACT_TYPES = ['Închiriere Auto', 'Imobiliare', 'Prestări Servicii', 'Contract Muncă', 'Altul'];
+
+function AddContractSheet({ onClose, onAdd }) {
+  const [file, setFile]         = React.useState(null);
+  const [type, setType]         = React.useState('Închiriere Auto');
+  const [party, setParty]       = React.useState('');
+  const [date, setDate]         = React.useState(new Date().toISOString().split('T')[0]);
+  const [notes, setNotes]       = React.useState('');
+  const [uploading, setUploading] = React.useState(false);
+  const [error, setError]       = React.useState('');
+  const fileRef = React.useRef(null);
+
+  function handleFileChange(e) {
+    const f = e.target.files?.[0];
+    if (f && f.type === 'application/pdf') { setFile(f); setError(''); }
+    else if (f) setError('Alege un fișier PDF.');
+    e.target.value = '';
+  }
+
+  async function handleUpload() {
+    if (!file)  { setError('Selectează un fișier PDF.'); return; }
+    if (!party) { setError('Completează persoana/firma.'); return; }
+    setUploading(true); setError('');
+    try {
+      const { data: { user } } = await window.sb.auth.getUser();
+      if (!user) throw new Error('Neautentificat — reconectează-te.');
+
+      // Upload în Storage
+      const uid  = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36);
+      const path = `${user.id}/${uid}.pdf`;
+      const { error: upErr } = await window.sb.storage
+        .from('contracts').upload(path, file, { contentType: 'application/pdf' });
+      if (upErr) throw upErr;
+
+      const { data: { publicUrl } } = window.sb.storage.from('contracts').getPublicUrl(path);
+
+      await onAdd({
+        template_name: type,
+        status:        'uploaded',
+        parties:       [{ name: party }],
+        fields:        {},
+        pdf_url:       publicUrl,
+        file_name:     file.name,
+        file_size:     file.size,
+        source:        'uploaded',
+        notes:         notes || null,
+        created_at:    new Date(date + 'T12:00:00').toISOString(),
+      });
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Eroare la upload');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <Sheet onClose={uploading ? undefined : onClose}>
+      <div style={{ padding: '4px 20px 32px', maxHeight: '85vh', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <p style={{ fontWeight: 700, fontSize: 16 }}>Adaugă contract existent</p>
+          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: '#f1f5f9', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+        </div>
+
+        {/* File picker */}
+        <input ref={fileRef} type="file" accept="application/pdf" onChange={handleFileChange} style={{ display: 'none' }} />
+        <button onClick={() => fileRef.current?.click()} style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          width: '100%', minHeight: 90, border: `2px dashed ${file ? '#10b981' : '#cbd5e1'}`,
+          borderRadius: 12, background: file ? '#f0fdf4' : '#f8fafc',
+          cursor: 'pointer', marginBottom: 16, gap: 4, transition: 'all 0.15s',
+        }}>
+          {file ? (
+            <>
+              <span style={{ fontSize: 24 }}>📄</span>
+              <p style={{ fontWeight: 600, fontSize: 13, color: '#065f46' }}>{file.name}</p>
+              <p style={{ fontSize: 11, color: '#94a3b8' }}>{(file.size / 1024).toFixed(0)} KB · PDF</p>
+            </>
+          ) : (
+            <>
+              <span style={{ fontSize: 26 }}>⬆️</span>
+              <p style={{ fontWeight: 600, fontSize: 13, color: '#334155' }}>Alege fișier PDF</p>
+              <p style={{ fontSize: 11, color: '#94a3b8' }}>Max 10 MB</p>
+            </>
+          )}
+        </button>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {[
+            { label: 'Tip contract', el: (
+              <select value={type} onChange={e => setType(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #e2e8f0', borderRadius: 10, fontSize: 14, background: '#fff', outline: 'none', fontFamily: 'inherit', color: '#0f172a' }}>
+                {CONTRACT_TYPES.map(t => <option key={t}>{t}</option>)}
+              </select>
+            )},
+            { label: 'Persoană / Firmă', el: (
+              <input value={party} onChange={e => setParty(e.target.value)} placeholder="ex. Ionescu Alexandru" style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #e2e8f0', borderRadius: 10, fontSize: 14, fontFamily: 'inherit', outline: 'none' }} />
+            )},
+            { label: 'Data contractului', el: (
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #e2e8f0', borderRadius: 10, fontSize: 14, fontFamily: 'inherit', outline: 'none' }} />
+            )},
+            { label: 'Note (opțional)', el: (
+              <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Observații..." rows={2} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #e2e8f0', borderRadius: 10, fontSize: 14, fontFamily: 'inherit', outline: 'none', resize: 'none' }} />
+            )},
+          ].map(({ label, el }) => (
+            <div key={label}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: '#94a3b8', marginBottom: 6 }}>{label}</label>
+              {el}
+            </div>
+          ))}
+        </div>
+
+        {error && <p style={{ color: '#ef4444', fontSize: 13, marginTop: 10 }}>{error}</p>}
+
+        <button onClick={handleUpload} disabled={uploading} style={{
+          marginTop: 18, width: '100%', padding: 14, borderRadius: 12,
+          background: uploading ? '#cbd5e1' : '#2563eb',
+          color: '#fff', fontWeight: 700, fontSize: 15, border: 'none',
+          cursor: uploading ? 'not-allowed' : 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}>
+          {uploading ? <><SpinnerIcon size={18} color="#fff" /> Se încarcă...</> : '⬆️  Încarcă contract'}
+        </button>
+      </div>
+    </Sheet>
   );
 }
 
@@ -545,8 +685,18 @@ function ContractDetailSheet({ contract: c, onClose }) {
   const date = new Date(c.created_at).toLocaleDateString('ro-RO', { day: 'numeric', month: 'long', year: 'numeric' });
 
   async function handleDownload() {
+    if (c.pdf_url) {
+      // Contract real — deschide/descarcă fișierul
+      const a = document.createElement('a');
+      a.href = c.pdf_url;
+      a.download = c.file_name || `${c.template_name}.pdf`;
+      a.target = '_blank';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setDownloaded(true);
+      return;
+    }
     setDownloading(true);
-    await new Promise(r => setTimeout(r, 1400));
+    await new Promise(r => setTimeout(r, 1000));
     setDownloading(false);
     setDownloaded(true);
   }

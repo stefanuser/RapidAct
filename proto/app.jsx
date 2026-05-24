@@ -127,7 +127,7 @@ function TweaksPanel({ profile, setProfile, onClose }) {
 function App() {
   const [screen, setScreen]         = React.useState('loading');
   const [profile, setProfile]       = React.useState(EMPTY_PROFILE);
-  const [contracts, setContracts]   = React.useState(MOCK_CONTRACTS);
+  const [contracts, setContracts]   = React.useState([]);
   const [assets, setAssets]         = React.useState(MOCK_ASSETS);
   const [showTweaks, setShowTweaks] = React.useState(false);
 
@@ -139,6 +139,15 @@ function App() {
     }
     setProfile(p => ({ ...p, email: userEmail }));
     return false;
+  }
+
+  async function loadContracts(userId) {
+    const { data } = await window.sb
+      .from('contracts')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (data) setContracts(data);
   }
 
   React.useEffect(() => {
@@ -153,7 +162,10 @@ function App() {
     // Verifică sesiunea existentă la mount
     window.sb.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        const hasProfile = await loadProfile(session.user.id, session.user.email);
+        const [hasProfile] = await Promise.all([
+          loadProfile(session.user.id, session.user.email),
+          loadContracts(session.user.id),
+        ]);
         setScreen(hasProfile ? 'dashboard' : 'onboarding');
       } else {
         setScreen('landing');
@@ -163,11 +175,15 @@ function App() {
     // Ascultă schimbări de auth (login / logout)
     const { data: { subscription } } = window.sb.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        const hasProfile = await loadProfile(session.user.id, session.user.email);
+        const [hasProfile] = await Promise.all([
+          loadProfile(session.user.id, session.user.email),
+          loadContracts(session.user.id),
+        ]);
         setScreen(hasProfile ? 'dashboard' : 'onboarding');
       }
       if (event === 'SIGNED_OUT') {
         setProfile(EMPTY_PROFILE);
+        setContracts([]);
         setScreen('landing');
       }
     });
@@ -185,9 +201,31 @@ function App() {
     // onAuthStateChange gestionează navigarea
   }
 
-  function addContract(c) {
-    setContracts(prev => [c, ...prev]);
-    setProfile(p => ({ ...p, contracts_used: p.contracts_used + 1 }));
+  async function addContract(c) {
+    const { data: { user } } = await window.sb.auth.getUser();
+    if (user) {
+      const row = {
+        user_id:       user.id,
+        template_name: c.template_name || 'Contract',
+        status:        c.status        || 'generated',
+        parties:       c.parties       || [],
+        fields:        c.fields        || {},
+        pdf_url:       c.pdf_url       || null,
+        file_name:     c.file_name     || null,
+        file_size:     c.file_size     || null,
+        source:        c.source        || 'generated',
+        notes:         c.notes         || null,
+        created_at:    c.created_at    || new Date().toISOString(),
+      };
+      const { data } = await window.sb.from('contracts').insert(row).select().single();
+      if (data) {
+        setContracts(prev => [data, ...prev]);
+        setProfile(p => ({ ...p, contracts_used: (p.contracts_used || 0) + 1 }));
+        return data;
+      }
+    }
+    // Fallback fără sesiune
+    setContracts(prev => [{ ...c, id: Date.now().toString() }, ...prev]);
   }
 
   function closeTweaks() {
@@ -216,7 +254,7 @@ function App() {
     onboarding:     <OnboardingScreen navigate={navigate} />,
     dashboard:      <DashboardScreen {...shared} addContract={addContract} />,
     assets:         <AssetsScreen {...shared} />,
-    history:        <HistoryScreen {...shared} />,
+    history:        <HistoryScreen {...shared} addContract={addContract} />,
     settings:       <SettingsScreen {...shared} />,
     'date-personale': <DatePersonaleScreen {...shared} />,
     'date-firma':     <DateFirmaScreen {...shared} />,
