@@ -1185,7 +1185,7 @@ function FieldSection({ title, fields, values, onChange, confidence, compact }) 
 }
 
 // ─── Step 4: Preview ──────────────────────────────────────────────────────────
-function StepPreview({ template, values, onGenerate, generating, profile, navigate }) {
+function StepPreview({ template, values, onGenerate, generating, profile, navigate, skipSig, onSkipSig }) {
   const body = buildContractBody(template, values);
   const sig = profile?.signature;
   return (
@@ -1200,20 +1200,32 @@ function StepPreview({ template, values, onGenerate, generating, profile, naviga
         </div>
 
         {/* Signature preview card */}
-        <div style={{ marginTop: 14, border: `1.5px solid ${sig ? '#6ee7b7' : '#fde68a'}`, borderRadius: 12, background: sig ? '#f0fdf4' : '#fffbeb', padding: 14 }}>
+        <div style={{ marginTop: 14, border: `1.5px solid ${sig && !skipSig ? '#6ee7b7' : sig && skipSig ? '#e2e8f0' : '#fde68a'}`, borderRadius: 12, background: sig && !skipSig ? '#f0fdf4' : sig && skipSig ? '#f8fafc' : '#fffbeb', padding: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
             <span style={{ fontSize: 16 }}>✍️</span>
-            <p style={{ fontWeight: 700, fontSize: 13, color: sig ? '#065f46' : '#92400e' }}>
-              {sig ? 'Semnătura ta — va apărea pe contract' : 'Semnătura ta lipsește'}
+            <p style={{ fontWeight: 700, fontSize: 13, color: sig && !skipSig ? '#065f46' : sig && skipSig ? '#64748b' : '#92400e' }}>
+              {sig && !skipSig ? 'Semnătura ta — va apărea pe contract' : sig && skipSig ? 'Semnătura nu va fi adăugată' : 'Semnătura ta lipsește'}
             </p>
           </div>
-          {sig ? (
-            <div style={{ background: '#fff', border: '1px solid #d1fae5', borderRadius: 10, padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-              <img src={sig} alt="Semnătură" style={{ height: 48, maxWidth: 200, objectFit: 'contain' }} />
-              <div style={{ textAlign: 'right' }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: '#065f46' }}>LOCATOR</p>
-                <p style={{ fontSize: 11, color: '#059669' }}>{values.firma_reprezentant || profile?.legal_rep || '—'}</p>
+          {sig && !skipSig ? (
+            <>
+              <div style={{ background: '#fff', border: '1px solid #d1fae5', borderRadius: 10, padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <img src={sig} alt="Semnătură" style={{ height: 48, maxWidth: 200, objectFit: 'contain' }} />
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: '#065f46' }}>LOCATOR</p>
+                  <p style={{ fontSize: 11, color: '#059669' }}>{values.firma_reprezentant || profile?.legal_rep || '—'}</p>
+                </div>
               </div>
+              <button onClick={() => onSkipSig(true)} style={{ marginTop: 8, width: '100%', border: 'none', background: 'none', fontSize: 12, color: '#94a3b8', cursor: 'pointer', textDecoration: 'underline', padding: '4px 0', textAlign: 'center' }}>
+                Nu adaugă semnătura pe acest contract
+              </button>
+            </>
+          ) : sig && skipSig ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <p style={{ fontSize: 12, color: '#64748b' }}>Va apărea o linie goală în locul semnăturii.</p>
+              <button onClick={() => onSkipSig(false)} style={{ fontSize: 12, color: '#2563eb', fontWeight: 700, border: 'none', background: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                Adaugă totuși →
+              </button>
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -1280,6 +1292,7 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
   const [formValues, setFormValues] = React.useState({});
   const [generating, setGenerating] = React.useState(false);
   const [done, setDone]           = React.useState(false);
+  const [skipSig, setSkipSig]     = React.useState(false);
 
   const step = STEPS[stepIdx];
 
@@ -1301,9 +1314,13 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
     setGenerating(true);
     try {
       const contractBody = buildContractBody(template, formValues);
-      const driverName   = formValues.sofer_nume || 'client';
-      const contractDate = formValues.data_contract || new Date().toISOString().split('T')[0];
-      const filename     = `Contract_${driverName.replace(/\s+/g, '_')}_${contractDate}.pdf`;
+      const driverName = formValues.sofer_nume || 'client';
+      const lastName   = driverName.split(' ').slice(-1)[0];
+      const now        = new Date();
+      const timeStr    = String(now.getHours()).padStart(2,'0') + '-' + String(now.getMinutes()).padStart(2,'0');
+      const dateStr    = now.toISOString().split('T')[0];
+      const tipClean   = template.name.replace(/\s+/g,'').replace(/[ăâ]/gi,'a').replace(/[îÎ]/g,'i').replace(/[șşȘ]/g,'s').replace(/[țţȚ]/g,'t');
+      const filename   = `${tipClean}_${lastName}_${timeStr}_${dateStr}.pdf`;
 
       const { PDFDocument, rgb } = window.PDFLib;
 
@@ -1357,7 +1374,7 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
       }
 
       // Signature block
-      if (profile?.signature) {
+      if (profile?.signature && !skipSig) {
         if (y < MY + 60) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
         y -= 14;
         page.drawLine({ start: { x: MX, y }, end: { x: PW - MX, y }, thickness: 0.3, color: rgb(0.86, 0.86, 0.86) });
@@ -1379,28 +1396,27 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
       a.href = url; a.download = filename;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+      // Salvează contractul în DB/state și navighează la success
+      await onContractCreated({
+        template_name: template.name,
+        status:        'generated',
+        parties:       [{ name: formValues.sofer_nume || 'Necunoscut' }],
+        fields:        formValues,
+        created_at:    new Date().toISOString(),
+        pdf_url:       null,
+      });
+      setDone(true);
     } catch (err) {
       console.error('PDF error:', err);
     } finally {
       setGenerating(false);
-      const newContract = {
-        id: Date.now().toString(),
-        template_name: template.name,
-        status: 'generated',
-        parties: [{ name: formValues.sofer_nume || 'Necunoscut' }],
-        fields: formValues,
-        created_at: new Date().toISOString(),
-        pdf_url: null,
-      };
-      onContractCreated(newContract);
-      setDone(true);
     }
   }
 
   function reset() {
     setStepIdx(0); setTemplate(null);
     setOcr({ values: {}, confidence: {} });
-    setFormValues({}); setDone(false);
+    setFormValues({}); setDone(false); setSkipSig(false);
   }
 
   const stepTitle = done ? 'Gata!' : template ? template.name : 'Contract nou';
@@ -1439,7 +1455,7 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
           onDone={v => { setFormValues(v); setStepIdx(3); }}
         />
       ) : step === 'preview' && template ? (
-        <StepPreview template={template} values={formValues} onGenerate={handleGenerate} generating={generating} profile={profile} navigate={navigate} />
+        <StepPreview template={template} values={formValues} onGenerate={handleGenerate} generating={generating} profile={profile} navigate={navigate} skipSig={skipSig} onSkipSig={setSkipSig} />
       ) : null}
     </AppFrame>
   );

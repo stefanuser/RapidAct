@@ -339,6 +339,8 @@ function SettingsScreen({ navigate, profile, setProfile, logout }) {
   const [signingOut, setSigning]       = React.useState(false);
   const [showTypePicker, setShowType]  = React.useState(false);
   const [showSignature, setShowSig]    = React.useState(false);
+  const [toast, setToast]              = React.useState('');
+  React.useEffect(() => { if (toast) { const t = setTimeout(() => setToast(''), 2800); return () => clearTimeout(t); } }, [toast]);
 
   async function handleSignOut() {
     setSigning(true);
@@ -451,8 +453,8 @@ function SettingsScreen({ navigate, profile, setProfile, logout }) {
             const items = [
               { Icon: UserIcon,       label: 'Date personale',  sub: personalSub, onClick: () => navigate('date-personale') },
               { Icon: Building2Icon,  label: 'Date firmă',      sub: firmaSub,    onClick: () => navigate('date-firma') },
-              { Icon: CreditCardIcon, label: 'Plan și plăți',   sub: `Plan ${profile.plan} · ${used}/${limit} contracte` },
-              { Icon: ShieldIcon,     label: 'Securitate',      sub: 'Parolă, 2FA' },
+              { Icon: CreditCardIcon, label: 'Plan și plăți',   sub: `Plan ${profile.plan} · ${used}/${limit} contracte`, onClick: () => setToast('Plan și plăți — vine în curând 🚀') },
+              { Icon: ShieldIcon,     label: 'Securitate',      sub: 'Parolă, 2FA', onClick: () => setToast('Securitate (parolă, 2FA) — vine în curând 🔐') },
             ];
             return items.map(({ Icon, label, sub, onClick }, i) => (
               <MenuItem key={label} Icon={Icon} label={label} sub={sub} last={i === items.length - 1} onClick={onClick} />
@@ -491,6 +493,13 @@ function SettingsScreen({ navigate, profile, setProfile, logout }) {
           onSave={sig => { setProfile(p => ({ ...p, signature: sig })); setShowSig(false); }}
           onClose={() => setShowSig(false)}
         />
+      )}
+
+      {/* Coming soon toast */}
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)', background: '#0f172a', color: '#fff', borderRadius: 12, padding: '11px 18px', fontSize: 13, fontWeight: 500, zIndex: 300, maxWidth: 320, textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', animation: 'fadeIn 0.2s ease' }}>
+          {toast}
+        </div>
       )}
     </AppFrame>
   );
@@ -874,7 +883,7 @@ function DatePersonaleScreen({ navigate, profile, setProfile }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
             <div style={{ width: 44, height: 44, borderRadius: 12, background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>🪪</div>
             <div style={{ flex: 1 }}>
-              <p style={{ fontWeight: 700, fontSize: 14, color: '#1e40af' }}>Extragere automată prin OCR</p>
+              <p style={{ fontWeight: 700, fontSize: 14, color: '#1e40af' }}>Extragere Automată</p>
               <p style={{ fontSize: 12, color: '#3b82f6', marginTop: 2 }}>Scanează CI + Permis și completăm totul cu AI</p>
             </div>
           </div>
@@ -1022,25 +1031,72 @@ const FIELD_LABELS = {
 };
 
 function ProfileScanSheet({ onDone, onClose }) {
-  const [mode, setMode]         = React.useState(null);
-  const [status, setStatus]     = React.useState('idle'); // idle | loading | done
-  const [barW, setBarW]         = React.useState(0);
+  const [mode, setMode]           = React.useState(null);
+  const [status, setStatus]       = React.useState('idle'); // idle | loading | done | error
+  const [barW, setBarW]           = React.useState(0);
+  const [resultValues, setResult] = React.useState({});
+  const [resultConf, setConf]     = React.useState({});
+  const [errMsg, setErrMsg]       = React.useState('');
+  const cameraRef = React.useRef(null);
+  const galleryRef = React.useRef(null);
 
-  async function simulate() {
-    setStatus('loading');
-    setBarW(0);
-    const frames = [20, 42, 61, 78, 90, 97];
-    for (const w of frames) {
-      await new Promise(r => setTimeout(r, 380));
-      setBarW(w);
+  async function doOcr(file) {
+    setStatus('loading'); setBarW(0); setErrMsg('');
+    // Animate progress while waiting for API
+    let stop = false;
+    (async () => {
+      const steps = [15,30,48,65,80,90];
+      for (const w of steps) {
+        if (stop) break;
+        await new Promise(r => setTimeout(r, 700));
+        if (!stop) setBarW(w);
+      }
+    })();
+    try {
+      const base64 = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload  = () => res(r.result.split(',')[1]);
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      });
+      const ocrMode = mode?.id === 'ci_permis' ? 'ci_permis' : 'ci';
+      const { data: { session } } = await window.sb.auth.getSession();
+      const resp = await fetch('https://wfresisyrlrawquzwlrs.supabase.co/functions/v1/ocr-ci', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(session ? { 'Authorization': `Bearer ${session.access_token}` } : {}) },
+        body: JSON.stringify({ imageBase64: base64, mode: ocrMode }),
+      });
+      const json = await resp.json();
+      if (!resp.ok) throw new Error(json.error || 'Eroare server OCR');
+      const vals = {}, conf = {};
+      function toISO(s) { if (!s) return s; const m = s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/); return m ? `${m[3]}-${m[2]}-${m[1]}` : s; }
+      const fn = json.first_name || '', ln = json.last_name || '';
+      if (fn || ln) { vals.legal_rep = [fn, ln].filter(Boolean).join(' '); conf.legal_rep = 'confident'; }
+      if (json.cnp)       { vals.cnp        = json.cnp;               conf.cnp        = 'confident'; }
+      if (json.ci_series) { vals.ci_serie   = json.ci_series;         conf.ci_serie   = 'confident'; }
+      if (json.ci_number) { vals.ci_nr      = json.ci_number;         conf.ci_nr      = 'confident'; }
+      if (json.address)   { vals.adresa     = json.address;           conf.adresa     = 'uncertain'; }
+      if (json.birthdate) { vals.data_nastere = toISO(json.birthdate); conf.data_nastere = 'confident'; }
+      if (ocrMode === 'ci_permis') {
+        if (json.permis_number)     { vals.permis_nr       = json.permis_number;      conf.permis_nr       = 'confident'; }
+        if (json.permis_categories) { vals.permis_categorii = json.permis_categories; conf.permis_categorii = 'confident'; }
+        if (json.permis_expiry)     { vals.permis_expirare = toISO(json.permis_expiry); conf.permis_expirare = 'uncertain'; }
+        if (json.permis_series)     { vals.permis_serie    = json.permis_series;      conf.permis_serie    = 'confident'; }
+      }
+      stop = true; setBarW(100);
+      setResult(vals); setConf(conf);
+      setStatus('done');
+    } catch(err) {
+      stop = true;
+      setErrMsg(err.message || 'Eroare la scanare. Încearcă din nou.');
+      setStatus('error');
     }
-    await new Promise(r => setTimeout(r, 300));
-    setStatus('done');
   }
 
-  function reset() { setMode(null); setStatus('idle'); setBarW(0); }
+  function onFile(e) { const f = e.target.files?.[0]; e.target.value = ''; if (f) doOcr(f); }
+  function reset() { setMode(null); setStatus('idle'); setBarW(0); setResult({}); setConf({}); setErrMsg(''); }
 
-  const uncertain = mode && Object.values(mode.mockConf).some(c => c === 'uncertain');
+  const uncertain = status === 'done' && Object.values(resultConf).some(c => c === 'uncertain');
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
@@ -1111,7 +1167,11 @@ function ProfileScanSheet({ onDone, onClose }) {
                   <p style={{ fontSize: 12, color: '#92400e', lineHeight: 1.55 }}>Scanează mai întâi <strong>CI-ul</strong>, apoi <strong>permisul de conducere</strong>. Poți face poze separat.</p>
                 </div>
               )}
-              <button onClick={simulate} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: '2px solid #93c5fd', borderRadius: 13, padding: '18px 16px', background: '#eff6ff', cursor: 'pointer', textAlign: 'left' }}>
+              {/* Hidden file inputs */}
+              <input ref={cameraRef}  type="file" accept="image/*" capture="environment" onChange={onFile} style={{ display: 'none' }} />
+              <input ref={galleryRef} type="file" accept="image/*,application/pdf"        onChange={onFile} style={{ display: 'none' }} />
+
+              <button onClick={() => cameraRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: '2px solid #93c5fd', borderRadius: 13, padding: '18px 16px', background: '#eff6ff', cursor: 'pointer', textAlign: 'left' }}>
                 <div style={{ width: 50, height: 50, borderRadius: 13, background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <CameraIcon size={24} color="#fff" />
                 </div>
@@ -1120,7 +1180,7 @@ function ProfileScanSheet({ onDone, onClose }) {
                   <p style={{ fontSize: 13, color: '#3b82f6', marginTop: 2 }}>Deschide camera telefonului</p>
                 </div>
               </button>
-              <button onClick={simulate} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: '2px solid #e2e8f0', borderRadius: 13, padding: '18px 16px', background: '#fff', cursor: 'pointer', textAlign: 'left' }}
+              <button onClick={() => galleryRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: '2px solid #e2e8f0', borderRadius: 13, padding: '18px 16px', background: '#fff', cursor: 'pointer', textAlign: 'left' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#fff'; }}>
                 <div style={{ width: 50, height: 50, borderRadius: 13, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -1166,31 +1226,35 @@ function ProfileScanSheet({ onDone, onClose }) {
                 {/* CI data */}
                 <p style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: '#059669', marginBottom: 6 }}>🪪 Act de identitate</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
-                  {['legal_rep','cnp','ci_serie','ci_nr','data_nastere','adresa'].filter(k => mode.mockValues[k]).map(key => (
+                  {['legal_rep','cnp','ci_serie','ci_nr','data_nastere','adresa'].filter(k => resultValues[k]).map(key => (
                     <div key={key} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '3px 0', borderBottom: '1px solid #d1fae5' }}>
                       <span style={{ fontSize: 11, color: '#059669', flexShrink: 0 }}>{FIELD_LABELS[key]}</span>
-                      <span style={{ fontSize: 11, fontWeight: 600, textAlign: 'right', color: mode.mockConf[key] === 'uncertain' ? '#d97706' : '#064e3b' }}>
-                        {mode.mockValues[key]}{mode.mockConf[key] === 'uncertain' ? ' ⚠️' : ''}
+                      <span style={{ fontSize: 11, fontWeight: 600, textAlign: 'right', color: resultConf[key] === 'uncertain' ? '#d97706' : '#064e3b' }}>
+                        {resultValues[key]}{resultConf[key] === 'uncertain' ? ' ⚠️' : ''}
                       </span>
                     </div>
                   ))}
                 </div>
 
                 {/* Permis data */}
-                {mode.id === 'ci_permis' && (
+                {mode?.id === 'ci_permis' && (
                   <>
                     <p style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: '#059669', marginBottom: 6, marginTop: 8 }}>🚗 Permis de conducere</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      {['permis_serie','permis_nr','permis_categorii','permis_expirare'].filter(k => mode.mockValues[k]).map(key => (
+                      {['permis_serie','permis_nr','permis_categorii','permis_expirare'].filter(k => resultValues[k]).map(key => (
                         <div key={key} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '3px 0', borderBottom: '1px solid #d1fae5' }}>
                           <span style={{ fontSize: 11, color: '#059669', flexShrink: 0 }}>{FIELD_LABELS[key]}</span>
-                          <span style={{ fontSize: 11, fontWeight: 600, textAlign: 'right', color: mode.mockConf[key] === 'uncertain' ? '#d97706' : '#064e3b' }}>
-                            {mode.mockValues[key]}{mode.mockConf[key] === 'uncertain' ? ' ⚠️' : ''}
+                          <span style={{ fontSize: 11, fontWeight: 600, textAlign: 'right', color: resultConf[key] === 'uncertain' ? '#d97706' : '#064e3b' }}>
+                            {resultValues[key]}{resultConf[key] === 'uncertain' ? ' ⚠️' : ''}
                           </span>
                         </div>
                       ))}
                     </div>
                   </>
+                )}
+
+                {Object.keys(resultValues).length === 0 && (
+                  <p style={{ fontSize: 12, color: '#64748b', fontStyle: 'italic' }}>Nu s-au putut extrage date din document. Completează manual.</p>
                 )}
               </div>
 
@@ -1201,11 +1265,25 @@ function ProfileScanSheet({ onDone, onClose }) {
                 </div>
               )}
 
-              <button onClick={() => onDone(mode.mockValues, mode.mockConf)} style={{ width: '100%', padding: '14px', borderRadius: 12, background: '#2563eb', color: '#fff', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <button onClick={() => onDone(resultValues, resultConf)} style={{ width: '100%', padding: '14px', borderRadius: 12, background: '#2563eb', color: '#fff', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 <CheckIcon size={18} color="#fff" /> Confirmă și salvează datele
               </button>
               <button onClick={() => setStatus('idle')} style={{ width: '100%', padding: '11px', borderRadius: 12, border: '1.5px solid #e2e8f0', background: '#fff', color: '#475569', fontWeight: 500, fontSize: 14, cursor: 'pointer' }}>
                 Scanează din nou
+              </button>
+            </div>
+          )}
+
+          {/* Error state */}
+          {mode && status === 'error' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ border: '1.5px solid #fca5a5', borderRadius: 14, background: '#fef2f2', padding: 16, textAlign: 'center' }}>
+                <span style={{ fontSize: 32 }}>😕</span>
+                <p style={{ fontWeight: 700, color: '#7f1d1d', marginTop: 8 }}>Scanare eșuată</p>
+                <p style={{ fontSize: 13, color: '#ef4444', marginTop: 4, lineHeight: 1.5 }}>{errMsg}</p>
+              </div>
+              <button onClick={() => setStatus('idle')} style={{ width: '100%', padding: '13px', borderRadius: 12, background: '#2563eb', color: '#fff', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer' }}>
+                Încearcă din nou
               </button>
             </div>
           )}
