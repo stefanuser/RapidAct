@@ -14,14 +14,14 @@ const ASSET_TYPES = {
     lightBg: '#eff6ff',
     border: '#bfdbfe',
     fields: [
-      { key: 'plate',  label: 'Nr. înmatriculare', placeholder: 'ex. B 123 ABC',       required: true  },
-      { key: 'make',   label: 'Marcă',             placeholder: 'ex. Dacia',            required: true  },
-      { key: 'model',  label: 'Model',             placeholder: 'ex. Logan',            required: true  },
-      { key: 'year',   label: 'An fabricație',     placeholder: 'ex. 2022',             required: true  },
-      { key: 'color',  label: 'Culoare',           placeholder: 'ex. Alb',             required: false },
-      { key: 'vin',    label: 'Serie VIN / Șasiu', placeholder: 'ex. VSSZZZ6K...',     required: false },
-      { key: 'casco',  label: 'Asigurare CASCO',   placeholder: 'Includă / Nu',        required: false },
-      { key: 'rca_exp',label: 'Expirare RCA',      placeholder: 'ex. 31.12.2026',      required: false },
+      { key: 'plate',   label: 'Nr. înmatriculare', placeholder: 'ex. B 123 ABC',   required: true,  transform: 'upper'      },
+      { key: 'make',    label: 'Marcă',             placeholder: 'ex. Dacia',        required: true,  transform: 'capitalize' },
+      { key: 'model',   label: 'Model',             placeholder: 'ex. Logan',        required: true,  transform: 'capitalize' },
+      { key: 'year',    label: 'An fabricație',     placeholder: 'ex. 2022',         required: true                           },
+      { key: 'color',   label: 'Culoare',           placeholder: 'ex. Alb',          required: false, transform: 'capitalize' },
+      { key: 'vin',     label: 'Serie VIN / Șasiu', placeholder: 'ex. VSSZZZ6K...', required: false, transform: 'upper'      },
+      { key: 'casco',   label: 'Asigurare CASCO',   type: 'select', options: ['Da', 'Nu'], required: false },
+      { key: 'rca_exp', label: 'Expirare RCA',      type: 'date',                    required: false                          },
     ],
     primary:   d => d.plate || '—',
     secondary: d => [d.make, d.model, d.year].filter(Boolean).join(' '),
@@ -280,12 +280,20 @@ function AssetDetailSheet({ asset, cfg, contracts, onClose, onNewContract, onDel
       <div style={{ overflowY: 'auto', maxHeight: '55vh', padding: '0 20px 20px' }}>
         {/* Fields */}
         <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden', marginBottom: 16 }}>
-          {cfg.fields.filter(f => d[f.key]).map((f, i, arr) => (
-            <div key={f.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, padding: '11px 14px', borderBottom: i < arr.length-1 ? '1px solid #f1f5f9' : 'none' }}>
-              <span style={{ fontSize: 12, color: '#94a3b8', flexShrink: 0 }}>{f.label}</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', textAlign: 'right' }}>{d[f.key]}</span>
-            </div>
-          ))}
+          {cfg.fields.filter(f => d[f.key]).map((f, i, arr) => {
+            let displayVal = d[f.key];
+            // Formatează datele ISO → zz/ll/aaaa pentru afișare
+            if (f.type === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(displayVal)) {
+              const [y, m, z] = displayVal.split('-');
+              displayVal = `${z}/${m}/${y}`;
+            }
+            return (
+              <div key={f.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, padding: '11px 14px', borderBottom: i < arr.length-1 ? '1px solid #f1f5f9' : 'none' }}>
+                <span style={{ fontSize: 12, color: '#94a3b8', flexShrink: 0 }}>{f.label}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', textAlign: 'right' }}>{displayVal}</span>
+              </div>
+            );
+          })}
         </div>
 
         {/* Linked contracts */}
@@ -365,21 +373,40 @@ function AddAssetSheet({ onClose, onSave }) {
       {/* Fields */}
       <div style={{ overflowY: 'auto', maxHeight: '40vh', padding: '16px 20px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {cfg.fields.map(f => (
-            <div key={f.key}>
-              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: '#64748b', marginBottom: 5 }}>
-                {f.label}{f.required && <span style={{ color: '#f87171', marginLeft: 3 }}>*</span>}
-              </label>
-              {f.type === 'select' ? (
-                <select value={values[f.key] || ''} onChange={e => setVal(f.key, e.target.value)} style={inputStyle}>
-                  <option value="">— Selectează —</option>
-                  {f.options.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              ) : (
-                <AddInput value={values[f.key] || ''} onChange={v => setVal(f.key, v)} placeholder={f.placeholder} />
-              )}
-            </div>
-          ))}
+          {cfg.fields.map(f => {
+            function applyTransform(v) {
+              if (f.transform === 'upper')      return v.toUpperCase();
+              if (f.transform === 'capitalize') return v.charAt(0).toUpperCase() + v.slice(1);
+              return v;
+            }
+            return (
+              <div key={f.key}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: '#64748b', marginBottom: 5 }}>
+                  {f.label}{f.required && <span style={{ color: '#f87171', marginLeft: 3 }}>*</span>}
+                </label>
+                {f.type === 'select' ? (
+                  <select value={values[f.key] || ''} onChange={e => setVal(f.key, e.target.value)} style={inputStyle}>
+                    <option value="">— Selectează —</option>
+                    {f.options.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                ) : f.type === 'date' ? (
+                  <input
+                    type="date"
+                    value={values[f.key] || ''}
+                    onChange={e => setVal(f.key, e.target.value)}
+                    style={inputStyle}
+                  />
+                ) : (
+                  <AddInput
+                    value={values[f.key] || ''}
+                    onChange={v => setVal(f.key, applyTransform(v))}
+                    placeholder={f.placeholder}
+                    transform={f.transform}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -458,12 +485,27 @@ function SheetHandle() {
   );
 }
 
-function AddInput({ value, onChange, placeholder }) {
+function AddInput({ value, onChange, placeholder, transform }) {
   const [focused, setFocused] = React.useState(false);
+  const autoCapitalize = transform === 'upper' ? 'characters' : transform === 'capitalize' ? 'words' : 'sentences';
+  const textTransform  = transform === 'upper' ? 'uppercase' : 'none';
   return (
-    <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-      onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
-      style={{ ...inputStyle, border: `1.5px solid ${focused ? '#2563eb' : '#e2e8f0'}`, boxShadow: focused ? '0 0 0 3px #dbeafe' : 'none' }} />
+    <input
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      autoCapitalize={autoCapitalize}
+      autoCorrect="off"
+      spellCheck={false}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={{
+        ...inputStyle,
+        border: `1.5px solid ${focused ? '#2563eb' : '#e2e8f0'}`,
+        boxShadow: focused ? '0 0 0 3px #dbeafe' : 'none',
+        textTransform,
+      }}
+    />
   );
 }
 
