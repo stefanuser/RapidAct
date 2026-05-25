@@ -1477,13 +1477,8 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
       }
 
       const pdfBytes = await pdfDoc.save();
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      // Salvează contractul în DB/state și navighează la success
+
+      // 1. Salvează în DB ÎNAINTE de download — contractul e persistent indiferent de ce se întâmplă după
       await onContractCreated({
         template_name: template.name,
         status:        'generated',
@@ -1493,8 +1488,27 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
         pdf_url:       null,
       });
       setDone(true);
+
+      // 2. Download PDF — opțional, eșecul nu afectează salvarea
+      try {
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const url  = URL.createObjectURL(blob);
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        if (isIOS) {
+          // iOS Safari nu suportă download programatic cu blob — deschidem în tab nou
+          window.open(url, '_blank');
+          setTimeout(() => URL.revokeObjectURL(url), 30000);
+        } else {
+          const a = document.createElement('a');
+          a.href = url; a.download = filename;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+      } catch (dlErr) {
+        console.warn('[RapidAct] Download PDF failed (non-critical):', dlErr);
+      }
     } catch (err) {
-      console.error('PDF error:', err);
+      console.error('PDF generation error:', err);
     } finally {
       setGenerating(false);
     }
