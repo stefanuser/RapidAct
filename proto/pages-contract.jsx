@@ -1341,7 +1341,23 @@ function StepPreview({ template, values, onGenerate, generating, profile, naviga
 }
 
 // ─── Success screen ───────────────────────────────────────────────────────────
-function StepSuccess({ driverName, onNew, onHistory }) {
+function StepSuccess({ driverName, pdfBlob, filename, onNew, onHistory }) {
+  const [downloaded, setDownloaded] = React.useState(false);
+
+  function handleDownload() {
+    if (!pdfBlob) return;
+    const url = URL.createObjectURL(pdfBlob);
+    const a   = document.createElement('a');
+    a.href    = url;
+    a.download = filename || 'contract.pdf';
+    a.target  = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    setDownloaded(true);
+  }
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', textAlign: 'center', gap: 16, animation: 'fadeIn 0.3s ease' }}>
       <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1353,10 +1369,23 @@ function StepSuccess({ driverName, onNew, onHistory }) {
           {driverName ? `Contractul pentru ${driverName} a fost salvat.` : 'PDF-ul a fost salvat în arhivă.'}
         </p>
       </div>
-      <div style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1.5px solid #dcfce7', background: '#f0fdf4', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <DownloadIcon size={20} color="#10b981" />
-        <span style={{ fontSize: 14, color: '#065f46', fontWeight: 500 }}>PDF descărcat automat pe dispozitiv</span>
-      </div>
+
+      {/* Buton download manual — funcționează pe iOS și Android */}
+      {pdfBlob && (
+        <button onClick={handleDownload} style={{
+          width: '100%', padding: '14px 16px', borderRadius: 12,
+          border: `1.5px solid ${downloaded ? '#dcfce7' : '#2563eb'}`,
+          background: downloaded ? '#f0fdf4' : '#eff6ff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+          cursor: 'pointer', transition: 'all 0.2s',
+        }}>
+          <DownloadIcon size={20} color={downloaded ? '#10b981' : '#2563eb'} />
+          <span style={{ fontSize: 14, fontWeight: 600, color: downloaded ? '#065f46' : '#1e40af' }}>
+            {downloaded ? '✓ PDF descărcat' : '📄 Descarcă PDF'}
+          </span>
+        </button>
+      )}
+
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
         <PrimaryBtn onClick={onNew}>
           <span>+</span> Contract nou
@@ -1380,6 +1409,8 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
   const [generating, setGenerating] = React.useState(false);
   const [done, setDone]           = React.useState(false);
   const [skipSig, setSkipSig]     = React.useState(false);
+  const [pdfBlob, setPdfBlob]     = React.useState(null);
+  const [pdfFilename, setPdfFilename] = React.useState('');
 
   const step = STEPS[stepIdx];
 
@@ -1478,7 +1509,12 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
 
       const pdfBytes = await pdfDoc.save();
 
-      // 1. Salvează în DB ÎNAINTE de download — contractul e persistent indiferent de ce se întâmplă după
+      // 1. Salvează blob în state pentru butonul de download din ecranul de succes
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      setPdfBlob(blob);
+      setPdfFilename(filename);
+
+      // 2. Salvează în DB — întotdeauna primul, fără niciun download automat
       await onContractCreated({
         template_name: template.name,
         status:        'generated',
@@ -1487,26 +1523,9 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
         created_at:    new Date().toISOString(),
         pdf_url:       null,
       });
-      setDone(true);
 
-      // 2. Download PDF — opțional, eșecul nu afectează salvarea
-      try {
-        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        const url  = URL.createObjectURL(blob);
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        if (isIOS) {
-          // iOS Safari nu suportă download programatic cu blob — deschidem în tab nou
-          window.open(url, '_blank');
-          setTimeout(() => URL.revokeObjectURL(url), 30000);
-        } else {
-          const a = document.createElement('a');
-          a.href = url; a.download = filename;
-          document.body.appendChild(a); a.click(); document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
-        }
-      } catch (dlErr) {
-        console.warn('[RapidAct] Download PDF failed (non-critical):', dlErr);
-      }
+      // 3. Arată ecranul de succes — userul descarcă manual prin buton
+      setDone(true);
     } catch (err) {
       console.error('PDF generation error:', err);
     } finally {
@@ -1518,6 +1537,7 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
     setStepIdx(0); setTemplate(null);
     setOcr({ values: {}, confidence: {} });
     setFormValues({}); setDone(false); setSkipSig(false);
+    setPdfBlob(null); setPdfFilename('');
   }
 
   const stepTitle = done ? 'Gata!' : template ? template.name : 'Contract nou';
@@ -1539,6 +1559,8 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
       {done ? (
         <StepSuccess
           driverName={formValues.sofer_nume}
+          pdfBlob={pdfBlob}
+          filename={pdfFilename}
           onNew={reset}
           onHistory={() => navigate('history')}
         />
