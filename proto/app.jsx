@@ -20,7 +20,7 @@ const EMPTY_PROFILE = {
   contracts_used: 0,
   contracts_limit: 5,
   watermark_enabled: true,
-  cnp: '', ci_serie: '', ci_nr: '', data_nastere: '', adresa: '', signature: null,
+  cnp: '', ci_serie: '', ci_nr: '', ci_valabilitate: '', data_nastere: '', adresa: '', signature: null,
 };
 
 // ─── Mock contracts ───────────────────────────────────────────────────────────

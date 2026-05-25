@@ -736,9 +736,15 @@ function ContractDetailSheet({ contract: c, onClose }) {
     setDownloaded(true);
   }
 
-  async function handleSendEmail() {
-    setEmailStep('sending');
-    await new Promise(r => setTimeout(r, 1500));
+  function handleSendEmail() {
+    const subject = encodeURIComponent(`${c.template_name} – ${name}`);
+    const body = encodeURIComponent(
+      `Bună ziua,\n\nVă transmitem contractul dumneavoastră.\n\nDetalii contract:\n` +
+      `• Tip: ${c.template_name}\n• Client: ${name}\n• Data: ${date}\n\n` +
+      `⚠️ Vă rugăm să atașați fișierul PDF la acest email înainte de a-l trimite.\n\n` +
+      `Cu stimă`
+    );
+    window.location.href = `mailto:${emailAddr}?subject=${subject}&body=${body}`;
     setEmailStep('sent');
   }
 
@@ -811,19 +817,12 @@ function ContractDetailSheet({ contract: c, onClose }) {
             </div>
           )}
 
-          {emailStep === 'sending' && (
-            <div style={{ border: '1.5px solid #bfdbfe', borderRadius: 12, padding: '14px 16px', background: '#eff6ff', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <SpinnerIcon size={18} color="#2563eb" />
-              <p style={{ fontSize: 14, color: '#1e40af' }}>Se trimite email-ul...</p>
-            </div>
-          )}
-
           {emailStep === 'sent' && (
             <div style={{ border: '1.5px solid #6ee7b7', borderRadius: 12, padding: '14px 16px', background: '#f0fdf4', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 20 }}>✅</span>
+              <span style={{ fontSize: 20 }}>📨</span>
               <div>
-                <p style={{ fontWeight: 600, fontSize: 14, color: '#065f46' }}>Email trimis!</p>
-                <p style={{ fontSize: 12, color: '#059669' }}>Către {emailAddr}</p>
+                <p style={{ fontWeight: 600, fontSize: 14, color: '#065f46' }}>Client email deschis</p>
+                <p style={{ fontSize: 12, color: '#059669' }}>Atașează PDF-ul și apasă Trimite</p>
               </div>
             </div>
           )}
@@ -840,12 +839,13 @@ function ContractDetailSheet({ contract: c, onClose }) {
 
 // ─── Date Personale Screen ────────────────────────────────────────────────────
 const CI_FIELDS = [
-  { key: 'legal_rep',    label: 'Nume și prenume',  type: 'text', placeholder: 'ex. Popescu Ion' },
-  { key: 'cnp',          label: 'CNP',               type: 'text', placeholder: 'ex. 1850315400123' },
-  { key: 'ci_serie',     label: 'Serie CI',           type: 'text', placeholder: 'ex. RX' },
-  { key: 'ci_nr',        label: 'Număr CI',           type: 'text', placeholder: 'ex. 412305' },
-  { key: 'data_nastere', label: 'Data nașterii',      type: 'text', placeholder: 'ex. 15/03/1985' },
-  { key: 'adresa',       label: 'Adresă domiciliu',   type: 'text', placeholder: 'Stradă, număr, localitate' },
+  { key: 'legal_rep',       label: 'Nume și prenume',  type: 'text', placeholder: 'ex. Popescu Ion' },
+  { key: 'cnp',             label: 'CNP',               type: 'text', placeholder: 'ex. 1850315400123' },
+  { key: 'ci_serie',        label: 'Serie CI',           type: 'text', placeholder: 'ex. RX' },
+  { key: 'ci_nr',           label: 'Număr CI',           type: 'text', placeholder: 'ex. 412305' },
+  { key: 'ci_valabilitate', label: 'Valabil până',       type: 'text', placeholder: 'ex. 15/06/2035' },
+  { key: 'data_nastere',    label: 'Data nașterii',      type: 'text', placeholder: 'ex. 15/03/1985' },
+  { key: 'adresa',          label: 'Adresă domiciliu',   type: 'text', placeholder: 'Stradă, număr, localitate' },
 ];
 const PERMIS_FIELDS_DEF = [
   { key: 'permis_serie',     label: 'Serie permis',  type: 'text', placeholder: 'ex. B' },
@@ -858,6 +858,7 @@ function DatePersonaleScreen({ navigate, profile, setProfile }) {
   const init = {
     legal_rep: profile.legal_rep || '', cnp: profile.cnp || '',
     ci_serie: profile.ci_serie || '',   ci_nr: profile.ci_nr || '',
+    ci_valabilitate: profile.ci_valabilitate || '',
     data_nastere: profile.data_nastere || '', adresa: profile.adresa || '',
     permis_serie: profile.permis_serie || '', permis_nr: profile.permis_nr || '',
     permis_categorii: profile.permis_categorii || '', permis_expirare: profile.permis_expirare || '',
@@ -1051,7 +1052,7 @@ const PROFILE_SCAN_MODES = [
 
 const FIELD_LABELS = {
   legal_rep: 'Nume complet', cnp: 'CNP', ci_serie: 'Serie CI', ci_nr: 'Număr CI',
-  adresa: 'Adresă', data_nastere: 'Data nașterii',
+  ci_valabilitate: 'Valabil până', adresa: 'Adresă', data_nastere: 'Data nașterii',
   permis_serie: 'Serie permis', permis_nr: 'Număr permis',
   permis_categorii: 'Categorii', permis_expirare: 'Valabil până',
 };
@@ -1115,7 +1116,7 @@ function ProfileScanSheet({ onDone, onClose }) {
         img.onerror = rej;
         img.src = objUrl;
       });
-      const apiMode = isPermis ? 'ci_permis' : 'ci';
+      const apiMode = isPermis ? 'ro_ci_permis' : 'ro_ci';
       const { data: { session } } = await window.sb.auth.getSession();
       // Timeout 30s — fără asta fetch poate atârna la infinit
       const ctrl = new AbortController();
@@ -1152,7 +1153,8 @@ function ProfileScanSheet({ onDone, onClose }) {
         if (json.ci_series) { vals.ci_serie     = json.ci_series;             conf.ci_serie     = 'confident'; }
         if (json.ci_number) { vals.ci_nr        = json.ci_number;             conf.ci_nr        = 'confident'; }
         if (json.address)   { vals.adresa       = json.address;               conf.adresa       = 'uncertain'; }
-        if (json.birthdate) { vals.data_nastere = toRoDate(json.birthdate);   conf.data_nastere = 'confident'; }
+        if (json.birthdate)   { vals.data_nastere    = toRoDate(json.birthdate);   conf.data_nastere    = 'confident'; }
+        if (json.valid_until) { vals.ci_valabilitate = toRoDate(json.valid_until); conf.ci_valabilitate = 'confident'; }
         stop = true; setBarW(100);
         if (mode && mode.id === 'ci_permis') {
           setCiValues(vals); setCiConf(conf);
@@ -1329,7 +1331,7 @@ function ProfileScanSheet({ onDone, onClose }) {
                   <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 800, background: '#dcfce7', color: '#166534', borderRadius: 6, padding: '2px 9px' }}>GPT-4o</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  {['legal_rep','cnp','ci_serie','ci_nr','data_nastere','adresa'].filter(k => ciValues[k]).map(key => (
+                  {['legal_rep','cnp','ci_serie','ci_nr','ci_valabilitate','data_nastere','adresa'].filter(k => ciValues[k]).map(key => (
                     <div key={key} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '2px 0', borderBottom: '1px solid #d1fae5' }}>
                       <span style={{ fontSize: 11, color: '#059669', flexShrink: 0 }}>{FIELD_LABELS[key]}</span>
                       <span style={{ fontSize: 11, fontWeight: 600, textAlign: 'right', color: ciConf[key] === 'uncertain' ? '#d97706' : '#064e3b' }}>
@@ -1424,7 +1426,7 @@ function ProfileScanSheet({ onDone, onClose }) {
 
                 <p style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: '#059669', marginBottom: 6 }}>🪪 Act de identitate</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
-                  {['legal_rep','cnp','ci_serie','ci_nr','data_nastere','adresa'].filter(k => resultValues[k]).map(key => (
+                  {['legal_rep','cnp','ci_serie','ci_nr','ci_valabilitate','data_nastere','adresa'].filter(k => resultValues[k]).map(key => (
                     <div key={key} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '3px 0', borderBottom: '1px solid #d1fae5' }}>
                       <span style={{ fontSize: 11, color: '#059669', flexShrink: 0 }}>{FIELD_LABELS[key]}</span>
                       <span style={{ fontSize: 11, fontWeight: 600, textAlign: 'right', color: resultConf[key] === 'uncertain' ? '#d97706' : '#064e3b' }}>
