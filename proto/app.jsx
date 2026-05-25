@@ -204,20 +204,21 @@ function App() {
   async function addContract(c) {
     const { data: { user } } = await window.sb.auth.getUser();
     if (user) {
+      // asset_id e UUID în DB — includem doar dacă arată a UUID valid
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       const row = {
         user_id:       user.id,
+        template_id:   c.template_id   || (c.template_name || 'contract').toLowerCase().replace(/[^a-z0-9]+/g, '_'),
         template_name: c.template_name || 'Contract',
         status:        c.status        || 'generated',
         parties:       c.parties       || [],
         fields:        c.fields        || {},
         pdf_url:       c.pdf_url       || null,
-        file_name:     c.file_name     || null,
-        file_size:     c.file_size     || null,
-        source:        c.source        || 'generated',
-        notes:         c.notes         || null,
+        asset_id:      (c.asset_id && uuidRe.test(c.asset_id)) ? c.asset_id : null,
         created_at:    c.created_at    || new Date().toISOString(),
       };
-      const { data } = await window.sb.from('contracts').insert(row).select().single();
+      const { data, error } = await window.sb.from('contracts').insert(row).select().single();
+      if (error) console.error('[RapidAct] Contract insert error:', error);
       if (data) {
         setContracts(prev => [data, ...prev]);
         setProfile(p => ({ ...p, contracts_used: (p.contracts_used || 0) + 1 }));

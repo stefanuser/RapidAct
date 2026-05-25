@@ -355,6 +355,19 @@ function SettingsScreen({ navigate, profile, setProfile, logout }) {
     // onAuthStateChange din App gestionează navigarea la 'landing'
   }
 
+  async function handleSaveSig(sig) {
+    setProfile(p => ({ ...p, signature: sig }));
+    setShowSig(false);
+    const { data: { user } } = await window.sb.auth.getUser();
+    if (user) {
+      const { error } = await window.sb.from('profiles')
+        .update({ signature: sig, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+      if (error) console.error('[RapidAct] Signature save error:', error);
+    }
+    setToast('Semnătură salvată ✓');
+  }
+
   const used  = profile.contracts_used;
   const limit = profile.contracts_limit;
   const pct   = Math.min(Math.round((used / limit) * 100), 100);
@@ -480,10 +493,10 @@ function SettingsScreen({ navigate, profile, setProfile, logout }) {
           </button>
         </div>
 
-        <p style={{ textAlign: 'center', fontSize: 12, color: '#cbd5e1', lineHeight: 1.6 }}>
+        <p style={{ textAlign: 'center', fontSize: 12, color: '#ef4444', lineHeight: 1.8, fontWeight: 600 }}>
           RapidAct.ro · v{appVer ? appVer.version : '1.0.0'}
           {appVer && appVer.commit !== 'dev' && (
-            <><br /><span style={{ fontSize: 10, color: '#e2e8f0', opacity: 0.6 }}>#{appVer.commit} · {appVer.date} {appVer.time}</span></>
+            <><br /><span style={{ fontSize: 11, color: '#f87171', fontWeight: 500 }}>#{appVer.commit} · {appVer.date} {appVer.time}</span></>
           )}
         </p>
       </div>
@@ -503,7 +516,7 @@ function SettingsScreen({ navigate, profile, setProfile, logout }) {
       {showSignature && (
         <SignatureSheet
           current={profile.signature}
-          onSave={sig => { setProfile(p => ({ ...p, signature: sig })); setShowSig(false); }}
+          onSave={handleSaveSig}
           onClose={() => setShowSig(false)}
         />
       )}
@@ -831,14 +844,14 @@ const CI_FIELDS = [
   { key: 'cnp',          label: 'CNP',               type: 'text', placeholder: 'ex. 1850315400123' },
   { key: 'ci_serie',     label: 'Serie CI',           type: 'text', placeholder: 'ex. RX' },
   { key: 'ci_nr',        label: 'Număr CI',           type: 'text', placeholder: 'ex. 412305' },
-  { key: 'data_nastere', label: 'Data nașterii',      type: 'date' },
+  { key: 'data_nastere', label: 'Data nașterii',      type: 'text', placeholder: 'ex. 15/03/1985' },
   { key: 'adresa',       label: 'Adresă domiciliu',   type: 'text', placeholder: 'Stradă, număr, localitate' },
 ];
 const PERMIS_FIELDS_DEF = [
   { key: 'permis_serie',     label: 'Serie permis',  type: 'text', placeholder: 'ex. B' },
   { key: 'permis_nr',        label: 'Număr permis',  type: 'text', placeholder: 'ex. 1234567' },
   { key: 'permis_categorii', label: 'Categorii',     type: 'text', placeholder: 'ex. B, BE' },
-  { key: 'permis_expirare',  label: 'Valabil până',  type: 'date' },
+  { key: 'permis_expirare',  label: 'Valabil până',  type: 'text', placeholder: 'ex. 15/06/2030' },
 ];
 
 function DatePersonaleScreen({ navigate, profile, setProfile }) {
@@ -1121,17 +1134,25 @@ function ProfileScanSheet({ onDone, onClose }) {
       const json = await resp.json();
       if (!resp.ok) throw new Error(json.error || 'Eroare server OCR');
       const vals = {}, conf = {};
-      function toISO(s) { if (!s) return s; const m = s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/); return m ? `${m[3]}-${m[2]}-${m[1]}` : s; }
+      // Convertește date în format românesc zz/ll/aaaa
+      function toRoDate(s) {
+        if (!s) return s;
+        const dd_mm_yyyy = s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+        if (dd_mm_yyyy) return `${dd_mm_yyyy[1]}/${dd_mm_yyyy[2]}/${dd_mm_yyyy[3]}`;
+        const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+        return s;
+      }
 
       if (!isPermis) {
         // Parse CI fields only
         const fn = json.first_name || '', ln = json.last_name || '';
         if (fn || ln) { vals.legal_rep = [fn, ln].filter(Boolean).join(' '); conf.legal_rep = 'confident'; }
-        if (json.cnp)       { vals.cnp          = json.cnp;               conf.cnp          = 'confident'; }
-        if (json.ci_series) { vals.ci_serie     = json.ci_series;         conf.ci_serie     = 'confident'; }
-        if (json.ci_number) { vals.ci_nr        = json.ci_number;         conf.ci_nr        = 'confident'; }
-        if (json.address)   { vals.adresa       = json.address;           conf.adresa       = 'uncertain'; }
-        if (json.birthdate) { vals.data_nastere = toISO(json.birthdate);  conf.data_nastere = 'confident'; }
+        if (json.cnp)       { vals.cnp          = json.cnp;                   conf.cnp          = 'confident'; }
+        if (json.ci_series) { vals.ci_serie     = json.ci_series;             conf.ci_serie     = 'confident'; }
+        if (json.ci_number) { vals.ci_nr        = json.ci_number;             conf.ci_nr        = 'confident'; }
+        if (json.address)   { vals.adresa       = json.address;               conf.adresa       = 'uncertain'; }
+        if (json.birthdate) { vals.data_nastere = toRoDate(json.birthdate);   conf.data_nastere = 'confident'; }
         stop = true; setBarW(100);
         if (mode && mode.id === 'ci_permis') {
           setCiValues(vals); setCiConf(conf);
@@ -1143,10 +1164,10 @@ function ProfileScanSheet({ onDone, onClose }) {
         }
       } else {
         // Parse Permis fields only
-        if (json.permis_number)     { vals.permis_nr        = json.permis_number;       conf.permis_nr        = 'confident'; }
-        if (json.permis_categories) { vals.permis_categorii = json.permis_categories;   conf.permis_categorii = 'confident'; }
-        if (json.permis_expiry)     { vals.permis_expirare  = toISO(json.permis_expiry); conf.permis_expirare = 'uncertain'; }
-        if (json.permis_series)     { vals.permis_serie     = json.permis_series;        conf.permis_serie    = 'confident'; }
+        if (json.permis_number)     { vals.permis_nr        = json.permis_number;              conf.permis_nr        = 'confident'; }
+        if (json.permis_categories) { vals.permis_categorii = json.permis_categories;          conf.permis_categorii = 'confident'; }
+        if (json.permis_expiry)     { vals.permis_expirare  = toRoDate(json.permis_expiry);    conf.permis_expirare  = 'uncertain'; }
+        if (json.permis_series)     { vals.permis_serie     = json.permis_series;               conf.permis_serie     = 'confident'; }
         stop = true; setBarW(100);
         setResult(prev => ({ ...prev, ...vals }));
         setConf(prev => ({ ...prev, ...conf }));
