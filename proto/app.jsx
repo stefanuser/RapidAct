@@ -35,37 +35,6 @@ const MOCK_CONTRACTS = [
   { id: '8', template_name: 'Închiriere Auto', status: 'expired',   asset_id: null, parties: [{ name: 'Constantin Radu' }],    created_at: '2026-03-05T10:00:00Z' },
 ];
 
-// ─── Mock assets ──────────────────────────────────────────────────────────────
-const MOCK_ASSETS = [
-  {
-    id: 'c1', type: 'car', contract_count: 3,
-    details: { plate: 'B 123 ABC', make: 'Dacia', model: 'Logan', year: '2022', color: 'Alb', vin: 'VSSZZZ6KZHR123456', casco: 'Inclusă', rca_exp: '31.12.2026' },
-  },
-  {
-    id: 'c2', type: 'car', contract_count: 2,
-    details: { plate: 'B 456 DEF', make: 'Renault', model: 'Clio', year: '2021', color: 'Gri', vin: 'VF1RJA00563456789', casco: 'Nu este inclusă', rca_exp: '30.06.2026' },
-  },
-  {
-    id: 'c3', type: 'car', contract_count: 1,
-    details: { plate: 'IF 789 GHI', make: 'Skoda', model: 'Octavia', year: '2023', color: 'Negru', vin: 'TMBZZZ1Z9P1234567', casco: 'Inclusă', rca_exp: '28.02.2027' },
-  },
-  {
-    id: 'p1', type: 'property', contract_count: 5,
-    details: { name: 'Apartament 3 camere', address: 'Str. Florilor nr. 12, Ap. 7, București, Sector 3', prop_type: 'Apartament', owner: 'Popescu Ion', surface: '78', rooms: '3', cadastral: '12345/A' },
-  },
-  {
-    id: 'p2', type: 'property', contract_count: 2,
-    details: { name: 'Vilă Snagov', address: 'Str. Lacului nr. 45, Snagov, Ilfov', prop_type: 'Vilă', owner: 'AutoLux SRL', surface: '220', rooms: '6', cadastral: '67890/B' },
-  },
-  {
-    id: 'co1', type: 'company', contract_count: 6,
-    details: { name: 'TechCorp SRL', cui: 'RO87654321', reg_com: 'J40/5678/2019', address: 'Bd. Unirii nr. 10, București', contact_name: 'Ionescu Maria', contact_phone: '0721 111 222', contact_email: 'maria@techcorp.ro' },
-  },
-  {
-    id: 'co2', type: 'company', contract_count: 3,
-    details: { name: 'Global Trade SA', cui: 'RO11223344', reg_com: 'J12/999/2018', address: 'Str. Independenței nr. 5, Cluj-Napoca', contact_name: 'Georgescu Dan', contact_phone: '0745 333 444', contact_email: 'dan@globaltrade.ro' },
-  },
-];
 
 const PLAN_LIMITS = { free: 5, starter: 20, pro: 50, business: 999 };
 
@@ -128,7 +97,7 @@ function App() {
   const [screen, setScreen]         = React.useState('loading');
   const [profile, setProfile]       = React.useState(EMPTY_PROFILE);
   const [contracts, setContracts]   = React.useState([]);
-  const [assets, setAssets]         = React.useState(MOCK_ASSETS);
+  const [assets, setAssets]         = React.useState([]);
   const [showTweaks, setShowTweaks] = React.useState(false);
 
   async function loadProfile(userId, userEmail) {
@@ -150,6 +119,15 @@ function App() {
     if (data) setContracts(data);
   }
 
+  async function loadAssets(userId) {
+    const { data } = await window.sb
+      .from('assets')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (data) setAssets(data);
+  }
+
   React.useEffect(() => {
     // Mesaje tweaks panel
     function onMsg(e) {
@@ -165,6 +143,7 @@ function App() {
         const [hasProfile] = await Promise.all([
           loadProfile(session.user.id, session.user.email),
           loadContracts(session.user.id),
+          loadAssets(session.user.id),
         ]);
         setScreen(hasProfile ? 'dashboard' : 'onboarding');
       } else {
@@ -178,12 +157,14 @@ function App() {
         const [hasProfile] = await Promise.all([
           loadProfile(session.user.id, session.user.email),
           loadContracts(session.user.id),
+          loadAssets(session.user.id),
         ]);
         setScreen(hasProfile ? 'dashboard' : 'onboarding');
       }
       if (event === 'SIGNED_OUT') {
         setProfile(EMPTY_PROFILE);
         setContracts([]);
+        setAssets([]);
         setScreen('landing');
       }
     });
@@ -221,12 +202,46 @@ function App() {
       if (error) console.error('[RapidAct] Contract insert error:', error);
       if (data) {
         setContracts(prev => [data, ...prev]);
-        setProfile(p => ({ ...p, contracts_used: (p.contracts_used || 0) + 1 }));
+        const newUsed = (profile.contracts_used || 0) + 1;
+        setProfile(p => ({ ...p, contracts_used: newUsed }));
+        // Actualizează contorul și în DB
+        window.sb.from('profiles')
+          .update({ contracts_used: newUsed, updated_at: new Date().toISOString() })
+          .eq('id', user.id);
         return data;
       }
     }
     // Fallback fără sesiune
     setContracts(prev => [{ ...c, id: Date.now().toString() }, ...prev]);
+  }
+
+  async function addAsset(a) {
+    const { data: { user } } = await window.sb.auth.getUser();
+    if (user) {
+      const d = a.details || {};
+      const nameByType = { car: d.plate || d.make || 'Mașină', property: d.name || 'Proprietate', company: d.name || 'Companie' };
+      const row = {
+        user_id: user.id,
+        type:    a.type,
+        name:    nameByType[a.type] || 'Activ',
+        address: d.address || null,
+        details: d,
+      };
+      const { data, error } = await window.sb.from('assets').insert(row).select().single();
+      if (error) console.error('[RapidAct] Asset insert error:', error);
+      if (data) { setAssets(prev => [data, ...prev]); return data; }
+    }
+    // Fallback fără sesiune
+    setAssets(prev => [{ ...a, id: Date.now().toString() }, ...prev]);
+  }
+
+  async function deleteAsset(id) {
+    setAssets(prev => prev.filter(a => a.id !== id));
+    const { data: { user } } = await window.sb.auth.getUser();
+    if (user) {
+      const { error } = await window.sb.from('assets').delete().eq('id', id).eq('user_id', user.id);
+      if (error) console.error('[RapidAct] Asset delete error:', error);
+    }
   }
 
   function closeTweaks() {
@@ -246,7 +261,7 @@ function App() {
     );
   }
 
-  const shared = { navigate, profile, setProfile, contracts, assets, setAssets, logout };
+  const shared = { navigate, profile, setProfile, contracts, assets, setAssets, logout, addAsset, deleteAsset };
 
   const screens = {
     landing:        <LandingScreen navigate={navigate} />,

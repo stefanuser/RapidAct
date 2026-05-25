@@ -94,22 +94,26 @@ const ASSET_TYPES = {
 const TYPE_ORDER = ['car', 'property', 'company'];
 
 // ─── Assets Screen ─────────────────────────────────────────────────────────────
-function AssetsScreen({ navigate, assets, setAssets, contracts }) {
+function AssetsScreen({ navigate, assets, setAssets, contracts, addAsset, deleteAsset }) {
   const [activeType, setActiveType] = React.useState('car');
   const [selectedAsset, setSelectedAsset] = React.useState(null);
   const [showAdd, setShowAdd] = React.useState(false);
 
-  const filtered = assets.filter(a => a.type === activeType);
-  const cfg = ASSET_TYPES[activeType];
-
-  function handleAddAsset(asset) {
-    setAssets(prev => [{ ...asset, id: Date.now().toString(), contract_count: 0 }, ...prev]);
-    setShowAdd(false);
+  // Calculează nr. contracte per asset din lista reală
+  function contractsForAsset(assetId) {
+    return (contracts || []).filter(c => c.asset_id === assetId);
   }
 
-  // Count contracts per asset
-  function contractsForAsset(assetId) {
-    return contracts.filter(c => c.asset_id === assetId);
+  // Assets cu contract_count calculat dinamic
+  const filtered = assets
+    .filter(a => a.type === activeType)
+    .map(a => ({ ...a, contract_count: contractsForAsset(a.id).length }));
+
+  const cfg = ASSET_TYPES[activeType];
+
+  async function handleAddAsset(asset) {
+    await addAsset(asset);
+    setShowAdd(false);
   }
 
   return (
@@ -176,7 +180,7 @@ function AssetsScreen({ navigate, assets, setAssets, contracts }) {
           onClose={() => setSelectedAsset(null)}
           onNewContract={() => { setSelectedAsset(null); navigate('contract-new'); }}
           onDelete={() => {
-            setAssets(prev => prev.filter(a => a.id !== selectedAsset.id));
+            deleteAsset(selectedAsset.id);
             setSelectedAsset(null);
           }}
         />
@@ -325,9 +329,8 @@ function AddAssetSheet({ onClose, onSave }) {
 
   async function handleSave() {
     setSaving(true);
-    await new Promise(r => setTimeout(r, 700));
+    await onSave({ type, details: values });
     setSaving(false);
-    onSave({ type, details: values });
   }
 
   const canSave = cfg.fields.filter(f => f.required).every(f => values[f.key]);
