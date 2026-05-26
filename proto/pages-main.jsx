@@ -1328,7 +1328,6 @@ function ProfileScanSheet({ onDone, onClose }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                   <CheckCircleIcon size={16} color="#10b981" />
                   <p style={{ fontWeight: 700, color: '#065f46', fontSize: 13 }}>CI extras cu succes ✓</p>
-                  <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 800, background: '#dcfce7', color: '#166534', borderRadius: 6, padding: '2px 9px' }}>GPT-4o</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   {['legal_rep','cnp','ci_serie','ci_nr','ci_valabilitate','data_nastere','adresa'].filter(k => ciValues[k]).map(key => (
@@ -1405,7 +1404,7 @@ function ProfileScanSheet({ onDone, onClose }) {
               </div>
               <div style={{ textAlign: 'center' }}>
                 <p style={{ fontWeight: 700, color: '#334155', fontSize: 16 }}>{status === 'loading_permis' ? 'Se extrag datele permisului...' : 'Se extrag datele...'}</p>
-                <p style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>Analizăm documentul cu AI · GPT-4o</p>
+                <p style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>Analizăm documentul cu AI...</p>
               </div>
               <div style={{ width: 200, height: 5, background: '#e2e8f0', borderRadius: 99, overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${barW}%`, background: status === 'loading_permis' ? 'linear-gradient(90deg,#0284c7,#10b981)' : 'linear-gradient(90deg,#2563eb,#10b981)', borderRadius: 99, transition: 'width 0.38s ease' }} />
@@ -1421,7 +1420,6 @@ function ProfileScanSheet({ onDone, onClose }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                   <CheckCircleIcon size={18} color="#10b981" />
                   <p style={{ fontWeight: 700, color: '#065f46', fontSize: 14 }}>Date extrase cu succes!</p>
-                  <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 800, background: '#dcfce7', color: '#166534', borderRadius: 6, padding: '2px 9px' }}>GPT-4o</span>
                 </div>
 
                 <p style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: '#059669', marginBottom: 6 }}>🪪 Act de identitate</p>

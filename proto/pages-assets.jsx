@@ -8,7 +8,7 @@ const {
 // ─── Asset type configuration ─────────────────────────────────────────────────
 const ASSET_TYPES = {
   car: {
-    label: 'Auto',
+    label: 'Auto', singular: 'mașină',
     icon: '🚗',
     color: '#2563eb',
     lightBg: '#eff6ff',
@@ -21,7 +21,7 @@ const ASSET_TYPES = {
       { key: 'color',   label: 'Culoare',           placeholder: 'ex. Alb',          required: false, transform: 'capitalize' },
       { key: 'vin',     label: 'Serie VIN / Șasiu', placeholder: 'ex. VSSZZZ6K...', required: false, transform: 'upper'      },
       { key: 'casco',   label: 'Asigurare CASCO',   type: 'select', options: ['Da', 'Nu'], required: false },
-      { key: 'rca_exp', label: 'Expirare RCA',      type: 'date',                    required: false                          },
+      { key: 'rca_exp', label: 'Expirare RCA',      type: 'slash_date', placeholder: 'ex. 15/06/2030', required: false },
     ],
     primary:   d => d.plate || '—',
     secondary: d => [d.make, d.model, d.year].filter(Boolean).join(' '),
@@ -38,7 +38,7 @@ const ASSET_TYPES = {
     },
   },
   property: {
-    label: 'Proprietăți',
+    label: 'Proprietăți', singular: 'proprietate',
     icon: '🏠',
     color: '#059669',
     lightBg: '#f0fdf4',
@@ -65,7 +65,7 @@ const ASSET_TYPES = {
     },
   },
   company: {
-    label: 'Companii',
+    label: 'Companii', singular: 'companie',
     icon: '🏢',
     color: '#7c3aed',
     lightBg: '#faf5ff',
@@ -189,6 +189,7 @@ function AssetsScreen({ navigate, assets, setAssets, contracts, addAsset, delete
       {/* Add sheet */}
       {showAdd && (
         <AddAssetSheet
+          type={activeType}
           onClose={() => setShowAdd(false)}
           onSave={handleAddAsset}
         />
@@ -282,8 +283,8 @@ function AssetDetailSheet({ asset, cfg, contracts, onClose, onNewContract, onDel
         <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden', marginBottom: 16 }}>
           {cfg.fields.filter(f => d[f.key]).map((f, i, arr) => {
             let displayVal = d[f.key];
-            // Formatează datele ISO → zz/ll/aaaa pentru afișare
-            if (f.type === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(displayVal)) {
+            // Formatează datele ISO → zz/ll/aaaa pentru afișare (date vechi salvate ca ISO)
+            if ((f.type === 'date' || f.type === 'slash_date') && /^\d{4}-\d{2}-\d{2}$/.test(displayVal)) {
               const [y, m, z] = displayVal.split('-');
               displayVal = `${z}/${m}/${y}`;
             }
@@ -327,13 +328,39 @@ function AssetDetailSheet({ asset, cfg, contracts, onClose, onNewContract, onDel
 }
 
 // ─── Add Asset Sheet ──────────────────────────────────────────────────────────
-function AddAssetSheet({ onClose, onSave }) {
-  const [type, setType] = React.useState('car');
-  const [values, setValues] = React.useState({});
-  const [saving, setSaving] = React.useState(false);
+function AddAssetSheet({ type = 'car', onClose, onSave }) {
+  const [values, setValues]       = React.useState({});
+  const [saving, setSaving]       = React.useState(false);
+  const [cuiLoading, setCuiLoad]  = React.useState(false);
+  const [cuiStatus, setCuiStatus] = React.useState(''); // '' | 'ok' | 'err'
   const cfg = ASSET_TYPES[type];
 
   function setVal(key, val) { setValues(prev => ({ ...prev, [key]: val })); }
+
+  async function lookupCui() {
+    const raw = (values.cui || '').replace(/^RO/i, '').replace(/\D/g, '');
+    if (!raw || raw.length < 4) return;
+    setCuiLoad(true); setCuiStatus('');
+    try {
+      const { data: { session } } = await window.sb.auth.getSession();
+      const headers = session ? { 'Authorization': `Bearer ${session.access_token}` } : {};
+      const res = await fetch(
+        `https://wfresisyrlrawquzwlrs.supabase.co/functions/v1/anaf-lookup?cui=${raw}`,
+        { headers }
+      );
+      const d = await res.json();
+      if (!res.ok || d.error) { setCuiStatus('err'); return; }
+      setValues(prev => ({
+        ...prev,
+        name:    d.firm_name    || prev.name    || '',
+        cui:     d.firm_cui     || prev.cui     || '',
+        address: d.firm_address || prev.address || '',
+        reg_com: d.firm_reg     || prev.reg_com || '',
+      }));
+      setCuiStatus('ok');
+    } catch { setCuiStatus('err'); }
+    finally { setCuiLoad(false); }
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -347,31 +374,15 @@ function AddAssetSheet({ onClose, onSave }) {
     <Overlay onClose={onClose}>
       <SheetHandle />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 20px 14px' }}>
-        <p style={{ fontWeight: 700, fontSize: 16 }}>Adaugă activ</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 20 }}>{cfg.icon}</span>
+          <p style={{ fontWeight: 700, fontSize: 16 }}>Adaugă {cfg.singular}</p>
+        </div>
         <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14 }}>✕</button>
       </div>
 
-      {/* Type picker */}
-      <div style={{ display: 'flex', gap: 6, padding: '0 20px 16px', borderBottom: '1px solid #f1f5f9' }}>
-        {TYPE_ORDER.map(t => {
-          const c = ASSET_TYPES[t];
-          const active = type === t;
-          return (
-            <button key={t} onClick={() => { setType(t); setValues({}); }} style={{
-              flex: 1, padding: '8px 4px', borderRadius: 10, border: `2px solid ${active ? c.color : '#e2e8f0'}`,
-              background: active ? c.lightBg : '#fff', color: active ? c.color : '#94a3b8',
-              fontSize: 12, fontWeight: active ? 700 : 500, cursor: 'pointer', transition: 'all 0.15s',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-            }}>
-              <span style={{ fontSize: 18 }}>{c.icon}</span>
-              {c.label}
-            </button>
-          );
-        })}
-      </div>
-
       {/* Fields */}
-      <div style={{ overflowY: 'auto', maxHeight: '40vh', padding: '16px 20px' }}>
+      <div style={{ overflowY: 'auto', maxHeight: '48vh', padding: '4px 20px 8px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {cfg.fields.map(f => {
             function applyTransform(v) {
@@ -379,22 +390,42 @@ function AddAssetSheet({ onClose, onSave }) {
               if (f.transform === 'capitalize') return v.charAt(0).toUpperCase() + v.slice(1);
               return v;
             }
+            const isCui = type === 'company' && f.key === 'cui';
             return (
               <div key={f.key}>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: '#64748b', marginBottom: 5 }}>
                   {f.label}{f.required && <span style={{ color: '#f87171', marginLeft: 3 }}>*</span>}
                 </label>
-                {f.type === 'select' ? (
+
+                {/* CUI field cu buton ANAF */}
+                {isCui ? (
+                  <div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input
+                        value={values.cui || ''}
+                        onChange={e => { setVal('cui', e.target.value); setCuiStatus(''); }}
+                        placeholder={f.placeholder}
+                        inputMode="numeric"
+                        style={{ ...inputStyle, flex: 1 }}
+                      />
+                      <button onClick={lookupCui} disabled={cuiLoading || (values.cui || '').replace(/\D/g,'').length < 4}
+                        style={{ padding: '0 14px', borderRadius: 10, border: 'none', background: '#7c3aed', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', flexShrink: 0, opacity: cuiLoading || (values.cui || '').replace(/\D/g,'').length < 4 ? 0.5 : 1 }}>
+                        {cuiLoading ? <SpinnerIcon size={16} color="#fff" /> : '🔍 ANAF'}
+                      </button>
+                    </div>
+                    {cuiStatus === 'ok'  && <p style={{ fontSize: 11, color: '#059669', marginTop: 4 }}>✓ Date completate din ANAF</p>}
+                    {cuiStatus === 'err' && <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>CUI negăsit sau eroare ANAF</p>}
+                  </div>
+                ) : f.type === 'select' ? (
                   <select value={values[f.key] || ''} onChange={e => setVal(f.key, e.target.value)} style={inputStyle}>
                     <option value="">— Selectează —</option>
                     {f.options.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
-                ) : f.type === 'date' ? (
-                  <input
-                    type="date"
+                ) : f.type === 'slash_date' ? (
+                  <SlashDateInput
                     value={values[f.key] || ''}
-                    onChange={e => setVal(f.key, e.target.value)}
-                    style={inputStyle}
+                    onChange={v => setVal(f.key, v)}
+                    placeholder={f.placeholder}
                   />
                 ) : (
                   <AddInput
@@ -412,7 +443,7 @@ function AddAssetSheet({ onClose, onSave }) {
 
       <div style={{ padding: '12px 20px 28px' }}>
         <PrimaryBtn onClick={handleSave} disabled={!canSave || saving} bg={cfg.color}>
-          {saving ? <><SpinnerIcon size={18} /> Se salvează...</> : `Salvează ${cfg.label.toLowerCase()}`}
+          {saving ? <><SpinnerIcon size={18} /> Se salvează...</> : `Salvează ${cfg.singular}`}
         </PrimaryBtn>
       </div>
     </Overlay>
@@ -482,6 +513,37 @@ function SheetHandle() {
     <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: 12 }}>
       <div style={{ width: 36, height: 4, borderRadius: 99, background: '#e2e8f0' }} />
     </div>
+  );
+}
+
+// Auto-slash date input: tipește cifre, barele se inserează automat → dd/mm/yyyy
+function SlashDateInput({ value, onChange, placeholder }) {
+  const [focused, setFocused] = React.useState(false);
+  function handleChange(e) {
+    const digits = e.target.value.replace(/\D/g, '');
+    let out = '';
+    for (let i = 0; i < Math.min(digits.length, 8); i++) {
+      if (i === 2 || i === 4) out += '/';
+      out += digits[i];
+    }
+    onChange(out);
+  }
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={value || ''}
+      onChange={handleChange}
+      placeholder={placeholder || 'zz/ll/aaaa'}
+      maxLength={10}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={{
+        ...inputStyle,
+        border: `1.5px solid ${focused ? '#2563eb' : '#e2e8f0'}`,
+        boxShadow: focused ? '0 0 0 3px #dbeafe' : 'none',
+      }}
+    />
   );
 }
 
