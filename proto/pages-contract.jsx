@@ -56,178 +56,225 @@ const TEMPLATES = [
 
 // All templates defined in ALL_TEMPLATE_LIST below
 
-// ─── Scan mode config ─────────────────────────────────────────────────────────
-const SCAN_MODES = [
-  {
-    id: 'ci',
-    icon: '🪪',
-    label: 'Act de identitate',
-    sub: 'CI, pașaport, permis de ședere',
-    tags: ['ci'],
-    mockData: {
-      values: {
-        sofer_nume: 'Ionescu Alexandru', sofer_cnp: '1850315400123',
-        sofer_ci_serie: 'RX', sofer_ci_nr: '412305',
-        sofer_adresa: 'Str. Florilor nr. 12, Bl. A3, Ap. 7, București, Sector 3',
-        sofer_data_nastere: '15/03/1985',
-      },
-      confidence: {
-        sofer_nume: 'confident', sofer_cnp: 'confident',
-        sofer_ci_serie: 'confident', sofer_ci_nr: 'confident',
-        sofer_adresa: 'uncertain', sofer_data_nastere: 'confident',
-      },
-    },
-  },
-  {
-    id: 'ci_permis',
-    icon: '🪪',
-    icon2: '🚗',
-    label: 'CI + Permis de conducere',
-    sub: 'Două documente — recomandat pentru rent-a-car',
-    tags: ['ci', 'permis'],
-    mockData: {
-      values: {
-        sofer_nume: 'Ionescu Alexandru', sofer_cnp: '1850315400123',
-        sofer_ci_serie: 'RX', sofer_ci_nr: '412305',
-        sofer_adresa: 'Str. Florilor nr. 12, Bl. A3, Ap. 7, București, Sector 3',
-        sofer_data_nastere: '15/03/1985',
-        permis_serie: 'B', permis_nr: '1234567',
-        permis_categorii: 'B, BE', permis_expirare: '15/03/2030',
-      },
-      confidence: {
-        sofer_nume: 'confident', sofer_cnp: 'confident',
-        sofer_ci_serie: 'confident', sofer_ci_nr: 'confident',
-        sofer_adresa: 'uncertain', sofer_data_nastere: 'confident',
-        permis_serie: 'confident', permis_nr: 'confident',
-        permis_categorii: 'confident', permis_expirare: 'uncertain',
-      },
-    },
-  },
-  {
-    id: 'ci_firma',
-    icon: '🪪',
-    icon2: '🏢',
-    label: 'Persoană + Firmă',
-    sub: 'CI + date firmă (CUI) — pentru contracte B2B',
-    tags: ['ci', 'firma'],
-    mockData: {
-      values: {
-        sofer_nume: 'Georgescu Dan', sofer_cnp: '1790502400456',
-        sofer_ci_serie: 'KL', sofer_ci_nr: '789012',
-        sofer_adresa: 'Str. Independenței nr. 5, Cluj-Napoca',
-        sofer_data_nastere: '02/05/1979',
-        client_firma: 'Global Trade SA', client_cui: 'RO11223344',
-        client_adresa: 'Bd. Unirii nr. 10, București',
-      },
-      confidence: {
-        sofer_nume: 'confident', sofer_cnp: 'confident',
-        sofer_ci_serie: 'confident', sofer_ci_nr: 'confident',
-        sofer_adresa: 'confident', sofer_data_nastere: 'confident',
-        client_firma: 'confident', client_cui: 'confident',
-        client_adresa: 'uncertain',
-      },
-    },
-  },
-  {
-    id: 'firma',
-    icon: '🏢',
-    label: 'Date firmă (CUI)',
-    sub: 'Lookup automat via ANAF după CUI',
-    tags: ['firma'],
-    mockData: {
-      values: {
-        client_firma: 'TechCorp SRL', client_cui: 'RO87654321',
-        client_adresa: 'Bd. Unirii nr. 10, București',
-        client_reg: 'J40/5678/2019', client_contact: 'Ionescu Maria',
-      },
-      confidence: {
-        client_firma: 'confident', client_cui: 'confident',
-        client_adresa: 'confident', client_reg: 'confident',
-        client_contact: 'uncertain',
-      },
-    },
-  },
-];
-
-// ─── Step 2: Scan ──────────────────────────────────────────────────────────────
-// Each mode is broken into a sequence of "steps" — each one a document to scan
-// (kind: 'scan') or a CUI ANAF lookup (kind: 'anaf'). Cards stack one per step.
-function getModeSteps(mode) {
-  if (!mode) return [];
-  const ciKeys     = ['sofer_nume', 'sofer_cnp', 'sofer_ci_serie', 'sofer_ci_nr', 'sofer_adresa', 'sofer_data_nastere'];
-  const permisKeys = ['permis_serie', 'permis_nr', 'permis_categorii', 'permis_expirare'];
-
-  function pick(keys) {
-    const values = {}, confidence = {};
-    keys.forEach(k => {
-      if (k in mode.mockData.values)     values[k]     = mode.mockData.values[k];
-      if (k in mode.mockData.confidence) confidence[k] = mode.mockData.confidence[k];
-    });
-    return { values, confidence };
-  }
-
-  const stepCI     = { kind: 'scan', id: 'ci',     icon: '🪪', label: 'Carte de identitate',   cardTitle: 'Date din CI',     color: 'green', ...pick(ciKeys)     };
-  const stepPermis = { kind: 'scan', id: 'permis', icon: '🚗', label: 'Permis de conducere',   cardTitle: 'Date din Permis', color: 'green', ...pick(permisKeys) };
-  const stepFirma  = { kind: 'anaf', id: 'firma',  icon: '🏢', label: 'Date firmă (CUI ANAF)', cardTitle: 'Date firmă',      color: 'blue' };
-
-  switch (mode.id) {
-    case 'ci':        return [stepCI];
-    case 'ci_permis': return [stepCI, stepPermis];
-    case 'ci_firma':  return [stepCI, stepFirma];
-    case 'firma':     return [stepFirma];
-    default:          return [];
-  }
+// ─── Utilities ────────────────────────────────────────────────────────────────
+function toRoDate(s) {
+  if (!s) return '';
+  if (/^[Dd]{2}[.\/-][Mm]{2}[.\/-][Yy]{4}$/.test(s)) return '';
+  if (/^[Yy]{4}[.-][Mm]{2}[.-][Dd]{2}$/.test(s)) return '';
+  const dotFmt = s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (dotFmt) return `${dotFmt[1]}/${dotFmt[2]}/${dotFmt[3]}`;
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  return s;
 }
 
+async function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objUrl);
+      const MAX = 1300;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else       { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.82).split(',')[1]);
+    };
+    img.onerror = reject;
+    img.src = objUrl;
+  });
+}
+
+function parseDocOcr(docId, json) {
+  const values = {}, confidence = {};
+  if (docId === 'ci') {
+    const fn = json.first_name || '', ln = json.last_name || '';
+    if (fn || ln) { values.sofer_nume = [fn, ln].filter(Boolean).join(' '); confidence.sofer_nume = 'confident'; }
+    if (json.cnp)       { values.sofer_cnp        = json.cnp;       confidence.sofer_cnp        = 'confident'; }
+    if (json.ci_series) { values.sofer_ci_serie    = json.ci_series; confidence.sofer_ci_serie   = 'confident'; }
+    if (json.ci_number) { values.sofer_ci_nr       = json.ci_number; confidence.sofer_ci_nr      = 'confident'; }
+    const bd = toRoDate(json.birthdate);
+    if (bd) { values.sofer_data_nastere = bd; confidence.sofer_data_nastere = 'confident'; }
+    // Noul CI românesc nu are adresă pe el
+  }
+  if (docId === 'permis') {
+    if (json.permis_number)     { values.permis_nr        = json.permis_number;     confidence.permis_nr        = 'confident'; }
+    if (json.permis_series)     { values.permis_serie     = json.permis_series;     confidence.permis_serie     = 'confident'; }
+    if (json.permis_categories) { values.permis_categorii = json.permis_categories; confidence.permis_categorii = 'confident'; }
+    const exp = toRoDate(json.permis_expiry);
+    if (exp) { values.permis_expirare = exp; confidence.permis_expirare = 'uncertain'; }
+  }
+  return { values, confidence };
+}
+
+// ─── Scan documents config ────────────────────────────────────────────────────
+const SCAN_DOCS = [
+  { id: 'ci',     icon: '🪪', label: 'Carte de identitate', sub: 'CI / Buletin',           type: 'scan', ocrMode: 'ro_ci',     required: true  },
+  { id: 'permis', icon: '🚗', label: 'Permis de conducere', sub: 'Recomandat rent-a-car',   type: 'scan', ocrMode: 'ro_permis', required: false },
+  { id: 'firma',  icon: '🏢', label: 'Date firmă (CUI)',    sub: 'Lookup automat via ANAF', type: 'anaf', ocrMode: null,        required: false },
+];
+
+// ─── DocCard ──────────────────────────────────────────────────────────────────
+const DOC_FIELD_LABELS = {
+  sofer_nume: 'Nume', sofer_cnp: 'CNP', sofer_ci_serie: 'Serie CI',
+  sofer_ci_nr: 'Nr. CI', sofer_data_nastere: 'Data nașterii',
+  permis_nr: 'Nr. permis', permis_serie: 'Serie permis',
+  permis_categorii: 'Categorii', permis_expirare: 'Expiră',
+  client_firma: 'Firmă', client_cui: 'CUI',
+  client_adresa: 'Adresă', client_reg: 'Reg. Com.',
+};
+
+function DocCard({ doc, data, scanning, cuiVal, onCuiChange, onScanFile, onLookupAnaf, onRescan }) {
+  const cameraRef  = React.useRef(null);
+  const galleryRef = React.useRef(null);
+
+  function handleFile(e) {
+    const file = e.target.files?.[0];
+    if (file) onScanFile(file);
+    e.target.value = '';
+  }
+
+  const isScanning = scanning === doc.id;
+  const isSuccess  = data && !data.error && Object.keys(data.values || {}).length > 0;
+  const isError    = data && !!data.error;
+
+  // ── Success ────────────────────────────────────────────────────────────────
+  if (isSuccess) {
+    const isFirma    = doc.id === 'firma';
+    const border     = isFirma ? '#bfdbfe' : '#6ee7b7';
+    const bg         = isFirma ? '#eff6ff' : '#f0fdf4';
+    const titleColor = isFirma ? '#1e40af' : '#065f46';
+    const labelColor = isFirma ? '#3b82f6' : '#059669';
+    const valColor   = isFirma ? '#1e3a8a' : '#064e3b';
+    const checkColor = isFirma ? '#2563eb' : '#10b981';
+    return (
+      <div style={{ border: `1.5px solid ${border}`, borderRadius: 14, background: bg, padding: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <span style={{ fontSize: 20 }}>{doc.icon}</span>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <CheckCircleIcon size={15} color={checkColor} />
+            <p style={{ fontWeight: 700, fontSize: 13, color: titleColor }}>{doc.label}</p>
+            {isFirma && <span style={{ fontSize: 10, fontWeight: 700, background: '#dbeafe', color: '#1e40af', borderRadius: 5, padding: '1px 7px', flexShrink: 0 }}>ANAF</span>}
+          </div>
+          <button onClick={onRescan} style={{ display: 'flex', alignItems: 'center', gap: 4, border: `1px solid ${border}`, borderRadius: 8, padding: '4px 10px', background: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: labelColor, flexShrink: 0 }}>
+            ↻ Rescanează
+          </button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {Object.entries(data.values).map(([key, val]) => (
+            <div key={key} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '3px 0', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+              <span style={{ fontSize: 11, color: labelColor, flexShrink: 0 }}>{DOC_FIELD_LABELS[key] || key.replace(/_/g, ' ')}</span>
+              <span style={{ fontSize: 11, fontWeight: 600, textAlign: 'right', color: data.confidence?.[key] === 'uncertain' ? '#d97706' : valColor }}>
+                {val}{data.confidence?.[key] === 'uncertain' ? ' ⚠️' : ''}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Error ──────────────────────────────────────────────────────────────────
+  if (isError) {
+    return (
+      <div style={{ border: '1.5px solid #fca5a5', borderRadius: 14, background: '#fff5f5', padding: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 22 }}>{doc.icon}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontWeight: 700, fontSize: 13, color: '#dc2626' }}>Eroare — {doc.label}</p>
+            <p style={{ fontSize: 11, color: '#ef4444', marginTop: 2, wordBreak: 'break-word' }}>{data.error}</p>
+          </div>
+          <button onClick={onRescan} style={{ border: 'none', background: '#fee2e2', borderRadius: 8, padding: '6px 12px', color: '#dc2626', fontWeight: 700, fontSize: 12, cursor: 'pointer', flexShrink: 0 }}>
+            Reîncearcă
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Scanning ───────────────────────────────────────────────────────────────
+  if (isScanning) {
+    return (
+      <div style={{ border: '1.5px solid #bfdbfe', borderRadius: 14, background: '#eff6ff', padding: '28px 14px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+        <div style={{ position: 'relative', width: 64, height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid #dbeafe', borderTopColor: '#2563eb', animation: 'spin 0.8s linear infinite' }} />
+          <span style={{ fontSize: 28 }}>{doc.icon}</span>
+        </div>
+        <p style={{ fontWeight: 700, color: '#1e40af', fontSize: 13, textAlign: 'center' }}>Se analizează {doc.label.toLowerCase()}...</p>
+        <div style={{ width: '100%', maxWidth: 200 }}><LoadingBar /></div>
+      </div>
+    );
+  }
+
+  // ── Default ────────────────────────────────────────────────────────────────
+  return (
+    <div style={{ border: `1.5px solid ${doc.required ? '#e2e8f0' : '#f1f5f9'}`, borderRadius: 14, background: '#fff', padding: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        <div style={{ width: 42, height: 42, borderRadius: 11, background: doc.required ? '#eff6ff' : '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>{doc.icon}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <p style={{ fontWeight: 700, fontSize: 14 }}>{doc.label}</p>
+            {doc.required && <span style={{ fontSize: 9, fontWeight: 800, background: '#eff6ff', color: '#2563eb', borderRadius: 4, padding: '1px 6px', textTransform: 'uppercase', letterSpacing: 0.4, flexShrink: 0 }}>Obligatoriu</span>}
+          </div>
+          <p style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>{doc.sub}</p>
+        </div>
+      </div>
+
+      {doc.type === 'scan' ? (
+        <>
+          <input ref={cameraRef}  type="file" accept="image/*" capture="environment" onChange={handleFile} style={{ display: 'none' }} />
+          <input ref={galleryRef} type="file" accept="image/*"                       onChange={handleFile} style={{ display: 'none' }} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => cameraRef.current?.click()} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: '2px solid #2563eb', borderRadius: 10, padding: '11px 0', background: '#eff6ff', cursor: 'pointer', transition: 'background 0.15s' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#dbeafe'}
+              onMouseLeave={e => e.currentTarget.style.background = '#eff6ff'}>
+              <CameraIcon size={18} color="#2563eb" />
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#1d4ed8' }}>📷 Fotografiază</span>
+            </button>
+            <button onClick={() => galleryRef.current?.click()} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '11px 0', background: '#f8fafc', cursor: 'pointer', transition: 'background 0.15s' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
+              onMouseLeave={e => e.currentTarget.style.background = '#f8fafc'}>
+              <UploadIcon size={18} color="#64748b" />
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#475569' }}>🖼️ Galerie</span>
+            </button>
+          </div>
+        </>
+      ) : (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            value={cuiVal}
+            onChange={e => onCuiChange(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && onLookupAnaf()}
+            placeholder="ex. RO12345678"
+            style={{ flex: 1, padding: '10px 12px', border: '1.5px solid #e2e8f0', borderRadius: 10, background: '#f8fafc', outline: 'none', fontSize: 14, fontFamily: 'inherit' }}
+          />
+          <button onClick={onLookupAnaf} disabled={cuiVal.replace(/\D/g, '').length < 5} style={{ padding: '10px 14px', borderRadius: 10, border: 'none', background: cuiVal.replace(/\D/g, '').length < 5 ? '#cbd5e1' : '#2563eb', color: '#fff', fontWeight: 700, fontSize: 13, cursor: cuiVal.replace(/\D/g, '').length < 5 ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            🔍 ANAF
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Step 2: Scan — un singur ecran, toate documentele odată ──────────────────
 function StepScan({ onDone }) {
-  const [mode, setMode]             = React.useState(null);
-  const [completed, setCompleted]   = React.useState({});  // { stepId: { values, confidence } }
-  const [scanningId, setScanningId] = React.useState(null);
+  const [scanned, setScanned]       = React.useState({});   // { docId: { values, confidence } | { error } }
+  const [scanning, setScanning]     = React.useState(null); // docId scanat curent
   const [cui, setCui]               = React.useState('');
   const [cuiLoading, setCuiLoading] = React.useState(false);
 
-  function skipScan()     { onDone({ values: {}, confidence: {} }); }
-  function resetMode()    { setMode(null); setCompleted({}); setScanningId(null); setCui(''); }
-  function skipStep(step) { setCompleted(prev => ({ ...prev, [step.id]: { values: {}, confidence: {}, skipped: true } })); if (step.kind === 'anaf') setCui(''); }
+  const hasAny = Object.values(scanned).some(s => Object.keys(s.values || {}).length > 0);
 
-  async function realScan(step, file) {
-    setScanningId(step.id);
+  async function scanDoc(doc, file) {
+    setScanning(doc.id);
     try {
-      // Compresie imagine: max 1300px, JPEG 0.82
-      const base64 = await new Promise((resolve, reject) => {
-        const img = new Image();
-        const objUrl = URL.createObjectURL(file);
-        img.onload = () => {
-          URL.revokeObjectURL(objUrl);
-          const MAX = 1300;
-          let w = img.width, h = img.height;
-          if (w > MAX || h > MAX) {
-            if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
-            else       { w = Math.round(w * MAX / h); h = MAX; }
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = w; canvas.height = h;
-          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL('image/jpeg', 0.82).split(',')[1]);
-        };
-        img.onerror = reject;
-        img.src = objUrl;
-      });
-
-      // Convertește orice format de dată → dd/mm/yyyy; sanitizează placeholdere
-      function toRoDate(s) {
-        if (!s) return '';
-        // GPT uneori returnează șablonul literal când nu găsește data
-        if (/^[Dd]{2}[.\/-][Mm]{2}[.\/-][Yy]{4}$/.test(s)) return '';
-        if (/^[Yy]{4}[.-][Mm]{2}[.-][Dd]{2}$/.test(s)) return '';
-        const dotFmt = s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-        if (dotFmt) return `${dotFmt[1]}/${dotFmt[2]}/${dotFmt[3]}`;
-        const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
-        return s;
-      }
-
-      const ocrMode = step.id === 'permis' ? 'ro_ci_permis' : 'ro_ci';
+      const base64 = await compressImage(file);
       const { data: { session } } = await window.sb.auth.getSession();
       const res = await fetch('https://wfresisyrlrawquzwlrs.supabase.co/functions/v1/ocr-ci', {
         method: 'POST',
@@ -235,36 +282,22 @@ function StepScan({ onDone }) {
           'Content-Type': 'application/json',
           ...(session ? { 'Authorization': `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({ imageBase64: base64, mode: ocrMode }),
+        body: JSON.stringify({ imageBase64: base64, mode: doc.ocrMode }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Eroare OCR');
-      const values = {}, confidence = {};
-      const fn = json.first_name || '', ln = json.last_name || '';
-      if (fn || ln) { values.sofer_nume = [fn, ln].filter(Boolean).join(' '); confidence.sofer_nume = 'confident'; }
-      if (json.cnp)       { values.sofer_cnp        = json.cnp;                       confidence.sofer_cnp           = 'confident'; }
-      if (json.ci_series) { values.sofer_ci_serie    = json.ci_series;                 confidence.sofer_ci_serie      = 'confident'; }
-      if (json.ci_number) { values.sofer_ci_nr       = json.ci_number;                 confidence.sofer_ci_nr         = 'confident'; }
-      if (json.address)   { values.sofer_adresa      = json.address;                   confidence.sofer_adresa        = 'uncertain'; }
-      const bd = toRoDate(json.birthdate);
-      if (bd) { values.sofer_data_nastere = bd; confidence.sofer_data_nastere = 'confident'; }
-      if (step.id === 'permis') {
-        if (json.permis_number)     { values.permis_nr        = json.permis_number;                        confidence.permis_nr        = 'confident'; }
-        if (json.permis_categories) { values.permis_categorii = json.permis_categories;                    confidence.permis_categorii = 'confident'; }
-        if (json.permis_series)     { values.permis_serie     = json.permis_series;                         confidence.permis_serie     = 'confident'; }
-        const exp = toRoDate(json.permis_expiry);
-        if (exp) { values.permis_expirare = exp; confidence.permis_expirare = 'uncertain'; }
-      }
-      setCompleted(prev => ({ ...prev, [step.id]: { values, confidence } }));
+      const { values, confidence } = parseDocOcr(doc.id, json);
+      setScanned(prev => ({ ...prev, [doc.id]: { values, confidence } }));
     } catch (err) {
-      setCompleted(prev => ({ ...prev, [step.id]: { values: {}, confidence: {}, error: err.message } }));
+      setScanned(prev => ({ ...prev, [doc.id]: { values: {}, confidence: {}, error: err.message } }));
     } finally {
-      setScanningId(null);
+      setScanning(null);
     }
   }
 
-  async function lookupAnaf(step) {
+  async function lookupAnaf(doc) {
     if (cui.replace(/\D/g, '').length < 5) return;
+    setScanning(doc.id);
     setCuiLoading(true);
     try {
       const res  = await fetch(`https://wfresisyrlrawquzwlrs.supabase.co/functions/v1/anaf-lookup?cui=${encodeURIComponent(cui)}`);
@@ -277,373 +310,66 @@ function StepScan({ onDone }) {
         client_reg:    json.firm_reg     || '',
       };
       const confidence = Object.fromEntries(Object.keys(values).map(k => [k, 'confident']));
-      setCompleted(prev => ({ ...prev, [step.id]: { values, confidence } }));
+      setScanned(prev => ({ ...prev, [doc.id]: { values, confidence } }));
     } catch (err) {
-      setCompleted(prev => ({ ...prev, [step.id]: { values: {}, confidence: {}, error: err.message } }));
+      setScanned(prev => ({ ...prev, [doc.id]: { values: {}, confidence: {}, error: err.message } }));
     } finally {
+      setScanning(null);
       setCuiLoading(false);
     }
   }
 
+  function rescan(docId) {
+    setScanned(prev => { const n = { ...prev }; delete n[docId]; return n; });
+    if (docId === 'firma') setCui('');
+  }
+
   function finish() {
     const allValues = {}, allConf = {};
-    Object.values(completed).forEach(s => {
-      Object.assign(allValues, s.values);
-      Object.assign(allConf, s.confidence);
+    Object.values(scanned).forEach(s => {
+      Object.assign(allValues, s.values    || {});
+      Object.assign(allConf,  s.confidence || {});
     });
     onDone({ values: allValues, confidence: allConf });
   }
 
-  // ─── Step A: mode picker ──────────────────────────────────────────────────
-  if (!mode) {
-    return (
-      <div style={{ flex: 1, overflowY: 'auto', padding: '18px 18px 32px' }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Scanează acte</h2>
-        <p style={{ fontSize: 13, color: '#64748b', marginBottom: 18 }}>Alege ce documente scanezi pentru acest contract.</p>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {SCAN_MODES.map(m => (
-            <button key={m.id} onClick={() => setMode(m)} style={{
-              display: 'flex', alignItems: 'center', gap: 14, width: '100%',
-              border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '14px 16px',
-              background: '#fff', textAlign: 'left', cursor: 'pointer', transition: 'all 0.15s',
-            }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = '#93c5fd'; e.currentTarget.style.background = '#f0f9ff'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#fff'; }}>
-              <div style={{ position: 'relative', width: 48, height: 48, flexShrink: 0 }}>
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>{m.icon}</div>
-                {m.icon2 && (
-                  <div style={{ position: 'absolute', bottom: -2, right: -2, width: 24, height: 24, borderRadius: 8, background: '#dbeafe', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>{m.icon2}</div>
-                )}
-              </div>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontWeight: 600 }}>{m.label}</p>
-                <p style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{m.sub}</p>
-              </div>
-              <ChevRightIcon size={18} color="#cbd5e1" />
-            </button>
-          ))}
-        </div>
-
-        {/* Skip / manual entry */}
-        <button onClick={skipScan} style={{
-          display: 'flex', alignItems: 'center', gap: 12, width: '100%',
-          border: '1.5px dashed #cbd5e1', borderRadius: 12, padding: '13px 16px',
-          background: '#fff', textAlign: 'left', cursor: 'pointer',
-          marginTop: 14, transition: 'all 0.15s',
-        }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = '#64748b'; e.currentTarget.style.background = '#f8fafc'; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#fff'; }}>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>✏️</div>
-          <div style={{ flex: 1 }}>
-            <p style={{ fontWeight: 600, color: '#334155', fontSize: 14 }}>Sări peste — introdu manual</p>
-            <p style={{ fontSize: 12, color: '#94a3b8' }}>Completezi toate datele tu, fără scanare</p>
-          </div>
-          <ChevRightIcon size={16} color="#94a3b8" />
-        </button>
-
-        <div style={{ marginTop: 16, border: '1px dashed #e2e8f0', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
-          <p style={{ fontSize: 12, color: '#94a3b8' }}>📋 Poți scana mai multe acte pe rând. Date extrase automat cu AI.</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Step B: sequential multi-step scan flow ─────────────────────────────
-  const steps      = getModeSteps(mode);
-  const remaining  = steps.filter(s => !completed[s.id]);
-  const nextStep   = remaining[0];
-  const allDone    = remaining.length === 0;
-  const isScanning = !!scanningId;
-  const hasUncertain = Object.values(completed).some(s =>
-    Object.values(s.confidence).some(c => c === 'uncertain')
-  );
+  const scannedCount = Object.keys(scanned).filter(id => Object.keys(scanned[id].values || {}).length > 0).length;
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '18px 18px 32px' }}>
-      {/* Mode header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <button onClick={resetMode} style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-          <ChevLeftIcon size={16} color="#475569" />
-        </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: 20 }}>{mode.icon}{mode.icon2 || ''}</span>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <p style={{ fontWeight: 700, fontSize: 15 }}>{mode.label}</p>
-            <p style={{ fontSize: 12, color: '#64748b' }}>{mode.sub}</p>
-          </div>
-        </div>
-      </div>
+      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Scanează acte</h2>
+      <p style={{ fontSize: 13, color: '#64748b', marginBottom: 18 }}>Fotografiază sau încarcă documentele. Datele se extrag automat cu AI.</p>
 
-      {/* Progress dots for multi-step modes */}
-      {steps.length > 1 && <ScanProgress steps={steps} completed={completed} scanningId={scanningId} />}
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {/* Completed step cards — one per scanned document */}
-        {steps.filter(s => completed[s.id]).map(step => (
-          <ResultCard
-            key={step.id}
-            step={step}
-            data={completed[step.id]}
-            onRescan={() => { setCompleted(prev => { const n = { ...prev }; delete n[step.id]; return n; }); if (step.kind === 'anaf') setCui(''); }}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {SCAN_DOCS.map(doc => (
+          <DocCard
+            key={doc.id}
+            doc={doc}
+            data={scanned[doc.id] || null}
+            scanning={scanning}
+            cuiVal={doc.id === 'firma' ? cui : ''}
+            onCuiChange={val => setCui(val)}
+            onScanFile={file => scanDoc(doc, file)}
+            onLookupAnaf={() => lookupAnaf(doc)}
+            onRescan={() => rescan(doc.id)}
           />
         ))}
+      </div>
 
-        {/* Scanning view (loading) */}
-        {isScanning && <ScanningView step={steps.find(s => s.id === scanningId)} />}
-
-        {/* Next step UI: scan or anaf */}
-        {!isScanning && nextStep && (() => {
-          const stepIdx = steps.indexOf(nextStep);
-          // Skip option is available on step 2+ of a multi-step flow
-          const onSkip = (steps.length > 1 && stepIdx > 0) ? () => skipStep(nextStep) : null;
-          return nextStep.kind === 'scan' ? (
-            <ScanPromptCard
-              step={nextStep}
-              stepIdx={stepIdx}
-              totalSteps={steps.length}
-              onScanFile={(file) => realScan(nextStep, file)}
-              onSkip={onSkip}
-            />
-          ) : (
-            <AnafPromptCard
-              step={nextStep}
-              stepIdx={stepIdx}
-              totalSteps={steps.length}
-              cui={cui}
-              setCui={setCui}
-              loading={cuiLoading}
-              onLookup={() => lookupAnaf(nextStep)}
-              onSkip={onSkip}
-            />
-          );
-        })()}
-
-        {/* All done — show warning + continue */}
-        {allDone && (
-          <>
-            {hasUncertain && (
-              <div style={{ display: 'flex', gap: 10, border: '1px solid #fde68a', borderRadius: 10, background: '#fffbeb', padding: '10px 12px' }}>
-                <AlertCircleIcon size={16} color="#d97706" style={{ flexShrink: 0, marginTop: 1 }} />
-                <p style={{ fontSize: 12, color: '#92400e' }}>Câmpurile cu ⚠️ au incertitudine — verifică-le la pasul următor.</p>
-              </div>
-            )}
-            <PrimaryBtn onClick={finish}>Continuă → Completează datele</PrimaryBtn>
-            <SecondaryBtn onClick={resetMode}>Schimbă mod / reia</SecondaryBtn>
-          </>
+      <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <PrimaryBtn onClick={finish}>
+          {hasAny ? 'Continuă → Completează datele' : 'Sari peste — completez manual'}
+        </PrimaryBtn>
+        {scannedCount > 0 && (
+          <p style={{ textAlign: 'center', fontSize: 12, color: '#64748b' }}>
+            ✓ {scannedCount} document{scannedCount > 1 ? 'e' : ''} scanat{scannedCount > 1 ? 'e' : ''} — verifică datele la pasul următor
+          </p>
         )}
       </div>
     </div>
   );
 }
 
-// ─── Sub-components for StepScan ──────────────────────────────────────────────
-function ScanProgress({ steps, completed, scanningId }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16, padding: '8px 0' }}>
-      {steps.map((s, i) => {
-        const entry    = completed[s.id];
-        const isDone   = !!entry && !entry.skipped;
-        const isSkipped = !!entry && entry.skipped;
-        const isActive = scanningId === s.id;
-        const bg = isDone ? '#10b981' : isSkipped ? '#cbd5e1' : isActive ? '#2563eb' : '#f1f5f9';
-        const fg = isDone || isActive || isSkipped ? '#fff' : '#94a3b8';
-        const labelColor = isDone ? '#065f46' : isSkipped ? '#64748b' : isActive ? '#1e40af' : '#94a3b8';
-        return (
-          <React.Fragment key={s.id}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-              <div style={{
-                width: 22, height: 22, borderRadius: '50%',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 11, fontWeight: 700,
-                background: bg, color: fg,
-                transition: 'all 0.2s',
-              }}>{isDone ? '✓' : isSkipped ? '—' : i + 1}</div>
-              <span style={{ fontSize: 11, fontWeight: 600, color: labelColor }}>
-                {s.id === 'ci' ? 'CI' : s.id === 'permis' ? 'Permis' : 'Firmă'}
-              </span>
-            </div>
-            {i < steps.length - 1 && <div style={{ flex: 1, height: 2, background: isDone || isSkipped ? '#cbd5e1' : '#e2e8f0', borderRadius: 99 }} />}
-          </React.Fragment>
-        );
-      })}
-    </div>
-  );
-}
-
-function ScanPromptCard({ step, stepIdx, totalSteps, onScanFile, onSkip }) {
-  const cameraRef  = React.useRef(null);
-  const galleryRef = React.useRef(null);
-  const subject    = step.id === 'permis' ? 'permisului' : 'CI-ului';
-
-  function handleFile(e) {
-    const file = e.target.files?.[0];
-    if (file) onScanFile(file);
-    e.target.value = '';
-  }
-
-  return (
-    <div style={{ border: '1.5px solid #93c5fd', borderRadius: 12, background: '#eff6ff', padding: 14 }}>
-      <input ref={cameraRef}  type="file" accept="image/*" capture="environment" onChange={handleFile} style={{ display: 'none' }} />
-      <input ref={galleryRef} type="file" accept="image/*"                       onChange={handleFile} style={{ display: 'none' }} />
-
-      {totalSteps > 1 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-          <span style={{ background: '#2563eb', color: '#fff', borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 800, letterSpacing: 0.4 }}>
-            PASUL {stepIdx + 1} / {totalSteps}
-          </span>
-          <p style={{ fontWeight: 700, fontSize: 14, color: '#1e40af' }}>Scanează {step.label.toLowerCase()}</p>
-        </div>
-      )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <button onClick={() => cameraRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: '2px solid #2563eb', borderRadius: 11, padding: '14px 14px', background: '#fff', cursor: 'pointer', textAlign: 'left' }}>
-          <div style={{ width: 44, height: 44, borderRadius: 11, background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <CameraIcon size={22} color="#fff" />
-          </div>
-          <div>
-            <p style={{ fontWeight: 700, color: '#1d4ed8', fontSize: 14 }}>Fă o poză {subject}</p>
-            <p style={{ fontSize: 12, color: '#3b82f6', marginTop: 1 }}>Deschide camera telefonului</p>
-          </div>
-        </button>
-        <button onClick={() => galleryRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: '1.5px solid #e2e8f0', borderRadius: 11, padding: '14px 14px', background: '#fff', cursor: 'pointer', textAlign: 'left' }}>
-          <div style={{ width: 44, height: 44, borderRadius: 11, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <UploadIcon size={22} color="#64748b" />
-          </div>
-          <div>
-            <p style={{ fontWeight: 600, fontSize: 14 }}>Încarcă din galerie</p>
-            <p style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>JPG, PNG — max. 10 MB</p>
-          </div>
-        </button>
-        {step.id === 'ci' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '8px 12px' }}>
-            <span style={{ fontSize: 14, flexShrink: 0 }}>💡</span>
-            <p style={{ fontSize: 11, color: '#92400e', lineHeight: 1.5 }}>
-              <strong>Față</strong> — nume, CNP, serie, nr., dată naștere.<br />
-              <strong>Spate</strong> — adresă domiciliu (scanează spatele dacă ai nevoie de adresă).
-            </p>
-          </div>
-        )}
-        {onSkip && (
-          <button onClick={onSkip} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: '1.5px dashed #cbd5e1', borderRadius: 11, padding: '12px 14px', background: '#fff', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = '#64748b'; e.currentTarget.style.background = '#f8fafc'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#fff'; }}>
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>✏️</div>
-            <div style={{ flex: 1 }}>
-              <p style={{ fontWeight: 600, color: '#334155', fontSize: 13 }}>Sări peste — completez manual</p>
-              <p style={{ fontSize: 11, color: '#94a3b8' }}>Datele se introduc la pasul următor</p>
-            </div>
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ScanningView({ step }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '40px 0', border: '1.5px solid #bfdbfe', borderRadius: 12, background: '#eff6ff' }}>
-      <div style={{ position: 'relative', width: 80, height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '4px solid #dbeafe', borderTopColor: '#2563eb', animation: 'spin 0.8s linear infinite' }} />
-        <span style={{ fontSize: 32 }}>{step.icon}</span>
-      </div>
-      <p style={{ fontWeight: 700, color: '#1e40af', fontSize: 14 }}>Se extrag datele de pe {step.label.toLowerCase()}...</p>
-      <p style={{ fontSize: 12, color: '#3b82f6' }}>Analizăm documentul cu AI...</p>
-      <div style={{ width: '100%', maxWidth: 200, padding: '0 20px' }}><LoadingBar /></div>
-    </div>
-  );
-}
-
-function ResultCard({ step, data, onRescan }) {
-  // Skipped state — render a small grey card so user sees the step is acknowledged
-  if (data.skipped) {
-    return (
-      <div style={{ border: '1.5px dashed #cbd5e1', borderRadius: 12, background: '#f8fafc', padding: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 9, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>✂️</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontWeight: 700, fontSize: 13, color: '#475569' }}>{step.cardTitle} — sărit</p>
-            <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>Completezi manual la pasul următor</p>
-          </div>
-          <button onClick={onRescan} title="Scanează după tot" style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: '#fff', cursor: 'pointer', fontSize: 14, color: '#64748b', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>↻</button>
-        </div>
-      </div>
-    );
-  }
-
-  const isFirma     = step.color === 'blue';
-  const borderColor = isFirma ? '#bfdbfe' : '#6ee7b7';
-  const bg          = isFirma ? '#eff6ff' : '#f0fdf4';
-  const titleColor  = isFirma ? '#1e40af' : '#065f46';
-  const labelColor  = isFirma ? '#3b82f6' : '#059669';
-  const valColor    = isFirma ? '#1e3a8a' : '#064e3b';
-  const badgeBg     = isFirma ? '#dbeafe' : '#dcfce7';
-  const badgeColor  = isFirma ? '#1e40af' : '#166534';
-
-  return (
-    <div style={{ border: `1.5px solid ${borderColor}`, borderRadius: 12, background: bg, padding: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <CheckCircleIcon size={18} color={isFirma ? '#2563eb' : '#10b981'} />
-        <p style={{ fontWeight: 700, color: titleColor, fontSize: 13 }}>{step.cardTitle}</p>
-        {isFirma && (
-          <span style={{ fontSize: 10, fontWeight: 700, background: badgeBg, color: badgeColor, borderRadius: 6, padding: '2px 8px' }}>
-            ANAF
-          </span>
-        )}
-        <button onClick={onRescan} title="Re-scanează" style={{ width: 24, height: 24, borderRadius: '50%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 14, color: labelColor, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 'auto' }}>↻</button>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {Object.entries(data.values).map(([key, val]) => (
-          <div key={key} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-            <span style={{ fontSize: 11, color: labelColor, flexShrink: 0, textTransform: 'capitalize' }}>
-              {key.replace(/_/g,' ').replace('sofer ','').replace('client ','').replace('permis ','')}
-            </span>
-            <span style={{ fontSize: 11, fontWeight: 600, textAlign: 'right', color: data.confidence[key] === 'uncertain' ? '#d97706' : valColor }}>
-              {val} {data.confidence[key] === 'uncertain' && '⚠️'}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function AnafPromptCard({ step, stepIdx, totalSteps, cui, setCui, loading, onLookup, onSkip }) {
-  return (
-    <div style={{ border: '1.5px solid #bfdbfe', borderRadius: 12, background: '#eff6ff', padding: 14 }}>
-      {totalSteps > 1 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-          <span style={{ background: '#2563eb', color: '#fff', borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 800, letterSpacing: 0.4 }}>
-            PASUL {stepIdx + 1} / {totalSteps}
-          </span>
-          <p style={{ fontWeight: 700, fontSize: 14, color: '#1e40af' }}>Introdu CUI firmă</p>
-        </div>
-      )}
-      <p style={{ fontSize: 12, color: '#3b82f6', marginBottom: 10 }}>🏢 Datele firmei se preiau automat de la ANAF după CUI.</p>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <input
-          value={cui}
-          onChange={e => setCui(e.target.value)}
-          placeholder="ex. RO12345678"
-          style={{ flex: 1, padding: '11px 12px', border: '1.5px solid #bfdbfe', borderRadius: 10, background: '#fff', outline: 'none', fontSize: 14, fontFamily: 'inherit' }}
-        />
-        <button onClick={onLookup} disabled={loading || cui.length < 5} style={{ padding: '11px 16px', borderRadius: 10, border: 'none', background: loading || cui.length < 5 ? '#cbd5e1' : '#2563eb', color: '#fff', fontWeight: 700, fontSize: 13, cursor: loading || cui.length < 5 ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-          {loading ? <><SpinnerIcon size={14} /> ANAF</> : <>🔍 ANAF</>}
-        </button>
-      </div>
-      {onSkip && (
-        <button onClick={onSkip} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: '1.5px dashed #cbd5e1', borderRadius: 11, padding: '12px 14px', background: '#fff', cursor: 'pointer', textAlign: 'left', marginTop: 10, transition: 'all 0.15s' }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = '#64748b'; e.currentTarget.style.background = '#f8fafc'; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#fff'; }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>✏️</div>
-          <div style={{ flex: 1 }}>
-            <p style={{ fontWeight: 600, color: '#334155', fontSize: 13 }}>Sări peste — completez manual</p>
-            <p style={{ fontSize: 11, color: '#94a3b8' }}>Datele se introduc la pasul următor</p>
-          </div>
-        </button>
-      )}
-    </div>
-  );
-}
 function buildContractBody(template, values) {
   const fill = (k) => values[k] || '___________';
   return `CONTRACT DE ÎNCHIRIERE AUTOVEHICUL

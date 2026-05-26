@@ -1155,7 +1155,7 @@ function ProfileScanSheet({ onDone, onClose }) {
         if (json.cnp)       { vals.cnp          = json.cnp;                   conf.cnp          = 'confident'; }
         if (json.ci_series) { vals.ci_serie     = json.ci_series;             conf.ci_serie     = 'confident'; }
         if (json.ci_number) { vals.ci_nr        = json.ci_number;             conf.ci_nr        = 'confident'; }
-        if (json.address)   { vals.adresa       = json.address;               conf.adresa       = 'uncertain'; }
+        // Noul CI românesc nu are adresă pe el
         if (json.birthdate)   { vals.data_nastere    = toRoDate(json.birthdate);   conf.data_nastere    = 'confident'; }
         if (json.valid_until) { vals.ci_valabilitate = toRoDate(json.valid_until); conf.ci_valabilitate = 'confident'; }
         stop = true; setBarW(100);
@@ -1299,13 +1299,6 @@ function ProfileScanSheet({ onDone, onClose }) {
                   </div>
                 </div>
               )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '9px 12px', marginBottom: 4 }}>
-                <span style={{ fontSize: 14, flexShrink: 0 }}>💡</span>
-                <p style={{ fontSize: 11, color: '#92400e', lineHeight: 1.5 }}>
-                  <strong>Față</strong> — nume, CNP, serie/nr., dată naștere. &nbsp;
-                  <strong>Spate</strong> — adresă domiciliu.
-                </p>
-              </div>
               <input ref={cameraRef}  type="file" accept="image/*" capture="environment" onChange={onFile} style={{ display: 'none' }} />
               <input ref={galleryRef} type="file" accept="image/*,application/pdf"        onChange={onFile} style={{ display: 'none' }} />
               <button onClick={() => cameraRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: '2px solid #93c5fd', borderRadius: 13, padding: '18px 16px', background: '#eff6ff', cursor: 'pointer', textAlign: 'left' }}>
