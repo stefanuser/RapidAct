@@ -27,7 +27,10 @@ const TEMPLATES = [
       { key: 'sofer_ci_serie',      label: 'Serie CI',                 source: 'ocr',      type: 'text',     required: true, placeholder: 'ex. RX' },
       { key: 'sofer_ci_nr',         label: 'Număr CI',                 source: 'ocr',      type: 'text',     required: true, placeholder: 'ex. 123456' },
       { key: 'sofer_adresa',        label: 'Adresă domiciliu',         source: 'ocr',      type: 'text',     required: true },
-      { key: 'sofer_data_nastere',  label: 'Data nașterii',            source: 'ocr',      type: 'text',     required: true, placeholder: 'ex. 26/02/1984' },
+      { key: 'sofer_data_nastere',  label: 'Data nașterii',            source: 'ocr',      type: 'text',     required: true,  placeholder: 'ex. 26/02/1984' },
+      { key: 'permis_nr',           label: 'Nr. permis conducere',     source: 'ocr',      type: 'text',     required: false, placeholder: 'ex. IO0299449F' },
+      { key: 'permis_categorii',    label: 'Categorii permis',         source: 'ocr',      type: 'text',     required: false, placeholder: 'ex. B, BE' },
+      { key: 'permis_expirare',     label: 'Permis valabil până',      source: 'ocr',      type: 'text',     required: false, placeholder: 'ex. 15/03/2030' },
       { key: 'masina_marca',        label: 'Marcă',                    source: 'manual',   type: 'text',     required: true, placeholder: 'ex. Dacia' },
       { key: 'masina_model',        label: 'Model',                    source: 'manual',   type: 'text',     required: true, placeholder: 'ex. Logan' },
       { key: 'masina_an',           label: 'An fabricație',            source: 'manual',   type: 'text',     required: true, placeholder: 'ex. 2022' },
@@ -100,9 +103,17 @@ function parseDocOcr(docId, json) {
     if (json.ci_number) { values.sofer_ci_nr       = json.ci_number; confidence.sofer_ci_nr      = 'confident'; }
     const bd = toRoDate(json.birthdate);
     if (bd) { values.sofer_data_nastere = bd; confidence.sofer_data_nastere = 'confident'; }
+    const exp = toRoDate(json.valid_until);
+    if (exp) { values.sofer_ci_valabilitate = exp; confidence.sofer_ci_valabilitate = 'uncertain'; }
     // Noul CI românesc nu are adresă pe el
   }
   if (docId === 'permis') {
+    // Afișat în card pentru verificare — permisul poate aparține altei persoane decât CI-ul
+    const fn = json.first_name || '', ln = json.last_name || '';
+    if (fn || ln) { values.permis_titular = [fn, ln].filter(Boolean).join(' '); confidence.permis_titular = 'confident'; }
+    const bd = toRoDate(json.birthdate);
+    if (bd) { values.permis_data_nastere = bd; confidence.permis_data_nastere = 'confident'; }
+    // Câmpuri pentru formular și contract
     if (json.permis_number)     { values.permis_nr        = json.permis_number;     confidence.permis_nr        = 'confident'; }
     if (json.permis_series)     { values.permis_serie     = json.permis_series;     confidence.permis_serie     = 'confident'; }
     if (json.permis_categories) { values.permis_categorii = json.permis_categories; confidence.permis_categorii = 'confident'; }
@@ -121,10 +132,15 @@ const SCAN_DOCS = [
 
 // ─── DocCard ──────────────────────────────────────────────────────────────────
 const DOC_FIELD_LABELS = {
-  sofer_nume: 'Nume', sofer_cnp: 'CNP', sofer_ci_serie: 'Serie CI',
-  sofer_ci_nr: 'Nr. CI', sofer_data_nastere: 'Data nașterii',
+  // CI
+  sofer_nume: 'Nume', sofer_cnp: 'CNP',
+  sofer_ci_serie: 'Serie CI', sofer_ci_nr: 'Nr. CI',
+  sofer_data_nastere: 'Data nașterii', sofer_ci_valabilitate: 'CI valabilă până',
+  // Permis
+  permis_titular: 'Titular permis', permis_data_nastere: 'Data nașterii',
   permis_nr: 'Nr. permis', permis_serie: 'Serie permis',
-  permis_categorii: 'Categorii', permis_expirare: 'Expiră',
+  permis_categorii: 'Categorii', permis_expirare: 'Permis valabil până',
+  // Firmă
   client_firma: 'Firmă', client_cui: 'CUI',
   client_adresa: 'Adresă', client_reg: 'Reg. Com.',
 };
@@ -389,6 +405,7 @@ ${fill('sofer_nume')}, CNP ${fill('sofer_cnp')},
 CI seria ${fill('sofer_ci_serie')} nr. ${fill('sofer_ci_nr')},
 domiciliu: ${fill('sofer_adresa')},
 data nașterii: ${fill('sofer_data_nastere')},
+permis conducere: ${fill('permis_nr')}, categorii: ${fill('permis_categorii')}, valabil: ${fill('permis_expirare')},
 
 II. OBIECTUL CONTRACTULUI
 
@@ -922,9 +939,10 @@ function StepForm({ template, ocrValues, ocrConfidence, profileValues, onDone, a
     setShowAssetPicker(false);
   }
 
-  const ocrFields    = template.fields.filter(f => f.source === 'ocr');
-  const manualFields = template.fields.filter(f => f.source === 'manual');
-  const carAssets    = (assets || []).filter(a => a.type === 'car');
+  const ocrFieldsCI     = template.fields.filter(f => f.source === 'ocr' && !f.key.startsWith('permis_'));
+  const ocrFieldsPermis = template.fields.filter(f => f.source === 'ocr' &&  f.key.startsWith('permis_'));
+  const manualFields    = template.fields.filter(f => f.source === 'manual');
+  const carAssets       = (assets || []).filter(a => a.type === 'car');
 
   const groups = [
     { title: 'Vehicul',         keys: ['masina_marca','masina_model','masina_an','masina_nr_inmatr','masina_culoare','masina_serie_vin'] },
@@ -941,8 +959,9 @@ function StepForm({ template, ocrValues, ocrConfidence, profileValues, onDone, a
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px 24px' }}>
-        {/* OCR section */}
-        <FieldSection title="Date din CI — verifică" fields={ocrFields} values={values} onChange={setField} confidence={ocrConfidence} />
+        {/* OCR sections — CI și Permis separat */}
+        {ocrFieldsCI.length > 0     && <FieldSection title="Date din CI — verifică"     fields={ocrFieldsCI}     values={values} onChange={setField} confidence={ocrConfidence} />}
+        {ocrFieldsPermis.length > 0 && <FieldSection title="Date din Permis — verifică" fields={ocrFieldsPermis} values={values} onChange={setField} confidence={ocrConfidence} />}
 
         {/* Asset quick-select for rentacar template */}
         {template.id === 'rentacar-standard' && (
