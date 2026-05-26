@@ -1020,7 +1020,7 @@ const PROFILE_SCAN_MODES = [
       legal_rep: 'Popescu Ion', cnp: '1850315400123',
       ci_serie: 'RX', ci_nr: '412305',
       adresa: 'Str. Victoriei nr. 45, București, Sector 1',
-      data_nastere: '1985-03-15',
+      data_nastere: '15/03/1985',
     },
     mockConf: {
       legal_rep: 'confident', cnp: 'confident', ci_serie: 'confident',
@@ -1037,9 +1037,9 @@ const PROFILE_SCAN_MODES = [
       legal_rep: 'Popescu Ion', cnp: '1850315400123',
       ci_serie: 'RX', ci_nr: '412305',
       adresa: 'Str. Victoriei nr. 45, București, Sector 1',
-      data_nastere: '1985-03-15',
+      data_nastere: '15/03/1985',
       permis_serie: 'B', permis_nr: '1234567',
-      permis_categorii: 'B, BE', permis_expirare: '2030-03-15',
+      permis_categorii: 'B, BE', permis_expirare: '15/03/2030',
     },
     mockConf: {
       legal_rep: 'confident', cnp: 'confident', ci_serie: 'confident',
@@ -1135,9 +1135,12 @@ function ProfileScanSheet({ onDone, onClose }) {
       const json = await resp.json();
       if (!resp.ok) throw new Error(json.error || 'Eroare server OCR');
       const vals = {}, conf = {};
-      // Convertește date în format românesc zz/ll/aaaa
+      // Convertește date în format românesc zz/ll/aaaa; sanitizează placeholdere GPT
       function toRoDate(s) {
-        if (!s) return s;
+        if (!s) return '';
+        // GPT uneori returnează șablonul literal când nu găsește data
+        if (/^[Dd]{2}[.\/-][Mm]{2}[.\/-][Yy]{4}$/.test(s)) return '';
+        if (/^[Yy]{4}[.-][Mm]{2}[.-][Dd]{2}$/.test(s)) return '';
         const dd_mm_yyyy = s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
         if (dd_mm_yyyy) return `${dd_mm_yyyy[1]}/${dd_mm_yyyy[2]}/${dd_mm_yyyy[3]}`;
         const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);

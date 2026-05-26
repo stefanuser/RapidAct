@@ -27,7 +27,7 @@ const TEMPLATES = [
       { key: 'sofer_ci_serie',      label: 'Serie CI',                 source: 'ocr',      type: 'text',     required: true, placeholder: 'ex. RX' },
       { key: 'sofer_ci_nr',         label: 'Număr CI',                 source: 'ocr',      type: 'text',     required: true, placeholder: 'ex. 123456' },
       { key: 'sofer_adresa',        label: 'Adresă domiciliu',         source: 'ocr',      type: 'text',     required: true },
-      { key: 'sofer_data_nastere',  label: 'Data nașterii',            source: 'ocr',      type: 'date',     required: true },
+      { key: 'sofer_data_nastere',  label: 'Data nașterii',            source: 'ocr',      type: 'text',     required: true, placeholder: 'ex. 26/02/1984' },
       { key: 'masina_marca',        label: 'Marcă',                    source: 'manual',   type: 'text',     required: true, placeholder: 'ex. Dacia' },
       { key: 'masina_model',        label: 'Model',                    source: 'manual',   type: 'text',     required: true, placeholder: 'ex. Logan' },
       { key: 'masina_an',           label: 'An fabricație',            source: 'manual',   type: 'text',     required: true, placeholder: 'ex. 2022' },
@@ -69,7 +69,7 @@ const SCAN_MODES = [
         sofer_nume: 'Ionescu Alexandru', sofer_cnp: '1850315400123',
         sofer_ci_serie: 'RX', sofer_ci_nr: '412305',
         sofer_adresa: 'Str. Florilor nr. 12, Bl. A3, Ap. 7, București, Sector 3',
-        sofer_data_nastere: '1985-03-15',
+        sofer_data_nastere: '15/03/1985',
       },
       confidence: {
         sofer_nume: 'confident', sofer_cnp: 'confident',
@@ -90,9 +90,9 @@ const SCAN_MODES = [
         sofer_nume: 'Ionescu Alexandru', sofer_cnp: '1850315400123',
         sofer_ci_serie: 'RX', sofer_ci_nr: '412305',
         sofer_adresa: 'Str. Florilor nr. 12, Bl. A3, Ap. 7, București, Sector 3',
-        sofer_data_nastere: '1985-03-15',
+        sofer_data_nastere: '15/03/1985',
         permis_serie: 'B', permis_nr: '1234567',
-        permis_categorii: 'B, BE', permis_expirare: '2030-03-15',
+        permis_categorii: 'B, BE', permis_expirare: '15/03/2030',
       },
       confidence: {
         sofer_nume: 'confident', sofer_cnp: 'confident',
@@ -115,7 +115,7 @@ const SCAN_MODES = [
         sofer_nume: 'Georgescu Dan', sofer_cnp: '1790502400456',
         sofer_ci_serie: 'KL', sofer_ci_nr: '789012',
         sofer_adresa: 'Str. Independenței nr. 5, Cluj-Napoca',
-        sofer_data_nastere: '1979-05-02',
+        sofer_data_nastere: '02/05/1979',
         client_firma: 'Global Trade SA', client_cui: 'RO11223344',
         client_adresa: 'Bd. Unirii nr. 10, București',
       },
@@ -193,33 +193,67 @@ function StepScan({ onDone }) {
   async function realScan(step, file) {
     setScanningId(step.id);
     try {
+      // Compresie imagine: max 1300px, JPEG 0.82
       const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload  = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
+        const img = new Image();
+        const objUrl = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(objUrl);
+          const MAX = 1300;
+          let w = img.width, h = img.height;
+          if (w > MAX || h > MAX) {
+            if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+            else       { w = Math.round(w * MAX / h); h = MAX; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.82).split(',')[1]);
+        };
+        img.onerror = reject;
+        img.src = objUrl;
       });
-      const ocrMode = step.id === 'permis' ? 'ci_permis' : 'ci';
-      const res  = await fetch('https://wfresisyrlrawquzwlrs.supabase.co/functions/v1/ocr-ci', {
+
+      // Convertește orice format de dată → dd/mm/yyyy; sanitizează placeholdere
+      function toRoDate(s) {
+        if (!s) return '';
+        // GPT uneori returnează șablonul literal când nu găsește data
+        if (/^[Dd]{2}[.\/-][Mm]{2}[.\/-][Yy]{4}$/.test(s)) return '';
+        if (/^[Yy]{4}[.-][Mm]{2}[.-][Dd]{2}$/.test(s)) return '';
+        const dotFmt = s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+        if (dotFmt) return `${dotFmt[1]}/${dotFmt[2]}/${dotFmt[3]}`;
+        const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+        return s;
+      }
+
+      const ocrMode = step.id === 'permis' ? 'ro_ci_permis' : 'ro_ci';
+      const { data: { session } } = await window.sb.auth.getSession();
+      const res = await fetch('https://wfresisyrlrawquzwlrs.supabase.co/functions/v1/ocr-ci', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session ? { 'Authorization': `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({ imageBase64: base64, mode: ocrMode }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Eroare OCR');
       const values = {}, confidence = {};
-      function toISO(s) { if (!s) return s; const m = s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/); return m ? `${m[3]}-${m[2]}-${m[1]}` : s; }
       const fn = json.first_name || '', ln = json.last_name || '';
       if (fn || ln) { values.sofer_nume = [fn, ln].filter(Boolean).join(' '); confidence.sofer_nume = 'confident'; }
-      if (json.cnp)       { values.sofer_cnp        = json.cnp;                   confidence.sofer_cnp        = 'confident'; }
-      if (json.ci_series) { values.sofer_ci_serie    = json.ci_series;             confidence.sofer_ci_serie   = 'confident'; }
-      if (json.ci_number) { values.sofer_ci_nr       = json.ci_number;             confidence.sofer_ci_nr      = 'confident'; }
-      if (json.address)   { values.sofer_adresa      = json.address;               confidence.sofer_adresa     = 'uncertain'; }
-      if (json.birthdate) { values.sofer_data_nastere = toISO(json.birthdate);     confidence.sofer_data_nastere = 'confident'; }
+      if (json.cnp)       { values.sofer_cnp        = json.cnp;                       confidence.sofer_cnp           = 'confident'; }
+      if (json.ci_series) { values.sofer_ci_serie    = json.ci_series;                 confidence.sofer_ci_serie      = 'confident'; }
+      if (json.ci_number) { values.sofer_ci_nr       = json.ci_number;                 confidence.sofer_ci_nr         = 'confident'; }
+      if (json.address)   { values.sofer_adresa      = json.address;                   confidence.sofer_adresa        = 'uncertain'; }
+      const bd = toRoDate(json.birthdate);
+      if (bd) { values.sofer_data_nastere = bd; confidence.sofer_data_nastere = 'confident'; }
       if (step.id === 'permis') {
-        if (json.permis_number)     { values.permis_nr       = json.permis_number;     confidence.permis_nr       = 'confident'; }
-        if (json.permis_categories) { values.permis_categorii = json.permis_categories; confidence.permis_categorii = 'confident'; }
-        if (json.permis_expiry)     { values.permis_expirare  = toISO(json.permis_expiry); confidence.permis_expirare = 'uncertain'; }
+        if (json.permis_number)     { values.permis_nr        = json.permis_number;                        confidence.permis_nr        = 'confident'; }
+        if (json.permis_categories) { values.permis_categorii = json.permis_categories;                    confidence.permis_categorii = 'confident'; }
+        if (json.permis_series)     { values.permis_serie     = json.permis_series;                         confidence.permis_serie     = 'confident'; }
+        const exp = toRoDate(json.permis_expiry);
+        if (exp) { values.permis_expirare = exp; confidence.permis_expirare = 'uncertain'; }
       }
       setCompleted(prev => ({ ...prev, [step.id]: { values, confidence } }));
     } catch (err) {
@@ -504,7 +538,7 @@ function ScanningView({ step }) {
         <span style={{ fontSize: 32 }}>{step.icon}</span>
       </div>
       <p style={{ fontWeight: 700, color: '#1e40af', fontSize: 14 }}>Se extrag datele de pe {step.label.toLowerCase()}...</p>
-      <p style={{ fontSize: 12, color: '#3b82f6' }}>Analizăm cu AI · GPT-4o</p>
+      <p style={{ fontSize: 12, color: '#3b82f6' }}>Analizăm documentul cu AI...</p>
       <div style={{ width: '100%', maxWidth: 200, padding: '0 20px' }}><LoadingBar /></div>
     </div>
   );
@@ -541,10 +575,12 @@ function ResultCard({ step, data, onRescan }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <CheckCircleIcon size={18} color={isFirma ? '#2563eb' : '#10b981'} />
         <p style={{ fontWeight: 700, color: titleColor, fontSize: 13 }}>{step.cardTitle}</p>
-        <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, background: badgeBg, color: badgeColor, borderRadius: 6, padding: '2px 8px' }}>
-          {isFirma ? 'ANAF' : 'GPT-4o'}
-        </span>
-        <button onClick={onRescan} title="Re-scanează" style={{ width: 24, height: 24, borderRadius: '50%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 14, color: labelColor, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>↻</button>
+        {isFirma && (
+          <span style={{ fontSize: 10, fontWeight: 700, background: badgeBg, color: badgeColor, borderRadius: 6, padding: '2px 8px' }}>
+            ANAF
+          </span>
+        )}
+        <button onClick={onRescan} title="Re-scanează" style={{ width: 24, height: 24, borderRadius: '50%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 14, color: labelColor, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 'auto' }}>↻</button>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
         {Object.entries(data.values).map(([key, val]) => (
