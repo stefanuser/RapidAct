@@ -514,6 +514,15 @@ function ScanPromptCard({ step, stepIdx, totalSteps, onScanFile, onSkip }) {
             <p style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>JPG, PNG — max. 10 MB</p>
           </div>
         </button>
+        {step.id === 'ci' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '8px 12px' }}>
+            <span style={{ fontSize: 14, flexShrink: 0 }}>💡</span>
+            <p style={{ fontSize: 11, color: '#92400e', lineHeight: 1.5 }}>
+              <strong>Față</strong> — nume, CNP, serie, nr., dată naștere.<br />
+              <strong>Spate</strong> — adresă domiciliu (scanează spatele dacă ai nevoie de adresă).
+            </p>
+          </div>
+        )}
         {onSkip && (
           <button onClick={onSkip} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: '1.5px dashed #cbd5e1', borderRadius: 11, padding: '12px 14px', background: '#fff', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = '#64748b'; e.currentTarget.style.background = '#f8fafc'; }}

@@ -1299,6 +1299,13 @@ function ProfileScanSheet({ onDone, onClose }) {
                   </div>
                 </div>
               )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '9px 12px', marginBottom: 4 }}>
+                <span style={{ fontSize: 14, flexShrink: 0 }}>💡</span>
+                <p style={{ fontSize: 11, color: '#92400e', lineHeight: 1.5 }}>
+                  <strong>Față</strong> — nume, CNP, serie/nr., dată naștere. &nbsp;
+                  <strong>Spate</strong> — adresă domiciliu.
+                </p>
+              </div>
               <input ref={cameraRef}  type="file" accept="image/*" capture="environment" onChange={onFile} style={{ display: 'none' }} />
               <input ref={galleryRef} type="file" accept="image/*,application/pdf"        onChange={onFile} style={{ display: 'none' }} />
               <button onClick={() => cameraRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: '2px solid #93c5fd', borderRadius: 13, padding: '18px 16px', background: '#eff6ff', cursor: 'pointer', textAlign: 'left' }}>
