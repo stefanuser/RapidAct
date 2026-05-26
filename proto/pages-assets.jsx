@@ -340,7 +340,8 @@ function AddAssetSheet({ type = 'car', onClose, onSave }) {
   async function lookupCui() {
     const raw = (values.cui || '').replace(/^RO/i, '').replace(/\D/g, '');
     if (!raw || raw.length < 4) return;
-    setCuiLoad(true); setCuiStatus('');
+    setCuiLoad(true);
+    setCuiStatus('');
     try {
       const { data: { session } } = await window.sb.auth.getSession();
       const headers = session ? { 'Authorization': `Bearer ${session.access_token}` } : {};
@@ -349,17 +350,23 @@ function AddAssetSheet({ type = 'car', onClose, onSave }) {
         { headers }
       );
       const d = await res.json();
-      if (!res.ok || d.error) { setCuiStatus('err'); return; }
-      setValues(prev => ({
-        ...prev,
-        name:    d.firm_name    || prev.name    || '',
-        cui:     d.firm_cui     || prev.cui     || '',
-        address: d.firm_address || prev.address || '',
-        reg_com: d.firm_reg     || prev.reg_com || '',
-      }));
-      setCuiStatus('ok');
-    } catch { setCuiStatus('err'); }
-    finally { setCuiLoad(false); }
+      if (!res.ok || d.error) {
+        setCuiStatus('err');
+      } else {
+        setValues(prev => ({
+          ...prev,
+          name:    d.firm_name    || prev.name    || '',
+          cui:     d.firm_cui     || prev.cui     || '',
+          address: d.firm_address || prev.address || '',
+          reg_com: d.firm_reg     || prev.reg_com || '',
+        }));
+        setCuiStatus('ok');
+      }
+    } catch (e) {
+      console.error('[RapidAct] ANAF error:', e);
+      setCuiStatus('err');
+    }
+    setCuiLoad(false);
   }
 
   async function handleSave() {
