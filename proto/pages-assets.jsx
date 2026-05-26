@@ -331,6 +331,7 @@ function AssetDetailSheet({ asset, cfg, contracts, onClose, onNewContract, onDel
 function AddAssetSheet({ type = 'car', onClose, onSave }) {
   const [values, setValues]       = React.useState({});
   const [saving, setSaving]       = React.useState(false);
+  const [saveError, setSaveError] = React.useState('');
   const [cuiLoading, setCuiLoad]  = React.useState(false);
   const [cuiStatus, setCuiStatus] = React.useState(''); // '' | 'ok' | 'err'
   const cfg = ASSET_TYPES[type];
@@ -371,7 +372,13 @@ function AddAssetSheet({ type = 'car', onClose, onSave }) {
 
   async function handleSave() {
     setSaving(true);
-    await onSave({ type, details: values });
+    setSaveError('');
+    try {
+      await onSave({ type, details: values });
+    } catch(e) {
+      console.error('[RapidAct] handleSave error:', e);
+      setSaveError('Eroare la salvare. Încearcă din nou.');
+    }
     setSaving(false);
   }
 
@@ -452,6 +459,7 @@ function AddAssetSheet({ type = 'car', onClose, onSave }) {
         <PrimaryBtn onClick={handleSave} disabled={!canSave || saving} bg={cfg.color}>
           {saving ? <><SpinnerIcon size={18} /> Se salvează...</> : `Salvează ${cfg.singular}`}
         </PrimaryBtn>
+        {saveError && <p style={{ fontSize: 12, color: '#ef4444', textAlign: 'center', marginTop: 8 }}>{saveError}</p>}
       </div>
     </Overlay>
   );

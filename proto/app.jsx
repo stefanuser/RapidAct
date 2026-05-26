@@ -216,20 +216,28 @@ function App() {
   }
 
   async function addAsset(a) {
-    const { data: { user } } = await window.sb.auth.getUser();
-    if (user) {
-      const d = a.details || {};
-      const nameByType = { car: d.plate || d.make || 'Mașină', property: d.name || 'Proprietate', company: d.name || 'Companie' };
-      const row = {
-        user_id: user.id,
-        type:    a.type,
-        name:    nameByType[a.type] || 'Activ',
-        address: d.address || null,
-        details: d,
-      };
-      const { data, error } = await window.sb.from('assets').insert(row).select().single();
-      if (error) console.error('[RapidAct] Asset insert error:', error);
-      if (data) { setAssets(prev => [data, ...prev]); return data; }
+    try {
+      const { data: { user } } = await window.sb.auth.getUser();
+      if (user) {
+        const d = a.details || {};
+        const nameByType = { car: d.plate || d.make || 'Mașină', property: d.name || 'Proprietate', company: d.name || 'Companie' };
+        const row = {
+          user_id: user.id,
+          type:    a.type,
+          name:    nameByType[a.type] || 'Activ',
+          address: d.address || null,
+          details: d,
+        };
+        const { data, error } = await window.sb.from('assets').insert(row).select().single();
+        if (error) {
+          console.error('[RapidAct] Asset insert error:', error);
+          throw new Error(error.message || 'Insert failed');
+        }
+        if (data) { setAssets(prev => [data, ...prev]); return data; }
+      }
+    } catch(e) {
+      console.error('[RapidAct] addAsset error:', e);
+      throw e; // re-throw so handleSave can catch and show error UI
     }
     // Fallback fără sesiune
     setAssets(prev => [{ ...a, id: Date.now().toString() }, ...prev]);
