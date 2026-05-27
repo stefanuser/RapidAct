@@ -24,13 +24,15 @@ const TEMPLATES = [
       { key: 'firma_reprezentant',  label: 'Reprezentant legal',       source: 'profile',  type: 'text',     required: true },
       { key: 'sofer_nume',          label: 'Nume și prenume șofer',    source: 'ocr',      type: 'text',     required: true },
       { key: 'sofer_cnp',           label: 'CNP',                      source: 'ocr',      type: 'text',     required: true },
-      { key: 'sofer_ci_serie',      label: 'Serie CI',                 source: 'ocr',      type: 'text',     required: true, placeholder: 'ex. RX' },
-      { key: 'sofer_ci_nr',         label: 'Număr CI',                 source: 'ocr',      type: 'text',     required: true, placeholder: 'ex. 123456' },
-      { key: 'sofer_adresa',        label: 'Adresă domiciliu',         source: 'ocr',      type: 'text',     required: true },
-      { key: 'sofer_data_nastere',  label: 'Data nașterii',            source: 'ocr',      type: 'text',     required: true,  placeholder: 'ex. 26/02/1984' },
-      { key: 'permis_nr',           label: 'Nr. permis conducere',     source: 'ocr',      type: 'text',     required: false, placeholder: 'ex. IO0299449F' },
-      { key: 'permis_categorii',    label: 'Categorii permis',         source: 'ocr',      type: 'text',     required: false, placeholder: 'ex. B, BE' },
-      { key: 'permis_expirare',     label: 'Permis valabil până',      source: 'ocr',      type: 'text',     required: false, placeholder: 'ex. 15/03/2030' },
+      { key: 'sofer_ci_serie',         label: 'Serie CI',                  source: 'ocr',    type: 'text',  required: true,  placeholder: 'ex. RX' },
+      { key: 'sofer_ci_nr',           label: 'Număr CI',                  source: 'ocr',    type: 'text',  required: true,  placeholder: 'ex. 123456' },
+      { key: 'sofer_ci_valabilitate', label: 'CI valabilă până',          source: 'ocr',    type: 'text',  required: false, placeholder: 'ex. 15/06/2035' },
+      { key: 'sofer_adresa',          label: 'Adresă domiciliu',          source: 'manual', type: 'text',  required: false, placeholder: 'Stradă, număr, localitate (completare manuală)' },
+      { key: 'sofer_data_nastere',    label: 'Data nașterii',             source: 'ocr',    type: 'text',  required: true,  placeholder: 'ex. 26/02/1984' },
+      { key: 'permis_serie',          label: 'Serie permis',              source: 'ocr',    type: 'text',  required: false, placeholder: 'ex. B' },
+      { key: 'permis_nr',             label: 'Nr. permis conducere',      source: 'ocr',    type: 'text',  required: false, placeholder: 'ex. IO0299449F' },
+      { key: 'permis_categorii',      label: 'Categorii permis',          source: 'ocr',    type: 'text',  required: false, placeholder: 'ex. B, BE' },
+      { key: 'permis_expirare',       label: 'Permis valabil până',       source: 'ocr',    type: 'text',  required: false, placeholder: 'ex. 15/03/2030' },
       { key: 'masina_marca',        label: 'Marcă',                    source: 'manual',   type: 'text',     required: true, placeholder: 'ex. Dacia' },
       { key: 'masina_model',        label: 'Model',                    source: 'manual',   type: 'text',     required: true, placeholder: 'ex. Logan' },
       { key: 'masina_an',           label: 'An fabricație',            source: 'manual',   type: 'text',     required: true, placeholder: 'ex. 2022' },
@@ -62,13 +64,32 @@ const TEMPLATES = [
 // ─── Utilities ────────────────────────────────────────────────────────────────
 function toRoDate(s) {
   if (!s) return '';
+  // Filtrare placeholder-uri (DD/MM/YYYY, dd.mm.aaaa etc.)
   if (/^[Dd]{2}[.\/-][Mm]{2}[.\/-][Yy]{4}$/.test(s)) return '';
   if (/^[Yy]{4}[.-][Mm]{2}[.-][Dd]{2}$/.test(s)) return '';
+  if (/^dd\.mm\.(yyyy|aaaa)$/i.test(s)) return '';
+  // DD.MM.YYYY → DD/MM/YYYY
   const dotFmt = s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
   if (dotFmt) return `${dotFmt[1]}/${dotFmt[2]}/${dotFmt[3]}`;
+  // ISO YYYY-MM-DD → DD/MM/YYYY
   const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  // DD-MM-YYYY → DD/MM/YYYY
+  const dashFmt = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (dashFmt) return `${dashFmt[1]}/${dashFmt[2]}/${dashFmt[3]}`;
+  // Deja DD/MM/YYYY — returnează ca atare
   return s;
+}
+
+// H3 — Validare CNP românesc (13 cifre + cifră de control)
+function validateCnp(cnp) {
+  if (!cnp || !/^\d{13}$/.test(cnp)) return false;
+  const weights = [2, 7, 9, 1, 4, 6, 3, 5, 8, 2, 7, 9];
+  let sum = 0;
+  for (let i = 0; i < 12; i++) sum += parseInt(cnp[i]) * weights[i];
+  const ctrl = sum % 11;
+  const check = ctrl < 10 ? ctrl : 1;
+  return check === parseInt(cnp[12]);
 }
 
 async function compressImage(file) {
@@ -137,8 +158,8 @@ const DOC_FIELD_LABELS = {
   sofer_ci_serie: 'Serie CI', sofer_ci_nr: 'Nr. CI',
   sofer_data_nastere: 'Data nașterii', sofer_ci_valabilitate: 'CI valabilă până',
   // Permis
-  permis_titular: 'Titular permis', permis_data_nastere: 'Data nașterii',
-  permis_nr: 'Nr. permis', permis_serie: 'Serie permis',
+  permis_titular: 'Titular permis', permis_data_nastere: 'Dată naștere (permis)',
+  permis_serie: 'Serie permis', permis_nr: 'Nr. permis',
   permis_categorii: 'Categorii', permis_expirare: 'Permis valabil până',
   // Firmă
   client_firma: 'Firmă', client_cui: 'CUI',
@@ -269,7 +290,7 @@ function DocCard({ doc, data, scanning, cuiVal, onCuiChange, onScanFile, onLooku
             placeholder="ex. RO12345678"
             style={{ flex: 1, padding: '10px 12px', border: '1.5px solid #e2e8f0', borderRadius: 10, background: '#f8fafc', outline: 'none', fontSize: 14, fontFamily: 'inherit' }}
           />
-          <button onClick={onLookupAnaf} disabled={cuiVal.replace(/\D/g, '').length < 5} style={{ padding: '10px 14px', borderRadius: 10, border: 'none', background: cuiVal.replace(/\D/g, '').length < 5 ? '#cbd5e1' : '#2563eb', color: '#fff', fontWeight: 700, fontSize: 13, cursor: cuiVal.replace(/\D/g, '').length < 5 ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+          <button onClick={onLookupAnaf} disabled={cuiVal.replace(/\D/g, '').length < 6} style={{ padding: '10px 14px', borderRadius: 10, border: 'none', background: cuiVal.replace(/\D/g, '').length < 6 ? '#cbd5e1' : '#2563eb', color: '#fff', fontWeight: 700, fontSize: 13, cursor: cuiVal.replace(/\D/g, '').length < 6 ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
             🔍 ANAF
           </button>
         </div>
@@ -312,11 +333,13 @@ function StepScan({ onDone }) {
   }
 
   async function lookupAnaf(doc) {
-    if (cui.replace(/\D/g, '').length < 5) return;
+    if (cui.replace(/\D/g, '').length < 6) return;
     setScanning(doc.id);
     setCuiLoading(true);
     try {
-      const res  = await fetch(`https://wfresisyrlrawquzwlrs.supabase.co/functions/v1/anaf-lookup?cui=${encodeURIComponent(cui)}`);
+      const { data: { session } } = await window.sb.auth.getSession();
+      const headers = session ? { 'Authorization': `Bearer ${session.access_token}` } : {};
+      const res  = await fetch(`https://wfresisyrlrawquzwlrs.supabase.co/functions/v1/anaf-lookup?cui=${encodeURIComponent(cui)}`, { headers });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Eroare ANAF');
       const values = {
@@ -402,10 +425,10 @@ reprezentată prin ${fill('firma_reprezentant')},
 
 LOCATAR (Șoferul):
 ${fill('sofer_nume')}, CNP ${fill('sofer_cnp')},
-CI seria ${fill('sofer_ci_serie')} nr. ${fill('sofer_ci_nr')},
+CI seria ${fill('sofer_ci_serie')} nr. ${fill('sofer_ci_nr')}, valabilă: ${fill('sofer_ci_valabilitate')},
 domiciliu: ${fill('sofer_adresa')},
 data nașterii: ${fill('sofer_data_nastere')},
-permis conducere: ${fill('permis_nr')}, categorii: ${fill('permis_categorii')}, valabil: ${fill('permis_expirare')},
+permis conducere seria ${fill('permis_serie')} nr. ${fill('permis_nr')}, categorii: ${fill('permis_categorii')}, valabil: ${fill('permis_expirare')},
 
 II. OBIECTUL CONTRACTULUI
 
@@ -942,6 +965,16 @@ function StepForm({ template, ocrValues, ocrConfidence, profileValues, onDone, a
   const ocrFieldsCI     = template.fields.filter(f => f.source === 'ocr' && !f.key.startsWith('permis_'));
   const ocrFieldsPermis = template.fields.filter(f => f.source === 'ocr' &&  f.key.startsWith('permis_'));
   const manualFields    = template.fields.filter(f => f.source === 'manual');
+
+  // H1 — cross-check titular permis vs CI (date afișate pentru verificare umană, NU în contract)
+  const permisVerifItems = [
+    ocrValues?.permis_titular     && { label: 'Titular permis',   value: ocrValues.permis_titular },
+    ocrValues?.permis_data_nastere && { label: 'Data nașterii (permis)', value: ocrValues.permis_data_nastere },
+  ].filter(Boolean);
+
+  // H3 — warning CNP invalid (non-blocking)
+  const cnpVal = values.sofer_cnp || '';
+  const cnpInvalid = cnpVal.length > 0 && !validateCnp(cnpVal);
   const carAssets       = (assets || []).filter(a => a.type === 'car');
 
   const groups = [
@@ -960,8 +993,37 @@ function StepForm({ template, ocrValues, ocrConfidence, profileValues, onDone, a
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px 24px' }}>
         {/* OCR sections — CI și Permis separat */}
-        {ocrFieldsCI.length > 0     && <FieldSection title="Date din CI — verifică"     fields={ocrFieldsCI}     values={values} onChange={setField} confidence={ocrConfidence} />}
-        {ocrFieldsPermis.length > 0 && <FieldSection title="Date din Permis — verifică" fields={ocrFieldsPermis} values={values} onChange={setField} confidence={ocrConfidence} />}
+        {ocrFieldsCI.length > 0 && (
+          <>
+            <FieldSection title="Date din CI — verifică" fields={ocrFieldsCI} values={values} onChange={setField} confidence={ocrConfidence} />
+            {/* H3 — warning CNP invalid */}
+            {cnpInvalid && (
+              <div style={{ marginTop: -16, marginBottom: 16, background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: 8, padding: '8px 12px', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 14, flexShrink: 0 }}>⚠️</span>
+                <p style={{ fontSize: 12, color: '#92400e', lineHeight: 1.5 }}>CNP-ul pare invalid (cifră de control greșită). Verifică manual înainte de a genera contractul.</p>
+              </div>
+            )}
+          </>
+        )}
+        {ocrFieldsPermis.length > 0 && (
+          <>
+            <FieldSection title="Date din Permis — verifică" fields={ocrFieldsPermis} values={values} onChange={setField} confidence={ocrConfidence} />
+            {/* H1 — cross-check titular permis vs CI */}
+            {permisVerifItems.length > 0 && (
+              <div style={{ marginTop: -16, marginBottom: 16, background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '8px 12px' }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#1e40af', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>🔍 Verificare cruce — titularul permisului</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {permisVerifItems.map(item => (
+                    <span key={item.label} style={{ fontSize: 12, color: '#1e3a8a', background: '#dbeafe', borderRadius: 6, padding: '3px 8px', fontWeight: 500 }}>
+                      {item.label}: <strong>{item.value}</strong>
+                    </span>
+                  ))}
+                </div>
+                <p style={{ fontSize: 11, color: '#3b82f6', marginTop: 5 }}>Confirmă că permisul aparține persoanei din CI.</p>
+              </div>
+            )}
+          </>
+        )}
 
         {/* Asset quick-select for rentacar template */}
         {template.id === 'rentacar-standard' && (
@@ -1062,7 +1124,7 @@ function FieldSection({ title, fields, values, onChange, confidence, compact }) 
 }
 
 // ─── Step 4: Preview ──────────────────────────────────────────────────────────
-function StepPreview({ template, values, onGenerate, generating, profile, navigate, skipSig, onSkipSig }) {
+function StepPreview({ template, values, onGenerate, generating, pdfError, profile, navigate, skipSig, onSkipSig }) {
   const body = buildContractBody(template, values);
   const sig = profile?.signature;
   return (
@@ -1110,7 +1172,9 @@ function StepPreview({ template, values, onGenerate, generating, profile, naviga
                 Pe contract va apărea o linie goală în locul semnăturii. Adaugă semnătura din Profil → Semnătura mea.
               </p>
               {navigate && (
-                <button onClick={() => navigate('settings')} style={{ background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                <button onClick={() => {
+                  if (window.confirm('Navigând la Setări vei pierde progresul contractului curent.\nContinui?')) navigate('settings');
+                }} style={{ background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
                   Adaugă →
                 </button>
               )}
@@ -1119,10 +1183,22 @@ function StepPreview({ template, values, onGenerate, generating, profile, naviga
         </div>
       </div>
       <div style={{ borderTop: '1px solid #e2e8f0', background: '#fff', padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {/* H5 — eroare generare PDF */}
+        {pdfError && (
+          <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 8, padding: '8px 12px', display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 4 }}>
+            <span style={{ fontSize: 14, flexShrink: 0 }}>⚠️</span>
+            <div>
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#dc2626' }}>Eroare la generare PDF</p>
+              <p style={{ fontSize: 11, color: '#ef4444', marginTop: 2 }}>{pdfError}</p>
+            </div>
+          </div>
+        )}
         <PrimaryBtn onClick={onGenerate} disabled={generating} bg="#10b981">
           {generating
             ? <><SpinnerIcon size={18} /> Se generează PDF...</>
-            : <><FileTextIcon size={18} /> Generează PDF</>}
+            : pdfError
+              ? <><FileTextIcon size={18} /> Reîncearcă generarea</>
+              : <><FileTextIcon size={18} /> Generează PDF</>}
         </PrimaryBtn>
         <p style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8' }}>PDF-ul va fi salvat în istoricul contractelor</p>
       </div>
@@ -1197,6 +1273,7 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
   const [ocr, setOcr]             = React.useState({ values: {}, confidence: {} });
   const [formValues, setFormValues] = React.useState({});
   const [generating, setGenerating] = React.useState(false);
+  const [pdfError, setPdfError]   = React.useState('');
   const [done, setDone]           = React.useState(false);
   const [skipSig, setSkipSig]     = React.useState(false);
   const [pdfBlob, setPdfBlob]     = React.useState(null);
@@ -1210,7 +1287,7 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
     firma_adresa:       profile.firm_address,
     firma_reg:          profile.firm_reg,
     firma_reprezentant: profile.legal_rep,
-    data_contract:      new Date().toISOString().split('T')[0],
+    data_contract: (() => { const n = new Date(); return `${String(n.getDate()).padStart(2,'0')}/${String(n.getMonth()+1).padStart(2,'0')}/${n.getFullYear()}`; })(),
   };
 
   function goBack() {
@@ -1318,6 +1395,7 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
       setDone(true);
     } catch (err) {
       console.error('PDF generation error:', err);
+      setPdfError(err.message || 'Eroare la generarea PDF. Încearcă din nou.');
     } finally {
       setGenerating(false);
     }
@@ -1368,7 +1446,7 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
           onDone={v => { setFormValues(v); setStepIdx(3); }}
         />
       ) : step === 'preview' && template ? (
-        <StepPreview template={template} values={formValues} onGenerate={handleGenerate} generating={generating} profile={profile} navigate={navigate} skipSig={skipSig} onSkipSig={setSkipSig} />
+        <StepPreview template={template} values={formValues} onGenerate={handleGenerate} generating={generating} pdfError={pdfError} profile={profile} navigate={navigate} skipSig={skipSig} onSkipSig={setSkipSig} />
       ) : null}
     </AppFrame>
   );

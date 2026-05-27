@@ -100,32 +100,52 @@ function App() {
   const [assets, setAssets]         = React.useState([]);
   const [showTweaks, setShowTweaks] = React.useState(false);
 
+  // H11 — guard race condition getSession + onAuthStateChange
+  const sessionInitialized = React.useRef(false);
+
   async function loadProfile(userId, userEmail) {
-    const { data } = await window.sb.from('profiles').select('*').eq('id', userId).single();
-    if (data) {
-      setProfile({ ...EMPTY_PROFILE, ...data });
-      return true;
+    try {
+      const { data, error } = await window.sb.from('profiles').select('*').eq('id', userId).single();
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows (profil nou)
+      if (data) {
+        setProfile({ ...EMPTY_PROFILE, ...data });
+        return true;
+      }
+      setProfile(p => ({ ...p, email: userEmail }));
+      return false;
+    } catch (err) {
+      console.error('[RapidAct] loadProfile error:', err);
+      setProfile(p => ({ ...p, email: userEmail }));
+      return false;
     }
-    setProfile(p => ({ ...p, email: userEmail }));
-    return false;
   }
 
   async function loadContracts(userId) {
-    const { data } = await window.sb
-      .from('contracts')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-    if (data) setContracts(data);
+    try {
+      const { data, error } = await window.sb
+        .from('contracts')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      if (data) setContracts(data);
+    } catch (err) {
+      console.error('[RapidAct] loadContracts error:', err);
+    }
   }
 
   async function loadAssets(userId) {
-    const { data } = await window.sb
-      .from('assets')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-    if (data) setAssets(data);
+    try {
+      const { data, error } = await window.sb
+        .from('assets')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      if (data) setAssets(data);
+    } catch (err) {
+      console.error('[RapidAct] loadAssets error:', err);
+    }
   }
 
   React.useEffect(() => {
@@ -137,8 +157,15 @@ function App() {
     window.addEventListener('message', onMsg);
     window.parent.postMessage({ type: '__edit_mode_available' }, '*');
 
+    // H9 — fallback timeout: dacă Supabase pică, nu rămâne pe loading infinit
+    const loadingTimeout = setTimeout(() => {
+      setScreen(prev => prev === 'loading' ? 'landing' : prev);
+    }, 8000);
+
     // Verifică sesiunea existentă la mount
     window.sb.auth.getSession().then(async ({ data: { session } }) => {
+      clearTimeout(loadingTimeout);
+      sessionInitialized.current = true;
       if (session) {
         const [hasProfile] = await Promise.all([
           loadProfile(session.user.id, session.user.email),
@@ -149,11 +176,17 @@ function App() {
       } else {
         setScreen('landing');
       }
+    }).catch(err => {
+      console.error('[RapidAct] getSession error:', err);
+      clearTimeout(loadingTimeout);
+      setScreen('landing');
     });
 
     // Ascultă schimbări de auth (login / logout)
     const { data: { subscription } } = window.sb.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
+        // H11 — skip dacă getSession a inițializat deja sesiunea
+        if (sessionInitialized.current) { sessionInitialized.current = false; return; }
         const [hasProfile] = await Promise.all([
           loadProfile(session.user.id, session.user.email),
           loadContracts(session.user.id),
@@ -162,6 +195,7 @@ function App() {
         setScreen(hasProfile ? 'dashboard' : 'onboarding');
       }
       if (event === 'SIGNED_OUT') {
+        sessionInitialized.current = false;
         setProfile(EMPTY_PROFILE);
         setContracts([]);
         setAssets([]);
@@ -299,19 +333,22 @@ function App() {
         </div>
       )}
 
-      <button onClick={() => setShowTweaks(!showTweaks)} title="Tweaks" style={{
-        position: 'fixed', bottom: 80, right: 'calc(50% - 230px)',
-        width: 40, height: 40, borderRadius: '50%',
-        background: '#0f172a', color: '#fff', border: 'none',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.25)', cursor: 'pointer', zIndex: 50,
-        transition: 'transform 0.15s',
-      }}
-        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
-        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-      >
-        <GearIcon size={18} />
-      </button>
+      {/* B1 — TweaksPanel vizibil doar în iframe (preview/dev), ascuns în producție */}
+      {window !== window.parent && (
+        <button onClick={() => setShowTweaks(!showTweaks)} title="Tweaks" style={{
+          position: 'fixed', bottom: 80, right: 'calc(50% - 230px)',
+          width: 40, height: 40, borderRadius: '50%',
+          background: '#0f172a', color: '#fff', border: 'none',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.25)', cursor: 'pointer', zIndex: 50,
+          transition: 'transform 0.15s',
+        }}
+          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
+          onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          <GearIcon size={18} />
+        </button>
+      )}
     </div>
   );
 }

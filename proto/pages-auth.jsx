@@ -101,7 +101,7 @@ function LandingScreen({ navigate }) {
 
 // ─── Login ────────────────────────────────────────────────────────────────────
 function LoginScreen({ navigate }) {
-  const [email, setEmail] = React.useState('contact@autolux.ro');
+  const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [showPw, setShowPw] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
@@ -110,6 +110,7 @@ function LoginScreen({ navigate }) {
   async function handleLogin(e) {
     e.preventDefault();
     if (!email || !password) { setError('Completează toate câmpurile.'); return; }
+    if (!email.includes('@') || !email.includes('.')) { setError('Adresa de email nu este validă.'); return; }
     setError(''); setLoading(true);
     const { error } = await window.sb.auth.signInWithPassword({ email, password });
     setLoading(false);
@@ -166,19 +167,21 @@ function RegisterScreen({ navigate }) {
   const [showPw, setShowPw] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
+  const [infoMsg, setInfoMsg] = React.useState('');
 
   async function handleRegister(e) {
     e.preventDefault();
     if (!email || !password) { setError('Completează toate câmpurile.'); return; }
+    if (!email.includes('@') || !email.includes('.')) { setError('Adresa de email nu este validă.'); return; }
     if (password !== confirm) { setError('Parolele nu coincid.'); return; }
     if (password.length < 6) { setError('Parola trebuie să aibă minim 6 caractere.'); return; }
-    setError(''); setLoading(true);
+    setError(''); setInfoMsg(''); setLoading(true);
     const { data, error } = await window.sb.auth.signUp({ email, password });
     setLoading(false);
     if (error) { setError(error.message); return; }
     // Dacă e confirmare email necesară, sesiunea e null
     if (!data.session) {
-      setError('✉️ Verifică emailul pentru confirmare, apoi conectează-te.');
+      setInfoMsg('✉️ Verifică emailul pentru confirmare, apoi conectează-te.');
       return;
     }
     navigate('onboarding');
@@ -211,7 +214,8 @@ function RegisterScreen({ navigate }) {
             <FocusInput type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repetă parola" />
           </div>
 
-          {error && <p style={{ color: '#ef4444', fontSize: 13, textAlign: 'center' }}>{error}</p>}
+          {error   && <p style={{ color: '#ef4444', fontSize: 13, textAlign: 'center' }}>{error}</p>}
+          {infoMsg && <p style={{ color: '#2563eb', fontSize: 13, textAlign: 'center', background: '#eff6ff', borderRadius: 8, padding: '10px 12px', lineHeight: 1.5 }}>{infoMsg}</p>}
 
           <PrimaryBtn disabled={loading} style={{ marginTop: 4 }}>
             {loading ? <><SpinnerIcon size={18} /> Se creează contul...</> : 'Creează cont gratuit'}

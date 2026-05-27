@@ -884,14 +884,20 @@ function DatePersonaleScreen({ navigate, profile, setProfile }) {
   }
 
   async function handleSave() {
-    setProfile(p => ({ ...p, ...data }));
-    setSaved(true);
-    const { data: { user } } = await window.sb.auth.getUser();
-    if (user) {
-      await window.sb.from('profiles').update({ ...data, updated_at: new Date().toISOString() }).eq('id', user.id);
+    try {
+      const { data: { user } } = await window.sb.auth.getUser();
+      if (user) {
+        const { error } = await window.sb.from('profiles').update({ ...data, updated_at: new Date().toISOString() }).eq('id', user.id);
+        if (error) throw error;
+      }
+      setProfile(p => ({ ...p, ...data }));
+      setSaved(true);
+      setToast('Datele au fost salvate ✓');
+    } catch (err) {
+      setToast('⚠️ Eroare la salvare: ' + (err.message || 'Încearcă din nou'));
+    } finally {
+      setTimeout(() => setToast(''), 2500);
     }
-    setToast('Datele au fost salvate');
-    setTimeout(() => setToast(''), 2500);
   }
 
   return (

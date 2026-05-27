@@ -29,11 +29,13 @@ function DateFirmaScreen({ navigate, profile, setProfile }) {
   }
 
   async function lookupAnaf() {
-    if ((data.firm_cui || '').replace(/\D/g, '').length < 5) return;
+    if ((data.firm_cui || '').replace(/\D/g, '').length < 6) return;
     setAnaf(true);
     setFresh(false);
     try {
-      const res  = await fetch(`${ANAF_ENDPOINT}?cui=${encodeURIComponent(data.firm_cui)}`);
+      const { data: { session } } = await window.sb.auth.getSession();
+      const headers = session ? { 'Authorization': `Bearer ${session.access_token}` } : {};
+      const res  = await fetch(`${ANAF_ENDPOINT}?cui=${encodeURIComponent(data.firm_cui)}`, { headers });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Eroare ANAF');
       setData(p => ({ ...p, firm_name: json.firm_name, firm_cui: json.firm_cui, firm_address: json.firm_address, firm_reg: json.firm_reg }));
@@ -49,18 +51,23 @@ function DateFirmaScreen({ navigate, profile, setProfile }) {
   }
 
   async function handleSave() {
-    setProfile(p => ({ ...p, ...data }));
-    setSaved(true);
-    // Sync to DB
-    const { data: { user } } = await window.sb.auth.getUser();
-    if (user) {
-      await window.sb.from('profiles').update({ ...data, updated_at: new Date().toISOString() }).eq('id', user.id);
+    try {
+      const { data: { user } } = await window.sb.auth.getUser();
+      if (user) {
+        const { error } = await window.sb.from('profiles').update({ ...data, updated_at: new Date().toISOString() }).eq('id', user.id);
+        if (error) throw error;
+      }
+      setProfile(p => ({ ...p, ...data }));
+      setSaved(true);
+      setToast('Datele au fost salvate ✓');
+    } catch (err) {
+      setToast('⚠️ Eroare la salvare: ' + (err.message || 'Încearcă din nou'));
+    } finally {
+      setTimeout(() => setToast(''), 2500);
     }
-    setToast('Datele au fost salvate');
-    setTimeout(() => setToast(''), 2500);
   }
 
-  const cuiValid = (data.firm_cui || '').replace(/\D/g, '').length >= 5;
+  const cuiValid = (data.firm_cui || '').replace(/\D/g, '').length >= 6;
   const hasData  = data.firm_name && data.firm_cui;
 
   return (
