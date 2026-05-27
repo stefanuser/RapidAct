@@ -300,10 +300,10 @@ function DocCard({ doc, data, scanning, cuiVal, onCuiChange, onScanFile, onLooku
 }
 
 // ─── Step 2: Scan — un singur ecran, toate documentele odată ──────────────────
-function StepScan({ onDone }) {
-  const [scanned, setScanned]       = React.useState({});   // { docId: { values, confidence } | { error } }
+function StepScan({ onDone, initialScanned, initialCui }) {
+  const [scanned, setScanned]       = React.useState(initialScanned || {});   // { docId: { values, confidence } | { error } }
   const [scanning, setScanning]     = React.useState(null); // docId scanat curent
-  const [cui, setCui]               = React.useState('');
+  const [cui, setCui]               = React.useState(initialCui || '');
   const [cuiLoading, setCuiLoading] = React.useState(false);
 
   const hasAny = Object.values(scanned).some(s => Object.keys(s.values || {}).length > 0);
@@ -371,7 +371,8 @@ function StepScan({ onDone }) {
       Object.assign(allValues, s.values    || {});
       Object.assign(allConf,  s.confidence || {});
     });
-    onDone({ values: allValues, confidence: allConf });
+    // Returnăm și starea per-doc + cui pentru a putea reface UI-ul când userul navighează înapoi
+    onDone({ values: allValues, confidence: allConf, scanned, cui });
   }
 
   const scannedCount = Object.keys(scanned).filter(id => Object.keys(scanned[id].values || {}).length > 0).length;
@@ -931,8 +932,13 @@ function LoadingBar() {
 }
 
 // ─── Step 3: Form ─────────────────────────────────────────────────────────────
-function StepForm({ template, ocrValues, ocrConfidence, profileValues, onDone, assets }) {
-  const [values, setValues] = React.useState({ ...profileValues, ...ocrValues });
+function StepForm({ template, ocrValues, ocrConfidence, profileValues, savedValues, onDone, assets }) {
+  // Dacă userul a navigat înapoi de la preview, restaurăm valorile editate anterior
+  const [values, setValues] = React.useState(() =>
+    (savedValues && Object.keys(savedValues).length > 0)
+      ? { ...savedValues }
+      : { ...profileValues, ...ocrValues }
+  );
   const [showAssetPicker, setShowAssetPicker] = React.useState(false);
   const [selectedAsset, setSelectedAsset] = React.useState(null);
   const AssetPickerSheet = window.AssetPickerSheet;
@@ -1273,6 +1279,9 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
   const [stepIdx, setStepIdx]     = React.useState(0);
   const [template, setTemplate]   = React.useState(null);
   const [ocr, setOcr]             = React.useState({ values: {}, confidence: {} });
+  // B6 — Stare OCR per-doc (ID → { values, confidence, error }) și CUI, ridicate din StepScan
+  const [scanDocs, setScanDocs]   = React.useState({});
+  const [scanCui, setScanCui]     = React.useState('');
   const [formValues, setFormValues] = React.useState({});
   const [generating, setGenerating] = React.useState(false);
   const [pdfError, setPdfError]   = React.useState('');
@@ -1293,8 +1302,15 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
   };
 
   function goBack() {
-    if (stepIdx === 0) navigate('dashboard');
-    else setStepIdx(i => i - 1);
+    if (stepIdx === 0) {
+      navigate('dashboard');
+    } else {
+      // B6 — Dacă userul se întoarce de la formular la scan, resetăm valorile formularului
+      // astfel la re-scanare câmpurile se pre-completează din nou din OCR + profil.
+      // Dacă se întoarce de la preview la formular, formValues se PĂSTREAZĂ (init via savedValues).
+      if (stepIdx === 2) setFormValues({});
+      setStepIdx(i => i - 1);
+    }
   }
 
   async function handleGenerate() {
@@ -1406,6 +1422,7 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
   function reset() {
     setStepIdx(0); setTemplate(null);
     setOcr({ values: {}, confidence: {} });
+    setScanDocs({}); setScanCui('');
     setFormValues({}); setDone(false); setSkipSig(false);
     setPdfBlob(null); setPdfFilename('');
   }
@@ -1437,13 +1454,18 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
       ) : step === 'template' ? (
         <StepTemplate onSelect={t => { setTemplate(t); setStepIdx(1); }} />
       ) : step === 'scan' ? (
-        <StepScan onDone={o => { setOcr(o); setStepIdx(2); }} />
+        <StepScan
+          onDone={o => { setOcr({ values: o.values, confidence: o.confidence }); setScanDocs(o.scanned); setScanCui(o.cui); setStepIdx(2); }}
+          initialScanned={scanDocs}
+          initialCui={scanCui}
+        />
       ) : step === 'form' && template ? (
         <StepForm
           template={template}
           ocrValues={ocr.values}
           ocrConfidence={ocr.confidence}
           profileValues={profileValues}
+          savedValues={formValues}
           assets={assets}
           onDone={v => { setFormValues(v); setStepIdx(3); }}
         />
