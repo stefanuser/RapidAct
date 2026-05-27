@@ -712,16 +712,17 @@ function SignatureSheet({ current, onSave, onClose }) {
 
 // ─── Contract Detail Sheet ────────────────────────────────────────────────────
 function ContractDetailSheet({ contract: c, onClose }) {
-  const [emailStep, setEmailStep]   = React.useState('idle'); // idle | form | sending | sent
-  const [emailAddr, setEmailAddr]   = React.useState('');
+  const [emailStep, setEmailStep]     = React.useState('idle'); // idle | form | sent
+  const [emailAddr, setEmailAddr]     = React.useState('');
   const [downloading, setDownloading] = React.useState(false);
-  const [downloaded, setDownloaded] = React.useState(false);
+  const [downloaded, setDownloaded]   = React.useState(false);
+  const [dlToast, setDlToast]         = React.useState('');
   const name = c.parties?.[0]?.name ?? '—';
   const date = new Date(c.created_at).toLocaleDateString('ro-RO', { day: 'numeric', month: 'long', year: 'numeric' });
 
   async function handleDownload() {
+    // 1. Contract salvat cu URL real (Supabase Storage)
     if (c.pdf_url) {
-      // Contract real — deschide/descarcă fișierul
       const a = document.createElement('a');
       a.href = c.pdf_url;
       a.download = c.file_name || `${c.template_name}.pdf`;
@@ -730,10 +731,84 @@ function ContractDetailSheet({ contract: c, onClose }) {
       setDownloaded(true);
       return;
     }
+
+    // 2. Regenerare PDF din câmpuri salvate (pdf_url e null la contractele curente)
+    const fields = c.fields;
+    if (!fields || Object.keys(fields).length === 0) {
+      setDlToast('⚠️ PDF indisponibil — contractul nu conține câmpuri salvate');
+      setTimeout(() => setDlToast(''), 3000);
+      return;
+    }
+
     setDownloading(true);
-    await new Promise(r => setTimeout(r, 1000));
-    setDownloading(false);
-    setDownloaded(true);
+    try {
+      const buildBody = window.buildContractBody;
+      if (!buildBody) throw new Error('buildContractBody nedisponibil');
+
+      // Folosim template-ul din TEMPLATES_MAP sau unul minim
+      const tplMap = window.TEMPLATES_MAP || {};
+      const tpl = tplMap[c.template_name] || { name: c.template_name, fields: [] };
+      const contractBody = buildBody(tpl, fields);
+
+      const { PDFDocument, rgb } = window.PDFLib;
+      const fontBytes = await fetch('./assets/fonts/NotoSans-Regular.ttf').then(r => r.arrayBuffer());
+      const pdfDoc = await PDFDocument.create();
+      pdfDoc.registerFontkit(window.fontkit);
+      const font = await pdfDoc.embedFont(fontBytes);
+
+      const PW = 595.28, PH = 841.89, MX = 51, MY = 45, FS = 9.5, LH = FS * 1.55;
+      const TW = PW - MX * 2;
+
+      function wrapText(text, maxW) {
+        if (!text.trim()) return [''];
+        const words = text.split(' ');
+        const lines = [];
+        let cur = '';
+        for (const w of words) {
+          const candidate = cur ? cur + ' ' + w : w;
+          if (font.widthOfTextAtSize(candidate, FS) <= maxW) { cur = candidate; }
+          else { if (cur) lines.push(cur); cur = w; }
+        }
+        if (cur) lines.push(cur);
+        return lines.length ? lines : [''];
+      }
+
+      let page = pdfDoc.addPage([PW, PH]);
+      let y = PH - MY;
+
+      page.drawText('RapidAct.ro', { x: MX, y, font, size: 14, color: rgb(0.145, 0.388, 0.922) });
+      const hd = 'Generat: ' + new Date().toLocaleDateString('ro-RO');
+      page.drawText(hd, { x: PW - MX - font.widthOfTextAtSize(hd, 8), y, font, size: 8, color: rgb(0.39, 0.455, 0.545) });
+      y -= 8;
+      page.drawLine({ start: { x: MX, y }, end: { x: PW - MX, y }, thickness: 0.4, color: rgb(0.145, 0.388, 0.922) });
+      y -= 20;
+
+      for (const rawLine of contractBody.split('\n')) {
+        for (const wl of wrapText(rawLine, TW)) {
+          if (y < MY) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
+          if (wl) page.drawText(wl, { x: MX, y, font, size: FS, color: rgb(0, 0, 0) });
+          y -= LH;
+        }
+      }
+
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const tipClean = (c.template_name || 'Contract').replace(/\s+/g,'').replace(/[ăâ]/gi,'a').replace(/[îÎ]/g,'i').replace(/[șşȘ]/g,'s').replace(/[țţȚ]/g,'t');
+      const lastName = (name || '').split(' ').slice(-1)[0];
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${tipClean}_${lastName}_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      setDownloaded(true);
+    } catch (err) {
+      console.error('[RapidAct] PDF regen error:', err);
+      setDlToast('⚠️ Eroare la generarea PDF. Încearcă din nou.');
+      setTimeout(() => setDlToast(''), 3000);
+    } finally {
+      setDownloading(false);
+    }
   }
 
   function handleSendEmail() {
@@ -741,10 +816,14 @@ function ContractDetailSheet({ contract: c, onClose }) {
     const body = encodeURIComponent(
       `Bună ziua,\n\nVă transmitem contractul dumneavoastră.\n\nDetalii contract:\n` +
       `• Tip: ${c.template_name}\n• Client: ${name}\n• Data: ${date}\n\n` +
-      `⚠️ Vă rugăm să atașați fișierul PDF la acest email înainte de a-l trimite.\n\n` +
-      `Cu stimă`
+      `⚠️ Vă rugăm să atașați fișierul PDF la acest email înainte de a-l trimite.\n\nCu stimă`
     );
-    window.location.href = `mailto:${emailAddr}?subject=${subject}&body=${body}`;
+    // Deschide clientul de email local (mailto:) prin click pe anchor
+    const a = document.createElement('a');
+    a.href = `mailto:${emailAddr}?subject=${subject}&body=${body}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
     setEmailStep('sent');
   }
 
@@ -829,6 +908,13 @@ function ContractDetailSheet({ contract: c, onClose }) {
 
           <button onClick={onClose} style={{ border: 'none', background: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer', padding: '4px', marginTop: 2 }}>Închide</button>
         </div>
+
+        {/* Toast descărcare eroare — sus, centrat */}
+        {dlToast && (
+          <div className="fade-in" style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 400, background: '#1e293b', color: '#fff', padding: '10px 18px', borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.3)', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
+            ⚠️ {dlToast.slice(3)}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -974,8 +1060,8 @@ function DatePersonaleScreen({ navigate, profile, setProfile }) {
 
       {showScan && <ProfileScanSheet onDone={handleOcrDone} onClose={() => setShowScan(false)} />}
       {toast && (
-        <div className="slide-up" style={{ position: 'fixed', bottom: 30, left: '50%', transform: 'translateX(-50%)', zIndex: 300, background: '#0f172a', color: '#fff', padding: '12px 20px', borderRadius: 12, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.35)', fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, maxWidth: 380 }}>
-          <CheckCircleIcon size={18} color="#34d399" /> {toast}
+        <div className="fade-in" style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 300, background: toast.startsWith('⚠️') ? '#1e293b' : '#0f172a', color: '#fff', padding: '10px 18px', borderRadius: 12, boxShadow: '0 4px 20px rgba(15, 23, 42, 0.35)', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, maxWidth: 360, whiteSpace: 'nowrap' }}>
+          {toast.startsWith('⚠️') ? '⚠️' : <CheckCircleIcon size={16} color="#34d399" />} {toast.startsWith('⚠️') ? toast.slice(3) : toast}
         </div>
       )}
     </AppFrame>

@@ -354,10 +354,12 @@ function AddAssetSheet({ type = 'car', onClose, onSave }) {
       if (!res.ok || d.error) {
         setCuiStatus('err');
       } else {
+        // Stochează CUI fără prefixul RO
+        const cuiClean = (d.firm_cui || '').replace(/^RO/i, '').trim() || prev.cui || '';
         setValues(prev => ({
           ...prev,
           name:    d.firm_name    || prev.name    || '',
-          cui:     d.firm_cui     || prev.cui     || '',
+          cui:     cuiClean,
           address: d.firm_address || prev.address || '',
           reg_com: d.firm_reg     || prev.reg_com || '',
         }));

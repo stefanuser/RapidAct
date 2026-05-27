@@ -333,18 +333,20 @@ function StepScan({ onDone }) {
   }
 
   async function lookupAnaf(doc) {
-    if (cui.replace(/\D/g, '').length < 6) return;
+    const rawCui = cui.replace(/^RO/i, '').replace(/\s/g, '').replace(/\D/g, '');
+    if (rawCui.length < 6) return;
     setScanning(doc.id);
     setCuiLoading(true);
     try {
       const { data: { session } } = await window.sb.auth.getSession();
       const headers = session ? { 'Authorization': `Bearer ${session.access_token}` } : {};
-      const res  = await fetch(`https://wfresisyrlrawquzwlrs.supabase.co/functions/v1/anaf-lookup?cui=${encodeURIComponent(cui)}`, { headers });
+      const res  = await fetch(`https://wfresisyrlrawquzwlrs.supabase.co/functions/v1/anaf-lookup?cui=${rawCui}`, { headers });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Eroare ANAF');
+      if (!res.ok || json.error) throw new Error(json.error || `HTTP ${res.status}`);
+      const cuiClean = (json.firm_cui || rawCui).replace(/^RO/i, '').trim();
       const values = {
         client_firma:  json.firm_name    || '',
-        client_cui:    json.firm_cui     || cui,
+        client_cui:    cuiClean,
         client_adresa: json.firm_address || '',
         client_reg:    json.firm_reg     || '',
       };
@@ -1543,5 +1545,9 @@ function ContractTemplatesScreen({ navigate }) {
     </AppFrame>
   );
 }
+
+// Expus global pentru regenerare PDF din arhivă (ContractDetailSheet în pages-main.jsx)
+window.buildContractBody = buildContractBody;
+window.TEMPLATES_MAP = Object.fromEntries(TEMPLATES.map(t => [t.name, t]));
 
 Object.assign(window, { ContractNewScreen, ContractTemplatesScreen });

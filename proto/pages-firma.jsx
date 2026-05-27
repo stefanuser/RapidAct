@@ -29,16 +29,21 @@ function DateFirmaScreen({ navigate, profile, setProfile }) {
   }
 
   async function lookupAnaf() {
-    if ((data.firm_cui || '').replace(/\D/g, '').length < 6) return;
+    // Strip RO prefix și spații înainte de trimitere
+    const rawCui = (data.firm_cui || '').replace(/^RO/i, '').replace(/\s/g, '').replace(/\D/g, '');
+    if (rawCui.length < 6) return;
     setAnaf(true);
     setFresh(false);
     try {
       const { data: { session } } = await window.sb.auth.getSession();
       const headers = session ? { 'Authorization': `Bearer ${session.access_token}` } : {};
-      const res  = await fetch(`${ANAF_ENDPOINT}?cui=${encodeURIComponent(data.firm_cui)}`, { headers });
+      const res  = await fetch(`${ANAF_ENDPOINT}?cui=${rawCui}`, { headers });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Eroare ANAF');
-      setData(p => ({ ...p, firm_name: json.firm_name, firm_cui: json.firm_cui, firm_address: json.firm_address, firm_reg: json.firm_reg }));
+      // Prinde atât erori HTTP cât și erori HTTP 200 cu body error
+      if (!res.ok || json.error) throw new Error(json.error || `HTTP ${res.status}`);
+      // Stochează CUI fără prefixul RO (format numeric pur)
+      const cuiClean = (json.firm_cui || rawCui).replace(/^RO/i, '').trim();
+      setData(p => ({ ...p, firm_name: json.firm_name, firm_cui: cuiClean, firm_address: json.firm_address, firm_reg: json.firm_reg }));
       setFresh(true);
       setSaved(false);
       setToast('Date preluate de la ANAF ✓');
@@ -67,7 +72,7 @@ function DateFirmaScreen({ navigate, profile, setProfile }) {
     }
   }
 
-  const cuiValid = (data.firm_cui || '').replace(/\D/g, '').length >= 6;
+  const cuiValid = (data.firm_cui || '').replace(/^RO/i, '').replace(/\D/g, '').length >= 6;
   const hasData  = data.firm_name && data.firm_cui;
 
   return (
@@ -159,8 +164,8 @@ function DateFirmaScreen({ navigate, profile, setProfile }) {
       </div>
 
       {toast && (
-        <div className="slide-up" style={{ position: 'fixed', bottom: 30, left: '50%', transform: 'translateX(-50%)', zIndex: 300, background: '#0f172a', color: '#fff', padding: '12px 20px', borderRadius: 12, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.35)', fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, maxWidth: 380 }}>
-          <CheckCircleIcon size={18} color="#34d399" /> {toast}
+        <div className="fade-in" style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 300, background: toast.startsWith('⚠️') ? '#1e293b' : '#0f172a', color: '#fff', padding: '10px 18px', borderRadius: 12, boxShadow: '0 4px 20px rgba(15, 23, 42, 0.35)', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, maxWidth: 360, whiteSpace: 'nowrap' }}>
+          {toast.startsWith('⚠️') ? <AlertCircleIcon size={16} color="#fbbf24" /> : <CheckCircleIcon size={16} color="#34d399" />} {toast}
         </div>
       )}
     </AppFrame>
