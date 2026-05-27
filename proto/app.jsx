@@ -233,7 +233,10 @@ function App() {
         created_at:    c.created_at    || new Date().toISOString(),
       };
       const { data, error } = await window.sb.from('contracts').insert(row).select().single();
-      if (error) console.error('[RapidAct] Contract insert error:', error);
+      if (error) {
+        console.error('[RapidAct] Contract insert error:', error);
+        throw new Error(error.message || 'Eroare la salvarea contractului în baza de date.');
+      }
       if (data) {
         setContracts(prev => [data, ...prev]);
         const newUsed = (profile.contracts_used || 0) + 1;
@@ -245,8 +248,10 @@ function App() {
         return data;
       }
     }
-    // Fallback fără sesiune
-    setContracts(prev => [{ ...c, id: Date.now().toString() }, ...prev]);
+    // Fallback fără sesiune (utilizator neautentificat)
+    const localContract = { ...c, id: Date.now().toString() };
+    setContracts(prev => [localContract, ...prev]);
+    return localContract;
   }
 
   async function addAsset(a) {

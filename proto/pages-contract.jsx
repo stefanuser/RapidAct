@@ -1190,7 +1190,7 @@ function StepPreview({ template, values, onGenerate, generating, pdfError, profi
           <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 8, padding: '8px 12px', display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 4 }}>
             <span style={{ fontSize: 14, flexShrink: 0 }}>⚠️</span>
             <div>
-              <p style={{ fontSize: 12, fontWeight: 700, color: '#dc2626' }}>Eroare la generare PDF</p>
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#dc2626' }}>A apărut o eroare</p>
               <p style={{ fontSize: 11, color: '#ef4444', marginTop: 2 }}>{pdfError}</p>
             </div>
           </div>
