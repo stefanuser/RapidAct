@@ -62,24 +62,8 @@ const TEMPLATES = [
 // All templates defined in ALL_TEMPLATE_LIST below
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
-function toRoDate(s) {
-  if (!s) return '';
-  // Filtrare placeholder-uri (DD/MM/YYYY, dd.mm.aaaa etc.)
-  if (/^[Dd]{2}[.\/-][Mm]{2}[.\/-][Yy]{4}$/.test(s)) return '';
-  if (/^[Yy]{4}[.-][Mm]{2}[.-][Dd]{2}$/.test(s)) return '';
-  if (/^dd\.mm\.(yyyy|aaaa)$/i.test(s)) return '';
-  // DD.MM.YYYY → DD/MM/YYYY
-  const dotFmt = s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-  if (dotFmt) return `${dotFmt[1]}/${dotFmt[2]}/${dotFmt[3]}`;
-  // ISO YYYY-MM-DD → DD/MM/YYYY
-  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
-  // DD-MM-YYYY → DD/MM/YYYY
-  const dashFmt = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
-  if (dashFmt) return `${dashFmt[1]}/${dashFmt[2]}/${dashFmt[3]}`;
-  // Deja DD/MM/YYYY — returnează ca atare
-  return s;
-}
+// M10 — toRoDate mutat în shared.jsx; referință la global
+const toRoDate = window.toRoDate;
 
 // H3 — Validare CNP românesc (13 cifre + cifră de control)
 function validateCnp(cnp) {
@@ -1381,11 +1365,17 @@ function StepSuccess({ driverName, pdfBlob, filename, onNew, onHistory }) {
 }
 
 // ─── ContractNew root ─────────────────────────────────────────────────────────
+// M35 — dacă există un singur template activ, sări pasul de selecție
+const ACTIVE_TEMPLATES = TEMPLATES.filter(t => t.active);
+
 function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
   const props = { assets };  // passed down to StepForm
   const STEPS = ['template', 'scan', 'form', 'preview'];
-  const [stepIdx, setStepIdx]     = React.useState(0);
-  const [template, setTemplate]   = React.useState(null);
+  // M35 — auto-selectăm singurul template activ și pornim direct de la step 1 (scan)
+  const autoTemplate = ACTIVE_TEMPLATES.length === 1 ? ACTIVE_TEMPLATES[0] : null;
+  const fullAutoTpl  = autoTemplate ? TEMPLATES.find(t => t.id === autoTemplate.id) : null;
+  const [stepIdx, setStepIdx]     = React.useState(fullAutoTpl ? 1 : 0);
+  const [template, setTemplate]   = React.useState(fullAutoTpl || null);
   const [ocr, setOcr]             = React.useState({ values: {}, confidence: {} });
   // B6 — Stare OCR per-doc (ID → { values, confidence, error }) și CUI, ridicate din StepScan
   const [scanDocs, setScanDocs]   = React.useState({});
@@ -1410,7 +1400,9 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
   };
 
   function goBack() {
-    if (stepIdx === 0) {
+    // M35 — dacă template a fost auto-selectat, "înapoi" de la scan merge direct la dashboard
+    const firstStep = fullAutoTpl ? 1 : 0;
+    if (stepIdx <= firstStep) {
       navigate('dashboard');
     } else {
       // B6 — Dacă userul se întoarce de la formular la scan, resetăm valorile formularului
@@ -1565,7 +1557,8 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
   }
 
   function reset() {
-    setStepIdx(0); setTemplate(null);
+    // M35 — la reset, pornim din nou de la pasul corect (1 dacă template auto-selectat)
+    setStepIdx(fullAutoTpl ? 1 : 0); setTemplate(fullAutoTpl || null);
     setOcr({ values: {}, confidence: {} });
     setScanDocs({}); setScanCui('');
     setFormValues({}); setDone(false); setSkipSig(false);

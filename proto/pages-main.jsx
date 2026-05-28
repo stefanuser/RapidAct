@@ -759,12 +759,23 @@ function ContractDetailSheet({ contract: c, onClose }) {
       const PW = 595.28, PH = 841.89, MX = 51, MY = 45, FS = 9.5, LH = FS * 1.55;
       const TW = PW - MX * 2;
 
+      // M9 — wrapText sincronizat cu versiunea din pages-contract.jsx (include fix M8)
       function wrapText(text, maxW) {
         if (!text.trim()) return [''];
         const words = text.split(' ');
         const lines = [];
         let cur = '';
         for (const w of words) {
+          if (font.widthOfTextAtSize(w, FS) > maxW) {
+            if (cur) { lines.push(cur); cur = ''; }
+            let chunk = '';
+            for (const ch of w) {
+              if (font.widthOfTextAtSize(chunk + ch, FS) <= maxW) { chunk += ch; }
+              else { if (chunk) lines.push(chunk); chunk = ch; }
+            }
+            cur = chunk;
+            continue;
+          }
           const candidate = cur ? cur + ' ' + w : w;
           if (font.widthOfTextAtSize(candidate, FS) <= maxW) { cur = candidate; }
           else { if (cur) lines.push(cur); cur = w; }
@@ -1237,18 +1248,8 @@ function ProfileScanSheet({ onDone, onClose }) {
       const json = await resp.json();
       if (!resp.ok) throw new Error(json.error || 'Eroare server OCR');
       const vals = {}, conf = {};
-      // Convertește date în format românesc zz/ll/aaaa; sanitizează placeholdere GPT
-      function toRoDate(s) {
-        if (!s) return '';
-        // GPT uneori returnează șablonul literal când nu găsește data
-        if (/^[Dd]{2}[.\/-][Mm]{2}[.\/-][Yy]{4}$/.test(s)) return '';
-        if (/^[Yy]{4}[.-][Mm]{2}[.-][Dd]{2}$/.test(s)) return '';
-        const dd_mm_yyyy = s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-        if (dd_mm_yyyy) return `${dd_mm_yyyy[1]}/${dd_mm_yyyy[2]}/${dd_mm_yyyy[3]}`;
-        const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
-        return s;
-      }
+      // M10 — toRoDate definit în shared.jsx (partajat cu pages-contract.jsx)
+      const toRoDate = window.toRoDate;
 
       if (!isPermis) {
         // Parse CI fields only

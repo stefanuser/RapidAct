@@ -230,6 +230,27 @@ function Spinner({ size=40 }) {
   );
 }
 
+// M10 — utilitar partajat: conversie date în format românesc DD/MM/YYYY
+// Folosit în pages-contract.jsx, pages-main.jsx (OCR parsing)
+function toRoDate(s) {
+  if (!s) return '';
+  // Filtrare placeholder-uri GPT (DD/MM/YYYY, dd.mm.aaaa, YYYY-MM-DD literal)
+  if (/^[Dd]{2}[.\/-][Mm]{2}[.\/-][Yy]{4}$/.test(s)) return '';
+  if (/^[Yy]{4}[.-][Mm]{2}[.-][Dd]{2}$/.test(s)) return '';
+  if (/^dd\.mm\.(yyyy|aaaa)$/i.test(s)) return '';
+  // DD.MM.YYYY → DD/MM/YYYY
+  const dotFmt = s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (dotFmt) return `${dotFmt[1]}/${dotFmt[2]}/${dotFmt[3]}`;
+  // ISO YYYY-MM-DD → DD/MM/YYYY
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  // DD-MM-YYYY → DD/MM/YYYY
+  const dashFmt = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (dashFmt) return `${dashFmt[1]}/${dashFmt[2]}/${dashFmt[3]}`;
+  // Deja DD/MM/YYYY — returnează ca atare
+  return s;
+}
+
 Object.assign(window, {
   Svg, HomeIcon, PackageIcon, ArchiveIcon, UserIcon, PlusIcon,
   ChevRightIcon, ChevLeftIcon, CameraIcon, UploadIcon, CheckCircleIcon,
@@ -238,4 +259,5 @@ Object.assign(window, {
   EditIcon, GearIcon,
   AppFrame, BottomNav, StatusBadge, Avatar, StepBar, Logo,
   FieldInput, PrimaryBtn, SecondaryBtn, SectionLabel, Spinner,
+  toRoDate,
 });

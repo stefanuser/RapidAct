@@ -24,18 +24,6 @@ const EMPTY_PROFILE = {
   permis_serie: '', permis_nr: '', permis_categorii: '', permis_expirare: '',
 };
 
-// ─── Mock contracts ───────────────────────────────────────────────────────────
-const MOCK_CONTRACTS = [
-  { id: '1', template_name: 'Închiriere Auto', status: 'generated', asset_id: 'c1', parties: [{ name: 'Ionescu Alexandru' }], created_at: '2026-05-22T10:30:00Z' },
-  { id: '2', template_name: 'Închiriere Auto', status: 'draft',     asset_id: 'c2', parties: [{ name: 'Marinescu Cristina' }], created_at: '2026-05-20T14:15:00Z' },
-  { id: '3', template_name: 'Închiriere Auto', status: 'signed',    asset_id: 'c1', parties: [{ name: 'Georgescu Mihai' }],    created_at: '2026-05-18T09:00:00Z' },
-  { id: '4', template_name: 'Închiriere Auto', status: 'signed',    asset_id: 'c3', parties: [{ name: 'Dumitrescu Ana' }],     created_at: '2026-05-15T16:45:00Z' },
-  { id: '5', template_name: 'Închiriere Auto', status: 'signed',    asset_id: 'c2', parties: [{ name: 'Petrescu Dan' }],       created_at: '2026-05-10T11:20:00Z' },
-  { id: '6', template_name: 'Închiriere Auto', status: 'signed',    asset_id: 'c1', parties: [{ name: 'Tudorescu Ion' }],      created_at: '2026-04-22T08:30:00Z' },
-  { id: '7', template_name: 'Închiriere Auto', status: 'signed',    asset_id: null, parties: [{ name: 'Vlad Simona' }],        created_at: '2026-04-18T13:00:00Z' },
-  { id: '8', template_name: 'Închiriere Auto', status: 'expired',   asset_id: null, parties: [{ name: 'Constantin Radu' }],    created_at: '2026-03-05T10:00:00Z' },
-];
-
 
 const PLAN_LIMITS = { free: 5, starter: 20, pro: 50, business: 999 };
 

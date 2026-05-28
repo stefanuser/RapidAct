@@ -122,7 +122,7 @@ function AssetsScreen({ navigate, assets, setAssets, contracts, addAsset, delete
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px 10px' }}>
           <div>
             <p style={{ fontWeight: 700, fontSize: 18 }}>Active firmă</p>
-            <p style={{ fontSize: 12, color: '#94a3b8' }}>{assets.length} înregistrări</p>
+            <p style={{ fontSize: 12, color: '#94a3b8' }}>{filtered.length} înregistrări{assets.length !== filtered.length ? ` din ${assets.length}` : ''}</p>
           </div>
           <button onClick={() => setShowAdd(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#2563eb', color: '#fff', borderRadius: 10, padding: '8px 14px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
             <PlusIcon size={15} /> Adaugă
