@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RapidAct — Admin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      color: #0f172a;
+      background: #f8fafc;
+      height: 100%;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #root { height: 100vh; display: flex; }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    /* Animations */
+    @keyframes spin   { to { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-spin { animation: spin 0.75s linear infinite; }
+    .fade-in      { animation: fadeIn 0.18s ease both; }
+
+    /* Form resets */
+    button   { font-family: inherit; font-size: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    input, select, textarea { font-family: inherit; font-size: inherit; }
+    input:-webkit-autofill { -webkit-box-shadow: 0 0 0 50px white inset; }
+  </style>
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script>
+    window.sb = window.supabase.createClient(
+      'https://wfresisyrlrawquzwlrs.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmcmVzaXN5cmxyYXdxdXp3bHJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxOTMwODksImV4cCI6MjA5Mzc2OTA4OX0.00IkghrGCtaYL7__Pnilf6dRmXTkADDuNZFexOuCS3o'
+    );
+  </script>
+
+  <!-- React 18 + Babel -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" src="proto/admin.jsx?v=20260528m"></script>
+</body>
+</html>
