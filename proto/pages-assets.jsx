@@ -319,7 +319,15 @@ function AssetDetailSheet({ asset, cfg, contracts, onClose, onNewContract, onDel
         <PrimaryBtn onClick={onNewContract} bg={cfg.color}>
           Contract nou cu acest activ →
         </PrimaryBtn>
-        <button onClick={onDelete} style={{ border: 'none', background: 'none', color: '#ef4444', fontSize: 13, cursor: 'pointer', padding: '6px' }}>
+        <button onClick={() => {
+          // B8 — confirmare înainte de ștergere
+          // B9 — avertisment dacă există contracte legate
+          const n = contracts.length;
+          const msg = n > 0
+            ? `Acest activ are ${n} contract${n > 1 ? 'e' : ''} legat${n > 1 ? 'e' : ''}.\n\nDacă ștergi activul, contractele rămân în Arhivă dar legătura cu el se pierde.\n\nEști sigur că vrei să continui?`
+            : 'Ești sigur că vrei să ștergi acest activ?\n\nAcțiunea nu poate fi anulată.';
+          if (window.confirm(msg)) onDelete();
+        }} style={{ border: 'none', background: 'none', color: '#ef4444', fontSize: 13, cursor: 'pointer', padding: '6px' }}>
           Șterge activ
         </button>
       </div>

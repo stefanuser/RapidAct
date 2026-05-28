@@ -925,7 +925,6 @@ function ContractDetailSheet({ contract: c, onClose }) {
 
 // ─── Date Personale Screen ────────────────────────────────────────────────────
 const CI_FIELDS = [
-  { key: 'legal_rep',       label: 'Nume și prenume',  type: 'text', placeholder: 'ex. Popescu Ion' },
   { key: 'cnp',             label: 'CNP',               type: 'text', placeholder: 'ex. 1850315400123' },
   { key: 'ci_serie',        label: 'Serie CI',           type: 'text', placeholder: 'ex. RX' },
   { key: 'ci_nr',           label: 'Număr CI',           type: 'text', placeholder: 'ex. 412305' },
@@ -942,7 +941,7 @@ const PERMIS_FIELDS_DEF = [
 
 function DatePersonaleScreen({ navigate, profile, setProfile }) {
   const init = {
-    legal_rep: profile.legal_rep || '', cnp: profile.cnp || '',
+    cnp: profile.cnp || '',
     ci_serie: profile.ci_serie || '',   ci_nr: profile.ci_nr || '',
     ci_valabilitate: profile.ci_valabilitate || '',
     data_nastere: profile.data_nastere || '', adresa: profile.adresa || '',
@@ -961,8 +960,11 @@ function DatePersonaleScreen({ navigate, profile, setProfile }) {
   function setField(key, val) { setData(p => ({ ...p, [key]: val })); setSaved(false); }
 
   function handleOcrDone(vals, confidence) {
-    setData(p => ({ ...p, ...vals }));
-    setConf(confidence || {});
+    // B5 — legal_rep e gestionat exclusiv din Date firmă; nu-l suprascriem de la OCR CI
+    const { legal_rep: _ignored, ...safeVals } = vals;
+    const { legal_rep: _ignoredConf, ...safeConf } = (confidence || {});
+    setData(p => ({ ...p, ...safeVals }));
+    setConf(safeConf);
     setShowScan(false);
     setSaved(false);
     setToast('Date extrase cu succes!');
@@ -1020,6 +1022,14 @@ function DatePersonaleScreen({ navigate, profile, setProfile }) {
             {hasPermis && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#dbeafe', color: '#1e40af', borderRadius: 20, padding: '4px 12px', fontSize: 12, fontWeight: 600 }}>✓ Permis înregistrat</span>}
           </div>
         )}
+
+        {/* B5 — Hint: legal_rep managed exclusively from DateFirma */}
+        <div style={{ display: 'flex', gap: 10, border: '1px solid #bfdbfe', borderRadius: 10, background: '#eff6ff', padding: '10px 14px' }}>
+          <span style={{ fontSize: 14, flexShrink: 0 }}>👤</span>
+          <p style={{ fontSize: 12, color: '#1e40af', lineHeight: 1.55 }}>
+            Numele și calitatea de Reprezentant legal se configurează din <strong>Date firmă</strong>.
+          </p>
+        </div>
 
         {/* CI section */}
         <div>
