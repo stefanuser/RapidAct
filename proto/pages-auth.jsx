@@ -99,6 +99,27 @@ function LandingScreen({ navigate }) {
   );
 }
 
+// M16 — Traducere mesaje de eroare Supabase Auth în română
+function translateAuthError(msg) {
+  if (!msg) return 'A apărut o eroare. Încearcă din nou.';
+  const m = msg.toLowerCase();
+  if (m.includes('invalid login credentials') || m.includes('invalid credentials'))
+    return 'Email sau parolă incorectă.';
+  if (m.includes('email not confirmed'))
+    return 'Emailul nu a fost confirmat. Verifică inbox-ul.';
+  if (m.includes('user already registered') || m.includes('already been registered'))
+    return 'Există deja un cont cu acest email.';
+  if (m.includes('password should be at least'))
+    return 'Parola trebuie să aibă minim 6 caractere.';
+  if (m.includes('rate limit') || m.includes('too many requests'))
+    return 'Prea multe încercări. Încearcă din nou în câteva minute.';
+  if (m.includes('network') || m.includes('fetch'))
+    return 'Eroare de rețea. Verifică conexiunea la internet.';
+  if (m.includes('user not found'))
+    return 'Nu există niciun cont cu acest email.';
+  return msg; // fallback: păstrăm mesajul original dacă nu-l recunoaștem
+}
+
 // ─── Login ────────────────────────────────────────────────────────────────────
 function LoginScreen({ navigate }) {
   const [email, setEmail] = React.useState('');
@@ -114,7 +135,7 @@ function LoginScreen({ navigate }) {
     setError(''); setLoading(true);
     const { error } = await window.sb.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) { setError(error.message); return; }
+    if (error) { setError(translateAuthError(error.message)); return; }
     // onAuthStateChange din App.jsx gestionează navigarea
   }
 
@@ -178,7 +199,7 @@ function RegisterScreen({ navigate }) {
     setError(''); setInfoMsg(''); setLoading(true);
     const { data, error } = await window.sb.auth.signUp({ email, password });
     setLoading(false);
-    if (error) { setError(error.message); return; }
+    if (error) { setError(translateAuthError(error.message)); return; }
     // Dacă e confirmare email necesară, sesiunea e null
     if (!data.session) {
       setInfoMsg('✉️ Verifică emailul pentru confirmare, apoi conectează-te.');

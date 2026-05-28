@@ -863,7 +863,7 @@ function ContractDetailSheet({ contract: c, onClose }) {
               <p style={{ fontWeight: 600, color: downloaded ? '#065f46' : '#0f172a' }}>
                 {downloading ? 'Se pregătește PDF...' : downloaded ? 'PDF descărcat!' : 'Descarcă PDF'}
               </p>
-              <p style={{ fontSize: 12, color: '#94a3b8' }}>{downloaded ? 'Salvat în dispozitiv' : 'Fiscă semnată în format PDF'}</p>
+              <p style={{ fontSize: 12, color: '#94a3b8' }}>{downloaded ? 'Salvat în dispozitiv' : 'Fișă semnată în format PDF'}</p>
             </div>
           </button>
 
@@ -1402,7 +1402,7 @@ function ProfileScanSheet({ onDone, onClose }) {
                 </div>
               )}
               <input ref={cameraRef}  type="file" accept="image/*" capture="environment" onChange={onFile} style={{ display: 'none' }} />
-              <input ref={galleryRef} type="file" accept="image/*,application/pdf"        onChange={onFile} style={{ display: 'none' }} />
+              <input ref={galleryRef} type="file" accept="image/*"                         onChange={onFile} style={{ display: 'none' }} />
               <button onClick={() => cameraRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: '2px solid #93c5fd', borderRadius: 13, padding: '18px 16px', background: '#eff6ff', cursor: 'pointer', textAlign: 'left' }}>
                 <div style={{ width: 50, height: 50, borderRadius: 13, background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <CameraIcon size={24} color="#fff" />
@@ -1476,7 +1476,7 @@ function ProfileScanSheet({ onDone, onClose }) {
                 </div>
               </div>
               <input ref={cameraRef}  type="file" accept="image/*" capture="environment" onChange={onFile} style={{ display: 'none' }} />
-              <input ref={galleryRef} type="file" accept="image/*,application/pdf"        onChange={onFile} style={{ display: 'none' }} />
+              <input ref={galleryRef} type="file" accept="image/*"                         onChange={onFile} style={{ display: 'none' }} />
               <button onClick={() => cameraRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: '2px solid #7dd3fc', borderRadius: 13, padding: '18px 16px', background: '#f0f9ff', cursor: 'pointer', textAlign: 'left' }}>
                 <div style={{ width: 50, height: 50, borderRadius: 13, background: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <CameraIcon size={24} color="#fff" />

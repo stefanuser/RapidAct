@@ -1512,20 +1512,26 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
         page.drawText('LOCATAR', { x: PW - MX - 113, y, font, size: 7, color: rgb(0.39, 0.455, 0.545) });
         y -= 40;
         // LOCATOR sig sau linie goală (stânga)
+        // M23 — guard: split(',')[1] poate fi undefined dacă sig nu e data URL
+        const extractB64 = s => (s && s.includes(',')) ? s.split(',')[1] : s;
         if (hasLocatorSig) {
-          const sigBase64 = profile.signature.split(',')[1];
-          const sigBytes  = Uint8Array.from(atob(sigBase64), c => c.charCodeAt(0));
-          const sigImg    = await pdfDoc.embedPng(sigBytes);
-          page.drawImage(sigImg, { x: MX, y, width: 102, height: 40 });
+          try {
+            const sigBase64 = extractB64(profile.signature);
+            const sigBytes  = Uint8Array.from(atob(sigBase64), c => c.charCodeAt(0));
+            const sigImg    = await pdfDoc.embedPng(sigBytes);
+            page.drawImage(sigImg, { x: MX, y, width: 102, height: 40 });
+          } catch { page.drawLine({ start: { x: MX, y: y + 40 }, end: { x: MX + 142, y: y + 40 }, thickness: 0.3, color: rgb(0,0,0) }); }
         } else {
           page.drawLine({ start: { x: MX, y: y + 40 }, end: { x: MX + 142, y: y + 40 }, thickness: 0.3, color: rgb(0, 0, 0) });
         }
         // LOCATAR sig sau linie goală (dreapta)
         if (clientSig) {
-          const cSigBase64 = clientSig.split(',')[1];
-          const cSigBytes  = Uint8Array.from(atob(cSigBase64), c => c.charCodeAt(0));
-          const cSigImg    = await pdfDoc.embedPng(cSigBytes);
-          page.drawImage(cSigImg, { x: PW - MX - 142, y, width: 102, height: 40 });
+          try {
+            const cSigBase64 = extractB64(clientSig);
+            const cSigBytes  = Uint8Array.from(atob(cSigBase64), c => c.charCodeAt(0));
+            const cSigImg    = await pdfDoc.embedPng(cSigBytes);
+            page.drawImage(cSigImg, { x: PW - MX - 142, y, width: 102, height: 40 });
+          } catch { page.drawLine({ start: { x: PW - MX - 142, y: y + 40 }, end: { x: PW - MX, y: y + 40 }, thickness: 0.3, color: rgb(0,0,0) }); }
         } else {
           page.drawLine({ start: { x: PW - MX - 142, y: y + 40 }, end: { x: PW - MX, y: y + 40 }, thickness: 0.3, color: rgb(0, 0, 0) });
         }
