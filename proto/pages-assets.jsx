@@ -20,7 +20,7 @@ const ASSET_TYPES = {
       { key: 'year',    label: 'An fabricație',     placeholder: 'ex. 2022',         required: true                           },
       { key: 'color',   label: 'Culoare',           placeholder: 'ex. Alb',          required: false, transform: 'capitalize' },
       { key: 'vin',     label: 'Serie VIN / Șasiu', placeholder: 'ex. VSSZZZ6K...', required: false, transform: 'upper'      },
-      { key: 'casco',   label: 'Asigurare CASCO',   type: 'select', options: ['Da', 'Nu'], required: false },
+      { key: 'casco',   label: 'Asigurare CASCO',   type: 'select', options: ['Inclusă', 'Nu este inclusă'], required: false }, // M26 — aliniat cu opțiunile din contract
       { key: 'rca_exp', label: 'Expirare RCA',      type: 'slash_date', placeholder: 'ex. 15/06/2030', required: false },
     ],
     primary:   d => d.plate || '—',
@@ -348,7 +348,7 @@ function AddAssetSheet({ type = 'car', onClose, onSave }) {
 
   async function lookupCui() {
     const raw = (values.cui || '').replace(/^RO/i, '').replace(/\D/g, '');
-    if (!raw || raw.length < 4) return;
+    if (!raw || raw.length < 6) return; // M14 — minim 6 cifre, consistent cu pages-firma.jsx
     setCuiLoad(true);
     setCuiStatus('');
     try {

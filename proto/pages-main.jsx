@@ -23,13 +23,9 @@ function Sheet({ children, onClose }) {
 }
 
 // ─── Profile types ────────────────────────────────────────────────────────────
-const PROFILE_TYPES_LIST = [
-  { id: 'rentacar',   icon: '🚗', label: 'Rent-a-car',    sub: 'Contracte de închiriere auto' },
-  { id: 'imobiliare', icon: '🏠', label: 'Imobiliare',    sub: 'Închiriere / vânzare proprietăți' },
-  { id: 'hr',         icon: '👥', label: 'Resurse Umane', sub: 'Contracte de muncă' },
-  { id: 'general',    icon: '📋', label: 'General',       sub: 'Alte tipuri de contracte' },
-];
-const PROFILE_TYPE_MAP = Object.fromEntries(PROFILE_TYPES_LIST.map(p => [p.id, p]));
+// M11 — sursă unică în pages-auth.jsx (window.PROFILE_TYPES); nu mai duplicăm
+const PROFILE_TYPES_LIST = window.PROFILE_TYPES;
+const PROFILE_TYPE_MAP   = Object.fromEntries(PROFILE_TYPES_LIST.map(p => [p.id, p]));
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 function DashboardScreen({ navigate, profile, contracts }) {
@@ -351,8 +347,12 @@ function SettingsScreen({ navigate, profile, setProfile, logout }) {
 
   async function handleSignOut() {
     setSigning(true);
-    await logout();
-    // onAuthStateChange din App gestionează navigarea la 'landing'
+    try {
+      await logout();
+      // onAuthStateChange din App gestionează navigarea la 'landing'
+    } finally {
+      setSigning(false); // M18 — resetăm starea chiar dacă logout aruncă eroare
+    }
   }
 
   async function handleSaveSig(sig) {
@@ -637,7 +637,11 @@ function SignatureSheet({ current, onSave, onClose }) {
   }
 
   function save() {
-    const dataUrl = canvasRef.current.toDataURL('image/png');
+    // M28 — limitare dimensiune: PNG > 40 KB → fallback JPEG 0.75
+    let dataUrl = canvasRef.current.toDataURL('image/png');
+    if (dataUrl.length > 54000) { // 54000 base64 chars ≈ 40 KB decoded
+      dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.75);
+    }
     onSave(dataUrl);
   }
 

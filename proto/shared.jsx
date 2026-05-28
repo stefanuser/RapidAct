@@ -232,6 +232,15 @@ function Spinner({ size=40 }) {
 
 // M10 — utilitar partajat: conversie date în format românesc DD/MM/YYYY
 // Folosit în pages-contract.jsx, pages-main.jsx (OCR parsing)
+
+// M6 — validare dată calendaristică (respinge 31/02, 00/13 etc.)
+function isValidCalendarDate(d, m, y) {
+  const day = parseInt(d, 10), mon = parseInt(m, 10), yr = parseInt(y, 10);
+  if (mon < 1 || mon > 12 || day < 1) return false;
+  const daysInMonth = new Date(yr, mon, 0).getDate(); // ziua 0 a lunii următoare = ultima zi din luna curentă
+  return day <= daysInMonth;
+}
+
 function toRoDate(s) {
   if (!s) return '';
   // Filtrare placeholder-uri GPT (DD/MM/YYYY, dd.mm.aaaa, YYYY-MM-DD literal)
@@ -240,14 +249,28 @@ function toRoDate(s) {
   if (/^dd\.mm\.(yyyy|aaaa)$/i.test(s)) return '';
   // DD.MM.YYYY → DD/MM/YYYY
   const dotFmt = s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-  if (dotFmt) return `${dotFmt[1]}/${dotFmt[2]}/${dotFmt[3]}`;
+  if (dotFmt) {
+    if (!isValidCalendarDate(dotFmt[1], dotFmt[2], dotFmt[3])) return '';
+    return `${dotFmt[1]}/${dotFmt[2]}/${dotFmt[3]}`;
+  }
   // ISO YYYY-MM-DD → DD/MM/YYYY
   const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  if (iso) {
+    if (!isValidCalendarDate(iso[3], iso[2], iso[1])) return '';
+    return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  }
   // DD-MM-YYYY → DD/MM/YYYY
   const dashFmt = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
-  if (dashFmt) return `${dashFmt[1]}/${dashFmt[2]}/${dashFmt[3]}`;
-  // Deja DD/MM/YYYY — returnează ca atare
+  if (dashFmt) {
+    if (!isValidCalendarDate(dashFmt[1], dashFmt[2], dashFmt[3])) return '';
+    return `${dashFmt[1]}/${dashFmt[2]}/${dashFmt[3]}`;
+  }
+  // DD/MM/YYYY — validăm și returnăm ca atare
+  const slashFmt = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (slashFmt) {
+    if (!isValidCalendarDate(slashFmt[1], slashFmt[2], slashFmt[3])) return '';
+    return s;
+  }
   return s;
 }
 

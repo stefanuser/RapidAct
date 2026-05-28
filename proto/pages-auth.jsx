@@ -185,7 +185,8 @@ function RegisterScreen({ navigate }) {
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [confirm, setConfirm] = React.useState('');
-  const [showPw, setShowPw] = React.useState(false);
+  const [showPw, setShowPw]           = React.useState(false);
+  const [showConfirm, setShowConfirm] = React.useState(false); // M17
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
   const [infoMsg, setInfoMsg] = React.useState('');
@@ -232,7 +233,12 @@ function RegisterScreen({ navigate }) {
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Confirmă parola</label>
-            <FocusInput type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repetă parola" />
+            <div style={{ position: 'relative' }}>
+              <FocusInput type={showConfirm ? 'text' : 'password'} value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repetă parola" style={{ paddingRight: 44 }} />
+              <button type="button" onClick={() => setShowConfirm(!showConfirm)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', padding: 0 }}>
+                {showConfirm ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+              </button>
+            </div>
           </div>
 
           {error   && <p style={{ color: '#ef4444', fontSize: 13, textAlign: 'center' }}>{error}</p>}
@@ -259,12 +265,14 @@ function RegisterScreen({ navigate }) {
 }
 
 // ─── Onboarding ───────────────────────────────────────────────────────────────
+// M11 — sursă unică de adevăr; pages-main.jsx o citește din window.PROFILE_TYPES
 const PROFILE_TYPES = [
   { id: 'rentacar',   icon: '🚗', label: 'Rent-a-car',    sub: 'Contracte de închiriere auto' },
   { id: 'imobiliare', icon: '🏠', label: 'Imobiliare',    sub: 'Închiriere / vânzare proprietăți' },
   { id: 'hr',         icon: '👥', label: 'Resurse Umane', sub: 'Contracte de muncă' },
   { id: 'general',    icon: '📋', label: 'General',       sub: 'Alte tipuri de contracte' },
 ];
+window.PROFILE_TYPES = PROFILE_TYPES;
 
 function OnboardingScreen({ navigate }) {
   const [step, setStep] = React.useState(0);

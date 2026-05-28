@@ -274,9 +274,15 @@ function DocCard({ doc, data, scanning, cuiVal, onCuiChange, onScanFile, onLooku
             placeholder="ex. RO12345678"
             style={{ flex: 1, padding: '10px 12px', border: '1.5px solid #e2e8f0', borderRadius: 10, background: '#f8fafc', outline: 'none', fontSize: 14, fontFamily: 'inherit' }}
           />
-          <button onClick={onLookupAnaf} disabled={cuiVal.replace(/\D/g, '').length < 6} style={{ padding: '10px 14px', borderRadius: 10, border: 'none', background: cuiVal.replace(/\D/g, '').length < 6 ? '#cbd5e1' : '#2563eb', color: '#fff', fontWeight: 700, fontSize: 13, cursor: cuiVal.replace(/\D/g, '').length < 6 ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
-            🔍 ANAF
-          </button>
+          {/* M24 — dezactivat și în timp ce o scanare e în curs */}
+          {(() => {
+            const anafDisabled = cuiVal.replace(/\D/g, '').length < 6 || !!scanning;
+            return (
+              <button onClick={onLookupAnaf} disabled={anafDisabled} style={{ padding: '10px 14px', borderRadius: 10, border: 'none', background: anafDisabled ? '#cbd5e1' : '#2563eb', color: '#fff', fontWeight: 700, fontSize: 13, cursor: anafDisabled ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                🔍 ANAF
+              </button>
+            );
+          })()}
         </div>
       )}
     </div>
@@ -293,6 +299,7 @@ function StepScan({ onDone, initialScanned, initialCui }) {
   const hasAny = Object.values(scanned).some(s => Object.keys(s.values || {}).length > 0);
 
   async function scanDoc(doc, file) {
+    if (scanning) return; // M21 — guard împotriva double-click / race condition
     setScanning(doc.id);
     try {
       const base64 = await compressImage(file);
