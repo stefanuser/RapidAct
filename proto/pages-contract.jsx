@@ -445,7 +445,40 @@ function StepScan({ onDone, initialScanned, initialCui }) {
   );
 }
 
+// Randează un body template cu sintaxa {{cheie}} (folosit pentru template-uri din DB)
+function fillTemplate(bodyText, values) {
+  return bodyText.replace(/\{\{(\w+)\}\}/g, (_, k) => values[k] || '___________');
+}
+
+// Convertește un rând din Supabase contract_templates → obiect template folosibil în app
+function parseDbTemplate(row) {
+  const applyDefaults = fields => fields.map(f => {
+    if (f.defaultType === 'today_ro') {
+      return { ...f, defaultFn: () => {
+        const n = new Date();
+        return `${String(n.getDate()).padStart(2,'0')}/${String(n.getMonth()+1).padStart(2,'0')}/${n.getFullYear()}`;
+      }};
+    }
+    return f;
+  });
+  return {
+    id:           row.id,
+    name:         row.name,
+    icon:         row.icon || '📋',
+    description:  row.description || '',
+    category:     row.category || 'General',
+    active:       row.active,
+    scanDocs:     row.scan_docs || ['ci'],
+    fieldMap:     row.field_map || {},
+    manualFields: applyDefaults(row.manual_fields || []),
+    bodyText:     row.body_template || '',
+    userId:       row.user_id || null,
+    isDbTemplate: true,
+  };
+}
+
 function buildContractBody(template, values) {
+  if (template.bodyText) return fillTemplate(template.bodyText, values);
   const fill = (k) => values[k] || '___________';
   return `CONTRACT DE ÎNCHIRIERE AUTOVEHICUL
 Nr. _____ / ${fill('data_contract')}
@@ -524,7 +557,8 @@ const CATEGORIES = [
 ];
 
 // ─── Step 1: Template ─────────────────────────────────────────────────────────
-function StepTemplate({ onSelect }) {
+function StepTemplate({ onSelect, templates }) {
+  templates = templates || TEMPLATES;
   const [favorites, setFavorites] = React.useState(() => {
     try { return JSON.parse(localStorage.getItem('ra_fav_tpl') || '[]'); } catch { return []; }
   });
@@ -541,12 +575,15 @@ function StepTemplate({ onSelect }) {
 
   function handleSelect(t) {
     if (!t.active) return;
-    const template = TEMPLATES.find(tp => tp.id === t.id);
+    const template = templates.find(tp => tp.id === t.id);
     if (template) onSelect(template);
   }
 
   const favList    = ALL_TEMPLATE_LIST.filter(t => favorites.includes(t.id));
-  const activeList = ALL_TEMPLATE_LIST.filter(t => t.active);
+  // Adaugă template-urile active din DB care nu sunt în lista hardcoded
+  const dbActiveExtra = templates.filter(t => t.active && t.isDbTemplate && !ALL_TEMPLATE_LIST.find(x => x.id === t.id))
+    .map(t => ({ id: t.id, name: t.name, icon: t.icon, desc: t.description, category: t.category, active: true }));
+  const activeList = [...ALL_TEMPLATE_LIST.filter(t => t.active), ...dbActiveExtra];
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '18px 18px 32px' }}>
@@ -1538,11 +1575,42 @@ function StepSuccess({ driverName, pdfBlob, filename, onNew, onHistory }) {
 const ACTIVE_TEMPLATES = TEMPLATES.filter(t => t.active);
 
 function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
-  const props = { assets };  // passed down to StepForm
   const STEPS = ['template', 'scan', 'form', 'preview'];
-  // M35 — auto-selectăm singurul template activ și pornim direct de la step 1 (scan)
+
+  // Template-uri: hardcoded (fallback) + DB (globale + custom ale userului)
+  const [allTemplates, setAllTemplates] = React.useState(TEMPLATES);
+
+  React.useEffect(() => {
+    async function loadDbTemplates() {
+      try {
+        const { data, error } = await window.sb
+          .from('contract_templates')
+          .select('*')
+          .eq('active', true)
+          .order('sort_order');
+        if (error || !data || !data.length) return;
+        const parsed = data.map(parseDbTemplate);
+        setAllTemplates(prev => {
+          const merged = [...prev];
+          for (const tpl of parsed) {
+            const idx = merged.findIndex(t => t.id === tpl.id);
+            // DB-ul are prioritate — suprascrie dacă există deja (ex: rentacar-standard cu bodyText)
+            if (idx >= 0) merged[idx] = { ...merged[idx], ...tpl };
+            else merged.push(tpl);
+          }
+          return merged;
+        });
+      } catch(e) {
+        console.warn('DB templates load failed:', e);
+      }
+    }
+    loadDbTemplates();
+  }, []);
+
+  // Auto-skip pas selecție dacă există exact 1 template activ
+  const activeDbTemplates = allTemplates.filter(t => t.active);
   const autoTemplate = ACTIVE_TEMPLATES.length === 1 ? ACTIVE_TEMPLATES[0] : null;
-  const fullAutoTpl  = autoTemplate ? TEMPLATES.find(t => t.id === autoTemplate.id) : null;
+  const fullAutoTpl  = autoTemplate ? allTemplates.find(t => t.id === autoTemplate.id) || autoTemplate : null;
   const [stepIdx, setStepIdx]     = React.useState(fullAutoTpl ? 1 : 0);
   const [template, setTemplate]   = React.useState(fullAutoTpl || null);
   const [docData, setDocData]     = React.useState({});
@@ -1748,7 +1816,7 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
           onHistory={() => navigate('history')}
         />
       ) : step === 'template' ? (
-        <StepTemplate onSelect={t => { setTemplate(t); setStepIdx(1); }} />
+        <StepTemplate onSelect={t => { setTemplate(t); setStepIdx(1); }} templates={allTemplates} />
       ) : step === 'scan' ? (
         <StepScan
           onDone={o => { setDocData(o.docData); setScanCui(o.cui); setFormValues({}); setStepIdx(2); }}
