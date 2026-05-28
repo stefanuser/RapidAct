@@ -1131,10 +1131,79 @@ function FieldSection({ title, fields, values, onChange, confidence, compact }) 
   );
 }
 
+// ─── Client Signature Pad (inline canvas, no modal) ──────────────────────────
+function ClientSignaturePad({ onSig }) {
+  const canvasRef = React.useRef(null);
+  const [drawing, setDrawing]  = React.useState(false);
+  const [hasStrokes, setStrokes] = React.useState(false);
+
+  function getPos(e) {
+    const r = canvasRef.current.getBoundingClientRect();
+    const scaleX = canvasRef.current.width  / r.width;
+    const scaleY = canvasRef.current.height / r.height;
+    const src = e.touches ? e.touches[0] : e;
+    return { x: (src.clientX - r.left) * scaleX, y: (src.clientY - r.top) * scaleY };
+  }
+
+  function startDraw(e) {
+    e.preventDefault();
+    const ctx = canvasRef.current.getContext('2d');
+    const { x, y } = getPos(e);
+    ctx.beginPath(); ctx.moveTo(x, y);
+    setDrawing(true);
+  }
+
+  function draw(e) {
+    if (!drawing) return;
+    e.preventDefault();
+    const ctx = canvasRef.current.getContext('2d');
+    ctx.lineWidth = 2.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0f172a';
+    const { x, y } = getPos(e);
+    ctx.lineTo(x, y); ctx.stroke();
+    setStrokes(true);
+    onSig(canvasRef.current.toDataURL('image/png'));
+  }
+
+  function endDraw(e) { e.preventDefault(); setDrawing(false); }
+
+  function clear() {
+    const ctx = canvasRef.current.getContext('2d');
+    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    setStrokes(false);
+    onSig(null);
+  }
+
+  return (
+    <div>
+      <div style={{ border: '1.5px solid #e2e8f0', borderRadius: 10, background: '#fff', overflow: 'hidden', position: 'relative' }}>
+        <canvas
+          ref={canvasRef}
+          width={360} height={100}
+          style={{ display: 'block', width: '100%', touchAction: 'none', cursor: 'crosshair' }}
+          onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}
+          onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw}
+        />
+        {!hasStrokes && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+            <p style={{ fontSize: 13, color: '#cbd5e1', fontStyle: 'italic' }}>Clientul semnează aici...</p>
+          </div>
+        )}
+      </div>
+      {hasStrokes && (
+        <button onClick={clear} style={{ marginTop: 6, width: '100%', padding: '5px', border: 'none', background: 'none', color: '#94a3b8', fontSize: 12, cursor: 'pointer' }}>
+          Șterge semnătura clientului
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ─── Step 4: Preview ──────────────────────────────────────────────────────────
 function StepPreview({ template, values, onGenerate, generating, pdfError, profile, navigate, skipSig, onSkipSig }) {
   const body = buildContractBody(template, values);
   const sig = profile?.signature;
+  const [clientSig, setClientSig] = React.useState(null);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
       <div style={{ borderBottom: '1px solid #f1f5f9', padding: '12px 18px' }}>
@@ -1146,12 +1215,12 @@ function StepPreview({ template, values, onGenerate, generating, pdfError, profi
           {body}
         </div>
 
-        {/* Signature preview card */}
+        {/* ── LOCATOR (user) signature card ── */}
         <div style={{ marginTop: 14, border: `1.5px solid ${sig && !skipSig ? '#6ee7b7' : sig && skipSig ? '#e2e8f0' : '#fde68a'}`, borderRadius: 12, background: sig && !skipSig ? '#f0fdf4' : sig && skipSig ? '#f8fafc' : '#fffbeb', padding: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
             <span style={{ fontSize: 16 }}>✍️</span>
             <p style={{ fontWeight: 700, fontSize: 13, color: sig && !skipSig ? '#065f46' : sig && skipSig ? '#64748b' : '#92400e' }}>
-              {sig && !skipSig ? 'Semnătura ta — va apărea pe contract' : sig && skipSig ? 'Semnătura nu va fi adăugată' : 'Semnătura ta lipsește'}
+              {sig && !skipSig ? 'Semnătura ta (LOCATOR) — va apărea pe contract' : sig && skipSig ? 'Semnătura ta nu va fi adăugată' : 'Semnătura ta lipsește'}
             </p>
           </div>
           {sig && !skipSig ? (
@@ -1177,7 +1246,7 @@ function StepPreview({ template, values, onGenerate, generating, pdfError, profi
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <p style={{ fontSize: 12, color: '#92400e', lineHeight: 1.5 }}>
-                Pe contract va apărea o linie goală în locul semnăturii. Adaugă semnătura din Profil → Semnătura mea.
+                Pe contract va apărea o linie goală. Adaugă semnătura din Profil → Semnătura mea.
               </p>
               {navigate && (
                 <button onClick={() => {
@@ -1189,7 +1258,24 @@ function StepPreview({ template, values, onGenerate, generating, pdfError, profi
             </div>
           )}
         </div>
+
+        {/* ── LOCATAR (client) signature card ── */}
+        <div style={{ marginTop: 10, border: `1.5px solid ${clientSig ? '#6ee7b7' : '#e2e8f0'}`, borderRadius: 12, background: clientSig ? '#f0fdf4' : '#f8fafc', padding: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <span style={{ fontSize: 16 }}>🖊️</span>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontWeight: 700, fontSize: 13, color: clientSig ? '#065f46' : '#0f172a' }}>
+                {clientSig ? 'Semnătura clientului (LOCATAR) ✓' : 'Semnătură client — opțional'}
+              </p>
+              <p style={{ fontSize: 11, color: '#64748b', marginTop: 1 }}>
+                {clientSig ? `${values.sofer_nume || 'Client'} a semnat` : 'Clientul poate semna acum pe ecran'}
+              </p>
+            </div>
+          </div>
+          <ClientSignaturePad onSig={setClientSig} />
+        </div>
       </div>
+
       <div style={{ borderTop: '1px solid #e2e8f0', background: '#fff', padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 6 }}>
         {/* H5 — eroare generare PDF */}
         {pdfError && (
@@ -1201,7 +1287,7 @@ function StepPreview({ template, values, onGenerate, generating, pdfError, profi
             </div>
           </div>
         )}
-        <PrimaryBtn onClick={onGenerate} disabled={generating} bg="#10b981">
+        <PrimaryBtn onClick={() => onGenerate(clientSig)} disabled={generating} bg="#10b981">
           {generating
             ? <><SpinnerIcon size={18} /> Se generează PDF...</>
             : pdfError
@@ -1313,7 +1399,7 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
     }
   }
 
-  async function handleGenerate() {
+  async function handleGenerate(clientSig = null) {
     setGenerating(true);
     try {
       const contractBody = buildContractBody(template, formValues);
@@ -1376,20 +1462,34 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
         }
       }
 
-      // Signature block
-      if (profile?.signature && !skipSig) {
-        if (y < MY + 60) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
+      // Signature block — LOCATOR (stânga) + LOCATAR (dreapta)
+      const hasLocatorSig = !!(profile?.signature && !skipSig);
+      if (hasLocatorSig || clientSig) {
+        if (y < MY + 80) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
         y -= 14;
         page.drawLine({ start: { x: MX, y }, end: { x: PW - MX, y }, thickness: 0.3, color: rgb(0.86, 0.86, 0.86) });
         y -= 18;
         page.drawText('LOCATOR', { x: MX + 51, y, font, size: 7, color: rgb(0.39, 0.455, 0.545) });
         page.drawText('LOCATAR', { x: PW - MX - 113, y, font, size: 7, color: rgb(0.39, 0.455, 0.545) });
         y -= 40;
-        const sigBase64 = profile.signature.split(',')[1];
-        const sigBytes  = Uint8Array.from(atob(sigBase64), c => c.charCodeAt(0));
-        const sigImg    = await pdfDoc.embedPng(sigBytes);
-        page.drawImage(sigImg, { x: MX, y, width: 102, height: 40 });
-        page.drawLine({ start: { x: PW - MX - 142, y: y + 40 }, end: { x: PW - MX, y: y + 40 }, thickness: 0.3, color: rgb(0, 0, 0) });
+        // LOCATOR sig sau linie goală (stânga)
+        if (hasLocatorSig) {
+          const sigBase64 = profile.signature.split(',')[1];
+          const sigBytes  = Uint8Array.from(atob(sigBase64), c => c.charCodeAt(0));
+          const sigImg    = await pdfDoc.embedPng(sigBytes);
+          page.drawImage(sigImg, { x: MX, y, width: 102, height: 40 });
+        } else {
+          page.drawLine({ start: { x: MX, y: y + 40 }, end: { x: MX + 142, y: y + 40 }, thickness: 0.3, color: rgb(0, 0, 0) });
+        }
+        // LOCATAR sig sau linie goală (dreapta)
+        if (clientSig) {
+          const cSigBase64 = clientSig.split(',')[1];
+          const cSigBytes  = Uint8Array.from(atob(cSigBase64), c => c.charCodeAt(0));
+          const cSigImg    = await pdfDoc.embedPng(cSigBytes);
+          page.drawImage(cSigImg, { x: PW - MX - 142, y, width: 102, height: 40 });
+        } else {
+          page.drawLine({ start: { x: PW - MX - 142, y: y + 40 }, end: { x: PW - MX, y: y + 40 }, thickness: 0.3, color: rgb(0, 0, 0) });
+        }
       }
 
       const pdfBytes = await pdfDoc.save();
