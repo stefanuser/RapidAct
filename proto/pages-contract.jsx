@@ -1135,9 +1135,11 @@ function StepForm({ template, ocrValues, ocrConfidence, profileValues, savedValu
         {missingRequired.length > 0 && (
           <button
             onClick={() => onDone(values)}
-            style={{ display: 'block', width: '100%', marginTop: 8, padding: '8px', border: 'none', background: 'none', color: '#94a3b8', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+            style={{ display: 'block', width: '100%', marginTop: 8, padding: '10px', border: '1.5px solid #16a34a', borderRadius: 10, background: '#f0fdf4', color: '#15803d', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'background 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#dcfce7'}
+            onMouseLeave={e => e.currentTarget.style.background = '#f0fdf4'}
           >
-            Continuă fără câmpuri obligatorii
+            Continuă fără câmpuri obligatorii →
           </button>
         )}
       </div>
