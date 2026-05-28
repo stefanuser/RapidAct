@@ -26,15 +26,15 @@ const ASSET_TYPES = {
     primary:   d => d.plate || '—',
     secondary: d => [d.make, d.model, d.year].filter(Boolean).join(' '),
     tertiary:  d => d.color,
-    // map to contract fields for auto-fill
+    // map to FIELD_REGISTRY contract keys (auto-fill din asset picker)
     contractMap: {
-      masina_marca:     'make',
-      masina_model:     'model',
-      masina_an:        'year',
-      masina_nr_inmatr: 'plate',
-      masina_culoare:   'color',
-      masina_serie_vin: 'vin',
-      casco:            'casco',
+      vehicle_make:   'make',
+      vehicle_model:  'model',
+      vehicle_year:   'year',
+      vehicle_plate:  'plate',
+      vehicle_color:  'color',
+      vehicle_vin:    'vin',
+      contract_casco: 'casco',
     },
   },
   property: {

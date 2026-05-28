@@ -11,7 +11,7 @@ const {
 
 // ─── Document Schemas (sursă unică de adevăr — câmpuri per act) ──────────────
 // Fiecare document știe ce câmpuri produce și cum să le afișeze.
-// Contractele referă câmpurile via fieldMap: 'docId:fieldKey'.
+// Câmpurile produse de documente sunt referite în FIELD_REGISTRY via docId + fieldKey.
 const DOC_SCHEMAS = {
   ci: {
     label: 'Carte de identitate',
@@ -41,7 +41,57 @@ const DOC_SCHEMAS = {
   },
 };
 
+// ─── Field Registry (sursă unică pentru toate câmpurile disponibile) ─────────
+// Fiecare cheie este placeholder-ul din body_template: {{driver_name}}
+// Sursa, tipul, label-ul câmpului sunt definite o singură dată — templates doar listează ce chei folosesc.
+const FIELD_REGISTRY = {
+  // ── Persoana (CI) ──────────────────────────────────────────────────────────
+  driver_name:              { label: 'Nume complet',           cat: 'Persoana', source: 'ocr',      docId: 'ci',     fieldKey: 'full_name',       desc: 'Extras automat din CI' },
+  driver_cnp:               { label: 'CNP',                    cat: 'Persoana', source: 'ocr',      docId: 'ci',     fieldKey: 'cnp',             desc: 'Cod Numeric Personal' },
+  driver_ci_series:         { label: 'Serie CI',               cat: 'Persoana', source: 'ocr',      docId: 'ci',     fieldKey: 'ci_serie',        desc: 'Seria Cărții de identitate' },
+  driver_ci_number:         { label: 'Nr. CI',                 cat: 'Persoana', source: 'ocr',      docId: 'ci',     fieldKey: 'ci_nr',           desc: 'Numărul Cărții de identitate' },
+  driver_birthdate:         { label: 'Data nașterii',          cat: 'Persoana', source: 'ocr',      docId: 'ci',     fieldKey: 'data_nastere',    desc: 'Data nașterii din CI' },
+  driver_ci_expiry:         { label: 'CI valabilă până',       cat: 'Persoana', source: 'ocr',      docId: 'ci',     fieldKey: 'ci_valabilitate', desc: 'Data expirării CI' },
+  driver_address:           { label: 'Adresă domiciliu',       cat: 'Persoana', source: 'manual',   group: 'Locatar',           type: 'text',     required: false, placeholder: 'Stradă, număr, localitate', desc: 'Adresa șoferului' },
+  // ── Persoana (Permis) ──────────────────────────────────────────────────────
+  driver_license_nr:        { label: 'Nr. permis',             cat: 'Persoana', source: 'ocr',      docId: 'permis', fieldKey: 'nr',              desc: 'Numărul permisului de conducere' },
+  driver_license_cat:       { label: 'Categorii permis',       cat: 'Persoana', source: 'ocr',      docId: 'permis', fieldKey: 'categorii',       desc: 'Categorii permis (ex: B)' },
+  driver_license_expiry:    { label: 'Permis valabil până',    cat: 'Persoana', source: 'ocr',      docId: 'permis', fieldKey: 'expirare',        desc: 'Data expirării permisului' },
+  // ── Firma (profil utilizator) ──────────────────────────────────────────────
+  company_name:             { label: 'Denumire firmă',         cat: 'Firma',    source: 'profile',  profileKey: 'firm_name',    desc: 'Firmă din profilul tău' },
+  company_cui:              { label: 'CUI',                    cat: 'Firma',    source: 'profile',  profileKey: 'firm_cui',     desc: 'Cod Unic de Identificare' },
+  company_address:          { label: 'Adresă firmă',           cat: 'Firma',    source: 'profile',  profileKey: 'firm_address', desc: 'Sediu social' },
+  company_reg:              { label: 'Reg. Comerțului',        cat: 'Firma',    source: 'profile',  profileKey: 'firm_reg',     desc: 'Nr. Registrul Comerțului' },
+  company_rep:              { label: 'Reprezentant legal',     cat: 'Firma',    source: 'profile',  profileKey: 'legal_rep',    desc: 'Semnatarul firmei' },
+  // ── Vehicul ────────────────────────────────────────────────────────────────
+  vehicle_make:             { label: 'Marcă',                  cat: 'Vehicul',  source: 'manual',   group: 'Vehicul', type: 'text',     required: true,  placeholder: 'ex. Dacia',          desc: 'Marca autovehicul' },
+  vehicle_model:            { label: 'Model',                  cat: 'Vehicul',  source: 'manual',   group: 'Vehicul', type: 'text',     required: true,  placeholder: 'ex. Logan',          desc: 'Model autovehicul' },
+  vehicle_year:             { label: 'An fabricație',          cat: 'Vehicul',  source: 'manual',   group: 'Vehicul', type: 'text',     required: true,  placeholder: 'ex. 2022',           desc: 'An fabricație' },
+  vehicle_plate:            { label: 'Nr. înmatriculare',      cat: 'Vehicul',  source: 'manual',   group: 'Vehicul', type: 'text',     required: true,  placeholder: 'ex. B 123 ABC',      desc: 'Nr. înmatriculare' },
+  vehicle_color:            { label: 'Culoare',                cat: 'Vehicul',  source: 'manual',   group: 'Vehicul', type: 'text',     required: false, placeholder: 'ex. Alb',            desc: 'Culoarea mașinii' },
+  vehicle_vin:              { label: 'Serie VIN / Șasiu',      cat: 'Vehicul',  source: 'manual',   group: 'Vehicul', type: 'text',     required: false, placeholder: 'ex. VSSZZZ6K...',    desc: 'Seria șasiului' },
+  // ── Contract ───────────────────────────────────────────────────────────────
+  contract_date:            { label: 'Data contractului',          cat: 'Contract', source: 'computed', group: 'Contract',        type: 'text',     required: true,  placeholder: 'ex. 15/06/2025', defaultType: 'today_ro', desc: 'Data completată automat' },
+  contract_location:        { label: 'Locul încheierii',           cat: 'Contract', source: 'manual',   group: 'Contract',        type: 'text',     required: true,  placeholder: 'ex. București',  desc: 'Localitate' },
+  contract_start:           { label: 'Data și ora predării',       cat: 'Contract', source: 'manual',   group: 'Perioadă',        type: 'datetime', required: true,  desc: 'Data predării' },
+  contract_end:             { label: 'Data și ora restituirii',    cat: 'Contract', source: 'manual',   group: 'Perioadă',        type: 'datetime', required: true,  desc: 'Data restituirii' },
+  contract_days:            { label: 'Nr. zile închiriate',        cat: 'Contract', source: 'manual',   group: 'Perioadă',        type: 'number',   required: true,  hint: 'Calculat automat din date', desc: 'Zile de închiriere' },
+  contract_handover_location: { label: 'Locul predării',           cat: 'Contract', source: 'manual',   group: 'Perioadă',        type: 'text',     required: false, placeholder: 'ex. Aeroportul Otopeni', desc: 'Locul fizic de predare' },
+  contract_price_day:       { label: 'Tarif / zi (RON)',           cat: 'Contract', source: 'manual',   group: 'Tarife și plată', type: 'number',   required: true,  placeholder: 'ex. 150',        desc: 'Preț pe zi' },
+  contract_total:           { label: 'Valoare totală (RON)',        cat: 'Contract', source: 'manual',   group: 'Tarife și plată', type: 'number',   required: true,  hint: 'Calculat automat: zile × tarif', desc: 'Total contract' },
+  contract_deposit:         { label: 'Garanție (RON)',             cat: 'Contract', source: 'manual',   group: 'Tarife și plată', type: 'number',   required: true,  placeholder: 'ex. 500',        desc: 'Garanție' },
+  contract_payment:         { label: 'Mod de plată',               cat: 'Contract', source: 'manual',   group: 'Tarife și plată', type: 'select',   required: true,  options: ['Numerar', 'Card bancar', 'Transfer bancar', 'Online'], desc: 'Mod de plată' },
+  contract_km_start:        { label: 'Km la predare',              cat: 'Contract', source: 'manual',   group: 'Condiții',        type: 'number',   required: true,  placeholder: 'ex. 45230',      desc: 'Kilometraj la predare' },
+  contract_km_limit:        { label: 'Km incluși / zi',            cat: 'Contract', source: 'manual',   group: 'Condiții',        type: 'select',   required: true,  options: ['Nelimitați', '100 km/zi', '150 km/zi', '200 km/zi', '300 km/zi'], desc: 'Limită km/zi' },
+  contract_fuel:            { label: 'Combustibil la predare',     cat: 'Contract', source: 'manual',   group: 'Condiții',        type: 'select',   required: true,  options: ['1/4', '1/2', '3/4', 'Plin'], desc: 'Nivel combustibil' },
+  contract_franchise:       { label: 'Franșiță daune (RON)',       cat: 'Contract', source: 'manual',   group: 'Condiții',        type: 'number',   required: false, placeholder: 'ex. 1000',       desc: 'Franșiță daune' },
+  contract_casco:           { label: 'Asigurare CASCO',            cat: 'Contract', source: 'manual',   group: 'Condiții',        type: 'select',   required: true,  options: ['Inclusă', 'Nu este inclusă'], desc: 'Acoperire CASCO' },
+  contract_notes:           { label: 'Observații / daune',         cat: 'Contract', source: 'manual',   group: 'Contract',        type: 'textarea', required: false, placeholder: 'ex. Zgârietură pe aripă...', desc: 'Observații' },
+};
+
 // ─── Template data ────────────────────────────────────────────────────────────
+// Template-urile definesc DOAR ce câmpuri folosesc (keys din FIELD_REGISTRY).
+// Sursa, tipul, label-ul fiecărui câmp sunt definite în FIELD_REGISTRY — nu în template.
 const TEMPLATES = [
   {
     id: 'rentacar-standard',
@@ -49,74 +99,20 @@ const TEMPLATES = [
     icon: '🚗',
     active: true,
     description: 'Contract standard de închiriere autovehicul cu predare-primire',
-    // fieldMap: placeholder_contract → 'docId:fieldKey' | 'profile:profileKey' | 'manual'
-    fieldMap: {
-      sofer_nume:           'ci:full_name',
-      sofer_cnp:            'ci:cnp',
-      sofer_ci_serie:       'ci:ci_serie',
-      sofer_ci_nr:          'ci:ci_nr',
-      sofer_data_nastere:   'ci:data_nastere',
-      sofer_ci_valabilitate:'ci:ci_valabilitate',
-      sofer_adresa:         'manual',
-      permis_nr:            'permis:nr',
-      permis_categorii:     'permis:categorii',
-      permis_expirare:      'permis:expirare',
-      firma_nume:           'profile:firm_name',
-      firma_cui:            'profile:firm_cui',
-      firma_adresa:         'profile:firm_address',
-      firma_reg:            'profile:firm_reg',
-      firma_reprezentant:   'profile:legal_rep',
-      masina_marca:         'manual',
-      masina_model:         'manual',
-      masina_an:            'manual',
-      masina_nr_inmatr:     'manual',
-      masina_culoare:       'manual',
-      masina_serie_vin:     'manual',
-      predare_data_ora:     'manual',
-      restituire_data_ora:  'manual',
-      nr_zile:              'manual',
-      km_predare:           'manual',
-      combustibil_predare:  'manual',
-      tarif_zi:             'manual',
-      valoare_totala:       'manual',
-      garantie:             'manual',
-      mod_plata:            'manual',
-      km_inclusi:           'manual',
-      fransiza:             'manual',
-      casco:                'manual',
-      loc_predare:          'manual',
-      observatii:           'manual',
-      data_contract:        'manual',
-      loc_incheiere:        'manual',
-    },
-    manualFields: [
-      { key: 'sofer_adresa',        label: 'Adresă domiciliu șofer',    type: 'text',     required: false, group: 'Locatar', placeholder: 'Stradă, număr, localitate' },
-      { key: 'masina_marca',        label: 'Marcă',                     type: 'text',     required: true,  group: 'Vehicul', placeholder: 'ex. Dacia' },
-      { key: 'masina_model',        label: 'Model',                     type: 'text',     required: true,  group: 'Vehicul', placeholder: 'ex. Logan' },
-      { key: 'masina_an',           label: 'An fabricație',             type: 'text',     required: true,  group: 'Vehicul', placeholder: 'ex. 2022' },
-      { key: 'masina_nr_inmatr',    label: 'Nr. înmatriculare',         type: 'text',     required: true,  group: 'Vehicul', placeholder: 'ex. B 123 ABC' },
-      { key: 'masina_culoare',      label: 'Culoare',                   type: 'text',     required: false, group: 'Vehicul', placeholder: 'ex. Alb' },
-      { key: 'masina_serie_vin',    label: 'Serie VIN / Șasiu',         type: 'text',     required: false, group: 'Vehicul', placeholder: 'ex. VSSZZZ6K...' },
-      { key: 'predare_data_ora',    label: 'Data și ora predării',      type: 'datetime', required: true,  group: 'Perioadă' },
-      { key: 'restituire_data_ora', label: 'Data și ora restituirii',   type: 'datetime', required: true,  group: 'Perioadă' },
-      { key: 'nr_zile',             label: 'Număr zile închiriate',     type: 'number',   required: true,  group: 'Perioadă', hint: 'Calculat automat din date' },
-      { key: 'loc_predare',         label: 'Locul predării',            type: 'text',     required: false, group: 'Perioadă', placeholder: 'ex. Aeroportul Otopeni' },
-      { key: 'tarif_zi',            label: 'Tarif / zi (RON)',          type: 'number',   required: true,  group: 'Tarife și plată', placeholder: 'ex. 150' },
-      { key: 'valoare_totala',      label: 'Valoare totală (RON)',      type: 'number',   required: true,  group: 'Tarife și plată', hint: 'Calculat automat: zile × tarif' },
-      { key: 'garantie',            label: 'Garanție (RON)',            type: 'number',   required: true,  group: 'Tarife și plată', placeholder: 'ex. 500' },
-      { key: 'mod_plata',           label: 'Mod de plată',              type: 'select',   required: true,  group: 'Tarife și plată', options: ['Numerar', 'Card bancar', 'Transfer bancar', 'Online'] },
-      { key: 'km_inclusi',          label: 'Km incluși / zi',           type: 'select',   required: true,  group: 'Condiții', options: ['Nelimitați', '100 km/zi', '150 km/zi', '200 km/zi', '300 km/zi'] },
-      { key: 'km_predare',          label: 'Km la predare',             type: 'number',   required: true,  group: 'Condiții', placeholder: 'ex. 45230' },
-      { key: 'combustibil_predare', label: 'Combustibil la predare',    type: 'select',   required: true,  group: 'Condiții', options: ['1/4', '1/2', '3/4', 'Plin'] },
-      { key: 'fransiza',            label: 'Franșiță daune (RON)',      type: 'number',   required: false, group: 'Condiții', placeholder: 'ex. 1000' },
-      { key: 'casco',               label: 'Asigurare CASCO',           type: 'select',   required: true,  group: 'Condiții', options: ['Inclusă', 'Nu este inclusă'] },
-      { key: 'observatii',          label: 'Observații / daune',        type: 'textarea', required: false, group: 'Contract', placeholder: 'ex. Zgârietură pe aripa...' },
-      { key: 'data_contract',       label: 'Data contractului',         type: 'text',     required: true,  group: 'Contract', placeholder: 'ex. 15/06/2025', defaultFn: () => { const n = new Date(); return `${String(n.getDate()).padStart(2,'0')}/${String(n.getMonth()+1).padStart(2,'0')}/${n.getFullYear()}`; } },
-      { key: 'loc_incheiere',       label: 'Locul încheierii',          type: 'text',     required: true,  group: 'Contract', placeholder: 'ex. București' },
+    fields: [
+      'driver_name', 'driver_cnp', 'driver_ci_series', 'driver_ci_number',
+      'driver_birthdate', 'driver_ci_expiry', 'driver_address',
+      'driver_license_nr', 'driver_license_cat', 'driver_license_expiry',
+      'company_name', 'company_cui', 'company_address', 'company_reg', 'company_rep',
+      'vehicle_make', 'vehicle_model', 'vehicle_year', 'vehicle_plate', 'vehicle_color', 'vehicle_vin',
+      'contract_date', 'contract_location',
+      'contract_start', 'contract_end', 'contract_days', 'contract_handover_location',
+      'contract_price_day', 'contract_total', 'contract_deposit', 'contract_payment',
+      'contract_km_start', 'contract_km_limit', 'contract_fuel', 'contract_franchise', 'contract_casco',
+      'contract_notes',
     ],
   },
 ];
-
 // All templates defined in ALL_TEMPLATE_LIST below
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -184,16 +180,18 @@ const SCAN_DOCS = [
 
 // ─── DocCard ──────────────────────────────────────────────────────────────────
 const DOC_FIELD_LABELS = {
-  // CI
-  sofer_nume: 'Nume', sofer_cnp: 'CNP',
-  sofer_ci_serie: 'Serie CI', sofer_ci_nr: 'Nr. CI',
-  sofer_data_nastere: 'Data nașterii', sofer_ci_valabilitate: 'CI valabilă până',
-  // Permis (permisul RO nu are serie — doar nr.)
-  permis_titular: 'Titular permis', permis_data_nastere: 'Dată naștere (permis)',
-  permis_nr: 'Nr. permis', permis_categorii: 'Categorii', permis_expirare: 'Permis valabil până',
-  // Firmă
-  client_firma: 'Firmă', client_cui: 'CUI',
-  client_adresa: 'Adresă', client_reg: 'Reg. Com.',
+  // DOC_SCHEMAS CI keys (folosite în DocCard pentru afișare date scanate)
+  full_name:        'Nume și prenume',
+  cnp:              'CNP',
+  ci_serie:         'Serie CI',
+  ci_nr:            'Nr. CI',
+  data_nastere:     'Data nașterii',
+  ci_valabilitate:  'CI valabilă până',
+  // DOC_SCHEMAS permis keys
+  titular:    'Titular permis',
+  nr:         'Nr. permis',
+  categorii:  'Categorii',
+  expirare:   'Valabil până',
 };
 
 function DocCard({ doc, data, scanning, cuiVal, onCuiChange, onScanFile, onLookupAnaf, onRescan }) {
@@ -450,17 +448,8 @@ function fillTemplate(bodyText, values) {
   return bodyText.replace(/\{\{(\w+)\}\}/g, (_, k) => values[k] || '___________');
 }
 
-// Convertește un rând din Supabase contract_templates → obiect template folosibil în app
+// Converteste un rand din Supabase contract_templates in obiect template folosibil in app
 function parseDbTemplate(row) {
-  const applyDefaults = fields => fields.map(f => {
-    if (f.defaultType === 'today_ro') {
-      return { ...f, defaultFn: () => {
-        const n = new Date();
-        return `${String(n.getDate()).padStart(2,'0')}/${String(n.getMonth()+1).padStart(2,'0')}/${n.getFullYear()}`;
-      }};
-    }
-    return f;
-  });
   return {
     id:           row.id,
     name:         row.name,
@@ -468,9 +457,7 @@ function parseDbTemplate(row) {
     description:  row.description || '',
     category:     row.category || 'General',
     active:       row.active,
-    scanDocs:     row.scan_docs || ['ci'],
-    fieldMap:     row.field_map || {},
-    manualFields: applyDefaults(row.manual_fields || []),
+    fields:       row.fields || [],
     bodyText:     row.body_template || '',
     userId:       row.user_id || null,
     isDbTemplate: true,
@@ -481,62 +468,61 @@ function buildContractBody(template, values) {
   if (template.bodyText) return fillTemplate(template.bodyText, values);
   const fill = (k) => values[k] || '___________';
   return `CONTRACT DE ÎNCHIRIERE AUTOVEHICUL
-Nr. _____ / ${fill('data_contract')}
+Nr. _____ / ${fill('contract_date')}
 
-Încheiat la ${fill('loc_incheiere')}, astăzi ${fill('data_contract')},
+Încheiat la ${fill('contract_location')}, astăzi ${fill('contract_date')},
 
 I. PĂRȚILE CONTRACTANTE
 
 LOCATOR (Firma):
-${fill('firma_nume')}, sediu în ${fill('firma_adresa')},
-Reg. Com. ${fill('firma_reg')}, CUI ${fill('firma_cui')},
-reprezentată prin ${fill('firma_reprezentant')},
+${fill('company_name')}, sediu în ${fill('company_address')},
+Reg. Com. ${fill('company_reg')}, CUI ${fill('company_cui')},
+reprezentată prin ${fill('company_rep')},
 
 LOCATAR (Șoferul):
-${fill('sofer_nume')}, CNP ${fill('sofer_cnp')},
-CI seria ${fill('sofer_ci_serie')} nr. ${fill('sofer_ci_nr')}, valabilă: ${fill('sofer_ci_valabilitate')},
-domiciliu: ${fill('sofer_adresa')},
-data nașterii: ${fill('sofer_data_nastere')},
-permis conducere nr. ${fill('permis_nr')}, categorii: ${fill('permis_categorii')}, valabil: ${fill('permis_expirare')},
+${fill('driver_name')}, CNP ${fill('driver_cnp')},
+CI seria ${fill('driver_ci_series')} nr. ${fill('driver_ci_number')}, valabilă: ${fill('driver_ci_expiry')},
+domiciliu: ${fill('driver_address')},
+data nașterii: ${fill('driver_birthdate')},
+permis conducere nr. ${fill('driver_license_nr')}, categorii: ${fill('driver_license_cat')}, valabil: ${fill('driver_license_expiry')},
 
 II. OBIECTUL CONTRACTULUI
 
-Autovehicul: ${fill('masina_marca')} ${fill('masina_model')} ${fill('masina_an')}
-Nr. înmatriculare: ${fill('masina_nr_inmatr')}
-Culoare: ${fill('masina_culoare')} · VIN: ${fill('masina_serie_vin')}
-CASCO: ${fill('casco')}
+Autovehicul: ${fill('vehicle_make')} ${fill('vehicle_model')} ${fill('vehicle_year')}
+Nr. înmatriculare: ${fill('vehicle_plate')}
+Culoare: ${fill('vehicle_color')} · VIN: ${fill('vehicle_vin')}
+CASCO: ${fill('contract_casco')}
 
 III. DURATA ÎNCHIRIERII
 
-Predare: ${fill('predare_data_ora')}
-Restituire: ${fill('restituire_data_ora')}
-Perioadă: ${fill('nr_zile')} zile
-Loc predare: ${fill('loc_predare')}
+Predare: ${fill('contract_start')}
+Restituire: ${fill('contract_end')}
+Perioadă: ${fill('contract_days')} zile
+Loc predare: ${fill('contract_handover_location')}
 
 IV. PREȚUL ȘI PLATA
 
-Tarif: ${fill('tarif_zi')} RON/zi
-Valoare totală: ${fill('valoare_totala')} RON
-Garanție: ${fill('garantie')} RON
-Mod plată: ${fill('mod_plata')}
+Tarif: ${fill('contract_price_day')} RON/zi
+Valoare totală: ${fill('contract_total')} RON
+Garanție: ${fill('contract_deposit')} RON
+Mod plată: ${fill('contract_payment')}
 
 V. CONDIȚII
 
-Km incluși: ${fill('km_inclusi')}
-Franșiză daune: ${fill('fransiza')} RON
-Km la predare: ${fill('km_predare')} km
-Combustibil: ${fill('combustibil_predare')}
-Observații: ${fill('observatii') || '—'}
+Km incluși: ${fill('contract_km_limit')}
+Franșiță daune: ${fill('contract_franchise')} RON
+Km la predare: ${fill('contract_km_start')} km
+Combustibil: ${fill('contract_fuel')}
+Observații: ${fill('contract_notes') || '—'}
 
 VI. SEMNĂTURI
 
-LOCATOR: ${fill('firma_reprezentant')}
-LOCATAR: ${fill('sofer_nume')}
+LOCATOR: ${fill('company_rep')}
+LOCATAR: ${fill('driver_name')}
 
 ________________________    ________________________
   (semnătură + ștampilă)          (semnătură)`;
 }
-
 // ─── All available templates (active + coming soon) ──────────────────────────
 const ALL_TEMPLATE_LIST = [
   { id: 'rentacar-standard',   name: 'Închiriere Auto',            icon: '🚗', desc: 'Contract predare-primire autovehicul',    category: 'Mobilitate',    active: true  },
@@ -1003,33 +989,34 @@ function LoadingBar() {
 
 // ─── Step 3: Form ─────────────────────────────────────────────────────────────
 function StepForm({ template, docData, profile, savedValues, assets, onDone }) {
-  // docEdits: user overrides for OCR-extracted fields (docId -> { fieldKey: value })
+  // docEdits: override-uri user pentru câmpuri OCR (docId -> { fieldKey: val })
   const [docEdits, setDocEdits] = React.useState(() => {
     if (!savedValues || !Object.keys(savedValues).length) return {};
     const edits = {};
-    Object.entries(template.fieldMap).forEach(([cKey, src]) => {
-      if (src === 'manual' || src.startsWith('profile:')) return;
-      const [docId, fieldKey] = src.split(':');
-      if (savedValues[cKey] !== undefined) {
-        if (!edits[docId]) edits[docId] = {};
-        edits[docId][fieldKey] = savedValues[cKey];
+    (template.fields || []).forEach(key => {
+      const reg = FIELD_REGISTRY[key];
+      if (!reg || reg.source !== 'ocr') return;
+      if (savedValues[key] !== undefined) {
+        if (!edits[reg.docId]) edits[reg.docId] = {};
+        edits[reg.docId][reg.fieldKey] = savedValues[key];
       }
     });
     return edits;
   });
 
-  // manualVals: values for fields marked 'manual' in fieldMap
+  // manualVals: câmpuri cu source 'manual' sau 'computed'
   const [manualVals, setManualVals] = React.useState(() => {
-    if (savedValues && Object.keys(savedValues).length > 0) {
-      const m = {};
-      template.manualFields.forEach(f => {
-        if (savedValues[f.key] !== undefined) m[f.key] = savedValues[f.key];
-        else if (f.defaultFn) m[f.key] = f.defaultFn();
-      });
-      return m;
-    }
     const m = {};
-    template.manualFields.forEach(f => { if (f.defaultFn) m[f.key] = f.defaultFn(); });
+    (template.fields || []).forEach(key => {
+      const reg = FIELD_REGISTRY[key];
+      if (!reg || (reg.source !== 'manual' && reg.source !== 'computed')) return;
+      if (savedValues && savedValues[key] !== undefined) {
+        m[key] = savedValues[key];
+      } else if (reg.defaultType === 'today_ro') {
+        const n = new Date();
+        m[key] = `${String(n.getDate()).padStart(2,'0')}/${String(n.getMonth()+1).padStart(2,'0')}/${n.getFullYear()}`;
+      }
+    });
     return m;
   });
 
@@ -1044,16 +1031,18 @@ function StepForm({ template, docData, profile, savedValues, assets, onDone }) {
   function setManualField(key, val) {
     setManualVals(prev => {
       const next = { ...prev, [key]: val };
-      if ((key === 'predare_data_ora' || key === 'restituire_data_ora') && next.predare_data_ora && next.restituire_data_ora) {
-        const diff = new Date(next.restituire_data_ora) - new Date(next.predare_data_ora);
-        if (diff > 0) next.nr_zile = Math.ceil(diff / 86400000).toString();
-        else next.nr_zile = '';
+      // Auto-calc: nr zile din date predare/restituire
+      if ((key === 'contract_start' || key === 'contract_end') && next.contract_start && next.contract_end) {
+        const diff = new Date(next.contract_end) - new Date(next.contract_start);
+        if (diff > 0) next.contract_days = Math.ceil(diff / 86400000).toString();
+        else next.contract_days = '';
       }
+      // Auto-calc: valoare totala = zile * tarif
       const toNum = s => parseFloat(String(s || '').replace(',', '.')) || 0;
-      if ((key === 'nr_zile' || key === 'tarif_zi') && next.nr_zile && next.tarif_zi) {
-        const auto = (toNum(next.nr_zile) * toNum(next.tarif_zi)).toFixed(0);
-        const prevAuto = prev.nr_zile && prev.tarif_zi ? (toNum(prev.nr_zile) * toNum(prev.tarif_zi)).toFixed(0) : null;
-        if (!prev.valoare_totala || prev.valoare_totala === prevAuto) next.valoare_totala = auto;
+      if ((key === 'contract_days' || key === 'contract_price_day') && next.contract_days && next.contract_price_day) {
+        const auto = (toNum(next.contract_days) * toNum(next.contract_price_day)).toFixed(0);
+        const prevAuto = prev.contract_days && prev.contract_price_day ? (toNum(prev.contract_days) * toNum(prev.contract_price_day)).toFixed(0) : null;
+        if (!prev.contract_total || prev.contract_total === prevAuto) next.contract_total = auto;
       }
       return next;
     });
@@ -1069,15 +1058,22 @@ function StepForm({ template, docData, profile, savedValues, assets, onDone }) {
 
   function resolveContractValues() {
     const out = {};
-    Object.entries(template.fieldMap).forEach(([cKey, src]) => {
-      if (src === 'manual')                out[cKey] = manualVals[cKey] ?? '';
-      else if (src.startsWith('profile:')) out[cKey] = profile?.[src.replace('profile:', '')] ?? '';
-      else { const [docId, fk] = src.split(':'); out[cKey] = getDocVal(docId, fk); }
+    (template.fields || []).forEach(key => {
+      const reg = FIELD_REGISTRY[key];
+      if (!reg) return;
+      if (reg.source === 'ocr')          out[key] = getDocVal(reg.docId, reg.fieldKey);
+      else if (reg.source === 'profile') out[key] = profile?.[reg.profileKey] ?? '';
+      else                               out[key] = manualVals[key] ?? '';
     });
     return out;
   }
 
-  const missingRequired = template.manualFields.filter(f => f.required && !manualVals[f.key]).map(f => f.label);
+  const missingRequired = (template.fields || [])
+    .filter(key => {
+      const reg = FIELD_REGISTRY[key];
+      return reg && (reg.source === 'manual' || reg.source === 'computed') && reg.required && !manualVals[key];
+    })
+    .map(key => FIELD_REGISTRY[key].label);
 
   const cnpVal = getDocVal('ci', 'cnp');
   const cnpInvalid = cnpVal.length > 0 && !validateCnp(cnpVal);
@@ -1101,7 +1097,10 @@ function StepForm({ template, docData, profile, savedValues, assets, onDone }) {
 
   const focusIdxRef = React.useRef(0);
   function scrollToNextMissing() {
-    const missingKeys = template.manualFields.filter(f => f.required && !manualVals[f.key]).map(f => f.key);
+    const missingKeys = (template.fields || []).filter(key => {
+      const reg = FIELD_REGISTRY[key];
+      return reg && (reg.source === 'manual' || reg.source === 'computed') && reg.required && !manualVals[key];
+    });
     if (!missingKeys.length) return;
     if (focusIdxRef.current >= missingKeys.length) focusIdxRef.current = 0;
     const key = missingKeys[focusIdxRef.current];
@@ -1115,23 +1114,34 @@ function StepForm({ template, docData, profile, savedValues, assets, onDone }) {
     }, 320);
   }
 
+  // Grupează câmpurile manuale după FIELD_REGISTRY[key].group
   const manualGroups = [];
-  template.manualFields.forEach(f => {
-    let g = manualGroups.find(x => x.title === f.group);
-    if (!g) { g = { title: f.group, fields: [] }; manualGroups.push(g); }
-    g.fields.push(f);
+  (template.fields || []).forEach(key => {
+    const reg = FIELD_REGISTRY[key];
+    if (!reg || (reg.source !== 'manual' && reg.source !== 'computed')) return;
+    const groupTitle = reg.group || 'General';
+    let g = manualGroups.find(x => x.title === groupTitle);
+    if (!g) { g = { title: groupTitle, fields: [] }; manualGroups.push(g); }
+    g.fields.push({ key, ...reg });
   });
 
   const docsWithData = Object.entries(docData)
     .filter(([, d]) => d && !d.error && Object.keys(d.values || {}).length > 0);
 
-  const PROFILE_LABELS = {
-    firm_name: 'Firmă', firm_cui: 'CUI', firm_address: 'Adresă sediu',
-    firm_reg: 'Reg. Com.', legal_rep: 'Reprezentant legal',
-  };
-  const profileRows = [...new Set(
-    Object.values(template.fieldMap).filter(s => s.startsWith('profile:')).map(s => s.replace('profile:', ''))
-  )].filter(pk => profile?.[pk]).map(pk => ({ key: pk, label: PROFILE_LABELS[pk] || pk, value: profile[pk] }));
+  // Rânduri profil firmă: câmpuri cu source='profile' din template
+  const PROFILE_LABELS = { firm_name: 'Firmă', firm_cui: 'CUI', firm_address: 'Adresă sediu', firm_reg: 'Reg. Com.', legal_rep: 'Reprezentant legal' };
+  const profileRows = (template.fields || [])
+    .filter(key => FIELD_REGISTRY[key]?.source === 'profile')
+    .filter((key, i, arr) => arr.indexOf(key) === i)
+    .map(key => {
+      const reg = FIELD_REGISTRY[key];
+      const val = profile?.[reg.profileKey];
+      return val ? { key, label: PROFILE_LABELS[reg.profileKey] || reg.label, value: val } : null;
+    })
+    .filter(Boolean);
+
+  // Detectează dacă template-ul are câmpuri de vehicul
+  const hasVehicleFields = (template.fields || []).some(k => k.startsWith('vehicle_'));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
@@ -1181,8 +1191,8 @@ function StepForm({ template, docData, profile, savedValues, assets, onDone }) {
                 })}
                 {docId === 'ci' && cnpInvalid && (
                   <div style={{ background: '#fef3c7', border: '1px solid #fbbf24', borderRadius: 8, padding: '8px 12px', display: 'flex', gap: 8 }}>
-                    <span style={{ fontSize: 14, flexShrink: 0 }}>⚠️</span>
-                    <p style={{ fontSize: 12, color: '#92400e', lineHeight: 1.5 }}>CNP-ul pare invalid (cifră de control greşită). Verifică manual înainte de a genera contractul.</p>
+                    <span style={{ fontSize: 14, flexShrink: 0 }}>&#9888;&#65039;</span>
+                    <p style={{ fontSize: 12, color: '#92400e', lineHeight: 1.5 }}>CNP-ul pare invalid (cifră de control greșită). Verifică manual înainte de a genera contractul.</p>
                   </div>
                 )}
                 {docId === 'permis' && namesMismatch && (
@@ -1218,7 +1228,7 @@ function StepForm({ template, docData, profile, savedValues, assets, onDone }) {
         {profileRows.length > 0 && (
           <div style={{ marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 16 }}>🏢</span>
+              <span style={{ fontSize: 16 }}>&#127962;</span>
               <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: '#7c3aed' }}>Date firmă</span>
               <span style={{ fontSize: 10, background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe', borderRadius: 5, padding: '1px 7px', fontWeight: 700, marginLeft: 'auto', flexShrink: 0 }}>Din profil</span>
             </div>
@@ -1233,14 +1243,14 @@ function StepForm({ template, docData, profile, savedValues, assets, onDone }) {
           </div>
         )}
 
-        {template.id === 'rentacar-standard' && (() => {
+        {hasVehicleFields && (() => {
           const vehiculFields = manualGroups.find(g => g.title === 'Vehicul')?.fields || [];
           return (
             <div style={{ marginBottom: 20 }}>
               <SectionLabel>Vehicul</SectionLabel>
               {selectedAsset ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: 12, padding: '11px 14px', marginBottom: 12 }}>
-                  <span style={{ fontSize: 22 }}>🚗</span>
+                  <span style={{ fontSize: 22 }}>&#128663;</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontWeight: 700, fontSize: 14, color: '#1e40af' }}>{selectedAsset.details?.plate}</p>
                     <p style={{ fontSize: 12, color: '#3b82f6' }}>{[selectedAsset.details?.make, selectedAsset.details?.model, selectedAsset.details?.year].filter(Boolean).join(' ')}</p>
@@ -1251,10 +1261,10 @@ function StepForm({ template, docData, profile, savedValues, assets, onDone }) {
                 <button onClick={() => setShowAssetPicker(true)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', border: '1.5px dashed #bfdbfe', borderRadius: 12, padding: '12px 14px', background: '#f0f9ff', cursor: 'pointer', marginBottom: 12, textAlign: 'left', transition: 'all 0.15s' }}
                   onMouseEnter={e => e.currentTarget.style.borderColor = '#2563eb'}
                   onMouseLeave={e => e.currentTarget.style.borderColor = '#bfdbfe'}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🚗</div>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>&#128663;</div>
                   <div style={{ flex: 1 }}>
-                    <p style={{ fontWeight: 600, fontSize: 14, color: '#1e40af' }}>{carAssets.length > 0 ? 'Alege maşina din registru' : 'Adaugă maşini în registru'}</p>
-                    <p style={{ fontSize: 12, color: '#3b82f6' }}>{carAssets.length > 0 ? `${carAssets.length} maşin${carAssets.length === 1 ? 'ă' : 'i'} salvat${carAssets.length === 1 ? 'ă' : 'e'} · completare automată` : 'Economiseşti timp la contracte repetitive'}</p>
+                    <p style={{ fontWeight: 600, fontSize: 14, color: '#1e40af' }}>{carAssets.length > 0 ? 'Alege mașina din registru' : 'Adaugă mașini în registru'}</p>
+                    <p style={{ fontSize: 12, color: '#3b82f6' }}>{carAssets.length > 0 ? `${carAssets.length} mașin${carAssets.length === 1 ? 'ă' : 'i'} salvat${carAssets.length === 1 ? 'ă' : 'e'} · completare automată` : 'Economisești timp la contracte repetitive'}</p>
                   </div>
                   <ChevRightIcon size={16} color="#3b82f6" />
                 </button>
@@ -1265,7 +1275,7 @@ function StepForm({ template, docData, profile, savedValues, assets, onDone }) {
         })()}
 
         {manualGroups
-          .filter(g => !(template.id === 'rentacar-standard' && g.title === 'Vehicul'))
+          .filter(g => !(hasVehicleFields && g.title === 'Vehicul'))
           .map(({ title, fields }) => (
             <FieldSection key={title} title={title} fields={fields} values={manualVals} onChange={setManualField} />
           ))
@@ -1284,11 +1294,11 @@ function StepForm({ template, docData, profile, savedValues, assets, onDone }) {
               Câmpuri obligatorii necompletate ({missingRequired.length}):
             </p>
             <p style={{ fontSize: 11, color: '#ef4444', lineHeight: 1.5 }}>{missingRequired.join(' · ')}</p>
-            <p style={{ fontSize: 11, color: '#b91c1c', marginTop: 5, fontWeight: 600 }}>↓ Apasă pentru a merge la câmpul următor</p>
+            <p style={{ fontSize: 11, color: '#b91c1c', marginTop: 5, fontWeight: 600 }}>&#8595; Apasă pentru a merge la câmpul următor</p>
           </div>
         )}
         <PrimaryBtn onClick={() => onDone(resolveContractValues())} disabled={missingRequired.length > 0}>
-          Preview contract →
+          Preview contract &#8594;
         </PrimaryBtn>
         {missingRequired.length > 0 && (
           <button
@@ -1296,7 +1306,7 @@ function StepForm({ template, docData, profile, savedValues, assets, onDone }) {
             style={{ display: 'block', width: '100%', marginTop: 8, padding: '10px', border: '1.5px solid #16a34a', borderRadius: 10, background: '#f0fdf4', color: '#15803d', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'background 0.15s' }}
             onMouseEnter={e => e.currentTarget.style.background = '#dcfce7'}
             onMouseLeave={e => e.currentTarget.style.background = '#f0fdf4'}>
-            Continuă fără câmpuri obligatorii →
+            Continuă fără câmpuri obligatorii &#8594;
           </button>
         )}
       </div>
@@ -1312,7 +1322,6 @@ function StepForm({ template, docData, profile, savedValues, assets, onDone }) {
     </div>
   );
 }
-
 function FieldSection({ title, fields, values, onChange, confidence, compact }) {
   return (
     <div style={{ marginBottom: compact ? 0 : 24 }}>
@@ -1441,7 +1450,7 @@ function StepPreview({ template, values, onGenerate, generating, pdfError, profi
                 <img src={sig} alt="Semnătură" style={{ height: 48, maxWidth: 200, objectFit: 'contain' }} />
                 <div style={{ textAlign: 'right' }}>
                   <p style={{ fontSize: 11, fontWeight: 700, color: '#065f46' }}>LOCATOR</p>
-                  <p style={{ fontSize: 11, color: '#059669' }}>{values.firma_reprezentant || profile?.legal_rep || '—'}</p>
+                  <p style={{ fontSize: 11, color: '#059669' }}>{values.company_rep || profile?.legal_rep || '—'}</p>
                 </div>
               </div>
               <button onClick={() => onSkipSig(true)} style={{ marginTop: 8, width: '100%', border: 'none', background: 'none', fontSize: 12, color: '#94a3b8', cursor: 'pointer', textDecoration: 'underline', padding: '4px 0', textAlign: 'center' }}>
@@ -1480,7 +1489,7 @@ function StepPreview({ template, values, onGenerate, generating, pdfError, profi
                 {clientSig ? 'Semnătura clientului (LOCATAR) ✓' : 'Semnătură client — opțional'}
               </p>
               <p style={{ fontSize: 11, color: '#64748b', marginTop: 1 }}>
-                {clientSig ? `${values.sofer_nume || 'Client'} a semnat` : 'Clientul poate semna acum pe ecran'}
+                {clientSig ? `${values.driver_name || 'Client'} a semnat` : 'Clientul poate semna acum pe ecran'}
               </p>
             </div>
           </div>
@@ -1643,7 +1652,7 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
     setGenerating(true);
     try {
       const contractBody = buildContractBody(template, formValues);
-      const driverName = formValues.sofer_nume || 'client';
+      const driverName = formValues.driver_name || 'client';
       const lastName   = driverName.split(' ').slice(-1)[0];
       const now        = new Date();
       const timeStr    = String(now.getHours()).padStart(2,'0') + '-' + String(now.getMinutes()).padStart(2,'0');
@@ -1766,7 +1775,7 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
       await onContractCreated({
         template_name: template.name,
         status:        'generated',
-        parties:       [{ name: formValues.sofer_nume || 'Necunoscut' }],
+        parties:       [{ name: formValues.driver_name || 'Necunoscut' }],
         fields:        formValues,
         created_at:    new Date().toISOString(),
         pdf_url:       null,
@@ -1809,7 +1818,7 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
 
       {done ? (
         <StepSuccess
-          driverName={formValues.sofer_nume}
+          driverName={formValues.driver_name}
           pdfBlob={pdfBlob}
           filename={pdfFilename}
           onNew={reset}
@@ -1933,6 +1942,11 @@ function ContractTemplatesScreen({ navigate }) {
 
 // Expus global pentru regenerare PDF din arhivă (ContractDetailSheet în pages-main.jsx)
 window.buildContractBody = buildContractBody;
-window.TEMPLATES_MAP = Object.fromEntries(TEMPLATES.map(t => [t.name, t]));
+// TEMPLATES_MAP: keyed atât by id cât și by name (pages-main.jsx caută by template_name)
+window.TEMPLATES_MAP = {
+  ...Object.fromEntries(TEMPLATES.map(t => [t.id, t])),
+  ...Object.fromEntries(TEMPLATES.map(t => [t.name, t])),
+};
+window.FIELD_REGISTRY = FIELD_REGISTRY;
 
 Object.assign(window, { ContractNewScreen, ContractTemplatesScreen });
