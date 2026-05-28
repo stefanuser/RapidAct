@@ -946,13 +946,29 @@ function StepForm({ template, ocrValues, ocrConfidence, profileValues, savedValu
   function setField(key, val) {
     setValues(prev => {
       const next = { ...prev, [key]: val };
+
+      // Auto-calc nr_zile din datetime-uri
       if ((key === 'predare_data_ora' || key === 'restituire_data_ora') && next.predare_data_ora && next.restituire_data_ora) {
         const diff = new Date(next.restituire_data_ora) - new Date(next.predare_data_ora);
         if (diff > 0) next.nr_zile = Math.ceil(diff / 86400000).toString();
+        else next.nr_zile = ''; // M4 — reset când restituire e înainte de predare
       }
+
+      // M2 — parseFloat acceptă și virgulă (format RO: 150,5 → 150.5)
+      const toNum = s => parseFloat(String(s || '').replace(',', '.')) || 0;
+
       if ((key === 'nr_zile' || key === 'tarif_zi') && next.nr_zile && next.tarif_zi) {
-        next.valoare_totala = (parseFloat(next.nr_zile) * parseFloat(next.tarif_zi)).toFixed(0);
+        const auto = (toNum(next.nr_zile) * toNum(next.tarif_zi)).toFixed(0);
+        // M3 — nu suprascrie dacă totalul a fost editat manual
+        // (totalul e "auto" dacă era egal cu produsul valorilor ANTERIOARE)
+        const prevAuto = prev.nr_zile && prev.tarif_zi
+          ? (toNum(prev.nr_zile) * toNum(prev.tarif_zi)).toFixed(0)
+          : null;
+        if (!prev.valoare_totala || prev.valoare_totala === prevAuto) {
+          next.valoare_totala = auto;
+        }
       }
+
       return next;
     });
   }
@@ -1079,12 +1095,18 @@ function StepForm({ template, ocrValues, ocrConfidence, profileValues, savedValu
         })}
       </div>
       <div style={{ borderTop: '1px solid #e2e8f0', background: '#fff', padding: '14px 18px' }}>
+        {/* M1 — arată câmpurile lipsă pe nume și blochează butonul */}
         {missingRequired.length > 0 && (
-          <p style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center', marginBottom: 8 }}>
-            {missingRequired.length} câmp{missingRequired.length > 1 ? 'uri' : ''} obligatori{missingRequired.length > 1 ? 'i' : 'u'} necomplet{missingRequired.length > 1 ? 'e' : ''}
-          </p>
+          <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 8, padding: '8px 12px', marginBottom: 8 }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', marginBottom: 3 }}>
+              Câmpuri obligatorii necompletate ({missingRequired.length}):
+            </p>
+            <p style={{ fontSize: 11, color: '#ef4444', lineHeight: 1.5 }}>
+              {missingRequired.join(' · ')}
+            </p>
+          </div>
         )}
-        <PrimaryBtn onClick={() => onDone(values)}>
+        <PrimaryBtn onClick={() => onDone(values)} disabled={missingRequired.length > 0}>
           Preview contract →
         </PrimaryBtn>
       </div>
@@ -1409,7 +1431,9 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
       const timeStr    = String(now.getHours()).padStart(2,'0') + '-' + String(now.getMinutes()).padStart(2,'0');
       const dateStr    = now.toISOString().split('T')[0];
       const tipClean   = template.name.replace(/\s+/g,'').replace(/[ăâ]/gi,'a').replace(/[îÎ]/g,'i').replace(/[șşȘ]/g,'s').replace(/[țţȚ]/g,'t');
-      const filename   = `${tipClean}_${lastName}_${timeStr}_${dateStr}.pdf`;
+      // M7 — sanitizare diacritice + caractere invalide în filename (Windows-safe)
+      const lastClean  = lastName.replace(/[ăâÂ]/gi,'a').replace(/[îÎ]/g,'i').replace(/[șşȘŞ]/g,'s').replace(/[țţȚŢ]/g,'t').replace(/[^a-zA-Z0-9_-]/g,'');
+      const filename   = `${tipClean}_${lastClean || 'client'}_${timeStr}_${dateStr}.pdf`;
 
       const { PDFDocument, rgb } = window.PDFLib;
 
@@ -1429,6 +1453,21 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
         const lines = [];
         let cur = '';
         for (const w of words) {
+          // M8 — cuvânt mai lat decât linia (email/URL/IBAN) → rupt caracter cu caracter
+          if (font.widthOfTextAtSize(w, FS) > maxW) {
+            if (cur) { lines.push(cur); cur = ''; }
+            let chunk = '';
+            for (const ch of w) {
+              if (font.widthOfTextAtSize(chunk + ch, FS) <= maxW) {
+                chunk += ch;
+              } else {
+                if (chunk) lines.push(chunk);
+                chunk = ch;
+              }
+            }
+            cur = chunk;
+            continue;
+          }
           const candidate = cur ? cur + ' ' + w : w;
           if (font.widthOfTextAtSize(candidate, FS) <= maxW) {
             cur = candidate;
