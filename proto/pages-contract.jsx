@@ -29,8 +29,7 @@ const TEMPLATES = [
       { key: 'sofer_ci_valabilitate', label: 'CI valabilă până',          source: 'ocr',    type: 'text',  required: false, placeholder: 'ex. 15/06/2035' },
       { key: 'sofer_adresa',          label: 'Adresă domiciliu',          source: 'manual', type: 'text',  required: false, placeholder: 'Stradă, număr, localitate (completare manuală)' },
       { key: 'sofer_data_nastere',    label: 'Data nașterii',             source: 'ocr',    type: 'text',  required: true,  placeholder: 'ex. 26/02/1984' },
-      { key: 'permis_serie',          label: 'Serie permis',              source: 'ocr',    type: 'text',  required: false, placeholder: 'ex. B' },
-      { key: 'permis_nr',             label: 'Nr. permis conducere',      source: 'ocr',    type: 'text',  required: false, placeholder: 'ex. IO0299449F' },
+      { key: 'permis_nr',             label: 'Nr. permis conducere',      source: 'ocr',    type: 'text',  required: false, placeholder: 'ex. IO0299449F' }, // permisul RO nu are serie — M fix
       { key: 'permis_categorii',      label: 'Categorii permis',          source: 'ocr',    type: 'text',  required: false, placeholder: 'ex. B, BE' },
       { key: 'permis_expirare',       label: 'Permis valabil până',       source: 'ocr',    type: 'text',  required: false, placeholder: 'ex. 15/03/2030' },
       { key: 'masina_marca',        label: 'Marcă',                    source: 'manual',   type: 'text',     required: true, placeholder: 'ex. Dacia' },
@@ -114,15 +113,21 @@ function parseDocOcr(docId, json) {
   }
   if (docId === 'permis') {
     // Afișat în card pentru verificare — permisul poate aparține altei persoane decât CI-ul
+    // Fallback pentru diferite formate de răspuns OCR (first_name/last_name sau name complet)
     const fn = json.first_name || '', ln = json.last_name || '';
-    if (fn || ln) { values.permis_titular = [fn, ln].filter(Boolean).join(' '); confidence.permis_titular = 'confident'; }
+    const fullName = [fn, ln].filter(Boolean).join(' ') || json.name || json.full_name || json.holder || '';
+    if (fullName) { values.permis_titular = fullName; confidence.permis_titular = 'confident'; }
     const bd = toRoDate(json.birthdate);
     if (bd) { values.permis_data_nastere = bd; confidence.permis_data_nastere = 'confident'; }
     // Câmpuri pentru formular și contract
-    if (json.permis_number)     { values.permis_nr        = json.permis_number;     confidence.permis_nr        = 'confident'; }
-    if (json.permis_series)     { values.permis_serie     = json.permis_series;     confidence.permis_serie     = 'confident'; }
-    if (json.permis_categories) { values.permis_categorii = json.permis_categories; confidence.permis_categorii = 'confident'; }
-    const exp = toRoDate(json.permis_expiry);
+    // Permisul RO are DOAR număr (fără serie) — json.permis_number sau json.license_number
+    const permisNr = json.permis_number || json.license_number || json.document_number || '';
+    if (permisNr) { values.permis_nr = permisNr; confidence.permis_nr = 'confident'; }
+    if (json.permis_categories || json.categories) {
+      values.permis_categorii = json.permis_categories || json.categories;
+      confidence.permis_categorii = 'confident';
+    }
+    const exp = toRoDate(json.permis_expiry || json.expiry_date || json.valid_until);
     if (exp) { values.permis_expirare = exp; confidence.permis_expirare = 'uncertain'; }
   }
   return { values, confidence };
@@ -141,10 +146,9 @@ const DOC_FIELD_LABELS = {
   sofer_nume: 'Nume', sofer_cnp: 'CNP',
   sofer_ci_serie: 'Serie CI', sofer_ci_nr: 'Nr. CI',
   sofer_data_nastere: 'Data nașterii', sofer_ci_valabilitate: 'CI valabilă până',
-  // Permis
+  // Permis (permisul RO nu are serie — doar nr.)
   permis_titular: 'Titular permis', permis_data_nastere: 'Dată naștere (permis)',
-  permis_serie: 'Serie permis', permis_nr: 'Nr. permis',
-  permis_categorii: 'Categorii', permis_expirare: 'Permis valabil până',
+  permis_nr: 'Nr. permis', permis_categorii: 'Categorii', permis_expirare: 'Permis valabil până',
   // Firmă
   client_firma: 'Firmă', client_cui: 'CUI',
   client_adresa: 'Adresă', client_reg: 'Reg. Com.',
@@ -1004,6 +1008,25 @@ function StepForm({ template, ocrValues, ocrConfidence, profileValues, savedValu
     .filter(f => f.required && !values[f.key])
     .map(f => f.label);
 
+  // Auto-scroll la câmpul obligatoriu următor (ciclează prin toate)
+  const focusIdxRef = React.useRef(0);
+  function scrollToNextMissing() {
+    const missingKeys = template.fields
+      .filter(f => f.required && !values[f.key])
+      .map(f => f.key);
+    if (!missingKeys.length) return;
+    if (focusIdxRef.current >= missingKeys.length) focusIdxRef.current = 0;
+    const key = missingKeys[focusIdxRef.current];
+    focusIdxRef.current = (focusIdxRef.current + 1) % missingKeys.length;
+    const el = document.getElementById(`field-${key}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => {
+      const input = el.querySelector('input:not([type="hidden"]), select, textarea');
+      if (input) { input.focus(); try { input.select(); } catch (_) {} }
+    }, 320);
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px 24px' }}>
@@ -1086,20 +1109,37 @@ function StepForm({ template, ocrValues, ocrConfidence, profileValues, savedValu
         })}
       </div>
       <div style={{ borderTop: '1px solid #e2e8f0', background: '#fff', padding: '14px 18px' }}>
-        {/* M1 — arată câmpurile lipsă pe nume și blochează butonul */}
+        {/* M1 — card eroare câmpuri lipsă; clickabil pentru auto-scroll */}
         {missingRequired.length > 0 && (
-          <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 8, padding: '8px 12px', marginBottom: 8 }}>
+          <div
+            onClick={scrollToNextMissing}
+            style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 8, padding: '8px 12px', marginBottom: 8, cursor: 'pointer', transition: 'background 0.12s' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#fecaca'}
+            onMouseLeave={e => e.currentTarget.style.background = '#fee2e2'}
+          >
             <p style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', marginBottom: 3 }}>
               Câmpuri obligatorii necompletate ({missingRequired.length}):
             </p>
             <p style={{ fontSize: 11, color: '#ef4444', lineHeight: 1.5 }}>
               {missingRequired.join(' · ')}
             </p>
+            <p style={{ fontSize: 11, color: '#b91c1c', marginTop: 5, fontWeight: 600 }}>
+              ↓ Apasă pentru a merge la câmpul următor
+            </p>
           </div>
         )}
         <PrimaryBtn onClick={() => onDone(values)} disabled={missingRequired.length > 0}>
           Preview contract →
         </PrimaryBtn>
+        {/* Continuă fără câmpuri obligatorii — buton de bypass */}
+        {missingRequired.length > 0 && (
+          <button
+            onClick={() => onDone(values)}
+            style={{ display: 'block', width: '100%', marginTop: 8, padding: '8px', border: 'none', background: 'none', color: '#94a3b8', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            Continuă fără câmpuri obligatorii
+          </button>
+        )}
       </div>
 
       {showAssetPicker && AssetPickerSheet && (
@@ -1120,7 +1160,7 @@ function FieldSection({ title, fields, values, onChange, confidence, compact }) 
       {title ? <SectionLabel>{title}</SectionLabel> : null}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {fields.map(f => (
-          <div key={f.key}>
+          <div key={f.key} id={`field-${f.key}`}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
               <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: '#64748b' }}>{f.label}</label>
               {f.required && <span style={{ color: '#f87171', fontSize: 12 }}>*</span>}
