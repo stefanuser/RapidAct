@@ -159,6 +159,15 @@ const FIELD_REG = {
   contract_termen_livrare:     { label:'Termen de livrare',      cat:'Contract', group:'Servicii',    source:'manual'  },
   contract_penalitati:         { label:'Penalități întârziere',  cat:'Contract', group:'Servicii',    source:'manual'  },
   contract_garantie_executie:  { label:'Garanție de execuție',   cat:'Contract', group:'Servicii',    source:'manual'  },
+
+  // ══ Contract — Generic: Perioadă ═════════════════════════════════════════
+  contract_perioada_de_la:     { label:'De la',                  cat:'Contract', group:'Generic',    source:'manual',   desc:'Data de început a perioadei' },
+  contract_perioada_pana_la:   { label:'Până la',                cat:'Contract', group:'Generic',    source:'manual',   desc:'Data de sfârșit a perioadei' },
+  contract_termen:             { label:'Termen de',              cat:'Contract', group:'Generic',    source:'manual',   desc:'Ex: 1 an, 6 luni, 30 zile' },
+
+  // ══ Semnături ═════════════════════════════════════════════════════════════
+  semnatura_mea:               { label:'Semnătura mea',     cat:'Semnături', source:'profile', type:'image', desc:'Imagine din profilul tău' },
+  semnatura_client:            { label:'Semnătura clientului', cat:'Semnături', source:'manual', type:'image', desc:'Desenată de client în chenarul de semnat' },
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -175,12 +184,12 @@ const SOURCE_STYLE = {
 const CAT_ORDER = [
   'CI Client','Permis Client','Pașaport Client',
   'Asset Auto','Asset Proprietate','Asset Companie',
-  'Eu','Firma mea','Contract',
+  'Eu','Firma mea','Contract','Semnături',
 ];
 const CAT_ICONS = {
   'CI Client':'🪪', 'Permis Client':'🚗', 'Pașaport Client':'🛂',
   'Asset Auto':'🚙', 'Asset Proprietate':'🏠', 'Asset Companie':'🏢',
-  'Eu':'👤', 'Firma mea':'🏛️', 'Contract':'📋',
+  'Eu':'👤', 'Firma mea':'🏛️', 'Contract':'📋', 'Semnături':'✍️',
 };
 const CONTRACT_GROUPS = ['Generic','Auto','Imobiliare','Servicii'];
 
@@ -314,6 +323,13 @@ function AdminSidebar({ section, setSection, adminEmail, onLogout, collapsed, on
     { id:'users',     label:'Utilizatori',   Icon:UsersIcon    },
     { id:'templates', label:'Template-uri',  Icon:FileTextIcon },
   ];
+  const [ver, setVer] = React.useState(null);
+  React.useEffect(() => {
+    fetch('./version.json?_=' + Date.now())
+      .then(r => r.json())
+      .then(d => setVer(d))
+      .catch(() => {});
+  }, []);
   return (
     <aside style={{ width:collapsed?52:218, flexShrink:0, background:'#0f172a', display:'flex', flexDirection:'column', height:'100vh', position:'sticky', top:0, transition:'width 0.22s ease', overflow:'hidden' }}>
       {/* Logo */}
@@ -369,6 +385,21 @@ function AdminSidebar({ section, setSection, adminEmail, onLogout, collapsed, on
         >
           <LogOutIcon size={15}/> {!collapsed && 'Deconectare'}
         </button>
+
+        {/* Version chip */}
+        {ver && !collapsed && (
+          <div style={{ marginTop:10, padding:'5px 8px', borderRadius:6, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}>
+            <p style={{ fontSize:10, color:'#334155', fontFamily:'monospace', lineHeight:1.6 }}>
+              v{ver.version} · <span style={{ color:'#2563eb' }}>{ver.commit}</span>
+            </p>
+            <p style={{ fontSize:10, color:'#334155', fontFamily:'monospace' }}>{ver.date}</p>
+          </div>
+        )}
+        {ver && collapsed && (
+          <div title={`v${ver.version} · ${ver.commit} · ${ver.date}`} style={{ marginTop:8, textAlign:'center', cursor:'default' }}>
+            <span style={{ fontSize:9, color:'#334155', fontFamily:'monospace' }}>{ver.commit}</span>
+          </div>
+        )}
       </div>
     </aside>
   );
@@ -733,7 +764,7 @@ function AdminTemplateEditor({ template, users, presetUserId, onSave, onDelete, 
   const [name,        setName]        = React.useState(template?.name        || '');
   const [icon,        setIcon]        = React.useState(template?.icon        || '📋');
   const [description, setDescription] = React.useState(template?.description || '');
-  const [category,    setCategory]    = React.useState(template?.category    || 'General');
+  const [category,    setCategory]    = React.useState(template?.category    || 'Altele');
   const [active,      setActive]      = React.useState(template?.active !== false);
   const [body,        setBody]        = React.useState(template?.bodyText || template?.body_template || '');
   const [assignedTo,  setAssignedTo]  = React.useState(template?.user_id || presetUserId || '__global__');
@@ -777,7 +808,7 @@ function AdminTemplateEditor({ template, users, presetUserId, onSave, onDelete, 
       fields.forEach(k => { if(FIELD_REG[k]?.source==='ocr') { const d=k.split('_')[1]; if(d&&!scanDocs.includes(d)) scanDocs.push(d); } });
       const now    = new Date().toISOString();
       const userId = assignedTo === '__global__' ? null : assignedTo;
-      const row    = { name:name.trim(), icon:icon||'📋', description:description.trim(), category:category||'General', active, body_template:body, fields, scan_docs:scanDocs, user_id:userId, updated_at:now };
+      const row    = { name:name.trim(), icon:icon||'📋', description:description.trim(), category:category||'Altele', active, body_template:body, fields, scan_docs:scanDocs, user_id:userId, updated_at:now };
 
       let savedRow;
       if (isNew) {
@@ -862,7 +893,7 @@ function AdminTemplateEditor({ template, users, presetUserId, onSave, onDelete, 
           <div style={{ width:180 }}>
             <label style={{ fontSize:10, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:0.6, display:'block', marginBottom:4 }}>Categorie</label>
             <select value={category} onChange={e=>setCategory(e.target.value)} style={{ width:'100%', height:32, border:'1px solid #e2e8f0', borderRadius:6, padding:'0 6px', fontSize:12, cursor:'pointer', outline:'none', background:'#fff' }}>
-              {['General','Închiriere Auto','Imobiliare','Servicii','Muncă','Altele'].map(c=>(
+              {['Imobiliare','Închirieri Auto','HR','Altele'].map(c=>(
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
@@ -996,6 +1027,13 @@ function TemplatesSection({ templates, users, nav, onNavConsumed, onSave, onDele
     if (!byUser[t.user_id]) byUser[t.user_id] = [];
     byUser[t.user_id].push(t);
   });
+  // Global templates grouped by category
+  const globalByCategory = {};
+  globalTemplates.forEach(t => {
+    const cat = t.category || 'Altele';
+    if (!globalByCategory[cat]) globalByCategory[cat] = [];
+    globalByCategory[cat].push(t);
+  });
 
   const filterFn = t => !listSearch || t.name.toLowerCase().includes(listSearch.toLowerCase());
 
@@ -1017,13 +1055,24 @@ function TemplatesSection({ templates, users, nav, onNavConsumed, onSave, onDele
 
           {/* Template groups */}
           <div style={{ flex:1, overflowY:'auto' }}>
-            {/* Global */}
-            <div style={{ padding:'7px 10px 3px', background:'#f8fafc', borderBottom:'1px solid #f1f5f9' }}>
-              <p style={{ fontSize:9, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:0.8 }}>🌐 Standard</p>
-            </div>
-            {globalTemplates.filter(filterFn).map(t=>(
-              <TemplateListItem key={t.id} template={t} active={selected?.id===t.id} onClick={()=>openEdit(t)}/>
-            ))}
+            {/* Global — grupate pe categorie */}
+            {Object.entries(globalByCategory).map(([cat, catTemplates]) => {
+              const filt = catTemplates.filter(filterFn);
+              if (!filt.length) return null;
+              return (
+                <div key={cat}>
+                  <div style={{ padding:'7px 10px 3px', background:'#f8fafc', borderBottom:'1px solid #f1f5f9' }}>
+                    <p style={{ fontSize:9, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:0.8 }}>🌐 {cat}</p>
+                  </div>
+                  {filt.map(t=>(
+                    <TemplateListItem key={t.id} template={t} active={selected?.id===t.id} onClick={()=>openEdit(t)}/>
+                  ))}
+                </div>
+              );
+            })}
+            {globalTemplates.length === 0 && !listSearch && (
+              <p style={{ fontSize:11, color:'#cbd5e1', padding:'10px 12px', fontStyle:'italic' }}>Niciun template global</p>
+            )}
 
             {/* Per user */}
             {Object.entries(byUser).map(([uid,uts])=>{
