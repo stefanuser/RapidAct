@@ -1,140 +1,259 @@
-// proto/admin.jsx — RapidAct Admin Dashboard (web, desktop)
+// proto/admin.jsx — RapidAct Admin Dashboard v2
 
-// ─── SVG Icon factory ─────────────────────────────────────────────────────────
-const Svg = ({ size = 18, color = 'currentColor', children, className = '', strokeWidth = 2, ...p }) => (
+// ─── Icons ────────────────────────────────────────────────────────────────────
+const Svg = ({ size=18, color='currentColor', children, className='', strokeWidth=2, ...p }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
     stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"
-    className={className} style={{ flexShrink: 0, display: 'block' }} {...p}>{children}</svg>
+    className={className} style={{ flexShrink:0, display:'block' }} {...p}>{children}</svg>
 );
-const HomeIcon     = p => <Svg {...p}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></Svg>;
-const UsersIcon    = p => <Svg {...p}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></Svg>;
-const FileTextIcon = p => <Svg {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></Svg>;
-const LogOutIcon   = p => <Svg {...p}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></Svg>;
-const PlusIcon     = p => <Svg {...p}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Svg>;
-const SearchIcon   = p => <Svg {...p}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></Svg>;
-const EditIcon     = p => <Svg {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Svg>;
-const TrashIcon    = p => <Svg {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></Svg>;
-const XIcon        = p => <Svg {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Svg>;
-const SpinnerIcon  = p => <Svg {...p} className={`animate-spin ${p.className||''}`}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></Svg>;
-const CheckIcon    = p => <Svg {...p}><polyline points="20 6 9 17 4 12"/></Svg>;
-const ChevRightIcon= p => <Svg {...p}><polyline points="9 18 15 12 9 6"/></Svg>;
-const ShieldOffIcon= p => <Svg {...p}><path d="M12 22s-8-4-8-10V5l8-3 8 3v4"/><line x1="1" y1="1" x2="23" y2="23"/></Svg>;
-const RefreshIcon  = p => <Svg {...p}><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></Svg>;
+const HomeIcon      = p => <Svg {...p}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></Svg>;
+const UsersIcon     = p => <Svg {...p}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></Svg>;
+const FileTextIcon  = p => <Svg {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></Svg>;
+const LogOutIcon    = p => <Svg {...p}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></Svg>;
+const PlusIcon      = p => <Svg {...p}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Svg>;
+const SearchIcon    = p => <Svg {...p}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></Svg>;
+const EditIcon      = p => <Svg {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Svg>;
+const TrashIcon     = p => <Svg {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></Svg>;
+const XIcon         = p => <Svg {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Svg>;
+const SpinnerIcon   = p => <Svg {...p} className={`animate-spin ${p.className||''}`}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></Svg>;
+const ChevRightIcon = p => <Svg {...p}><polyline points="9 18 15 12 9 6"/></Svg>;
+const ChevLeftIcon  = p => <Svg {...p}><polyline points="15 18 9 12 15 6"/></Svg>;
+const ShieldOffIcon = p => <Svg {...p}><path d="M12 22s-8-4-8-10V5l8-3 8 3v4"/><line x1="1" y1="1" x2="23" y2="23"/></Svg>;
+const RefreshIcon   = p => <Svg {...p}><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></Svg>;
+const CheckIcon     = p => <Svg {...p}><polyline points="20 6 9 17 4 12"/></Svg>;
+const MaximizeIcon  = p => <Svg {...p}><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></Svg>;
+const MinimizeIcon  = p => <Svg {...p}><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/></Svg>;
+const PanelIcon     = p => <Svg {...p}><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></Svg>;
 
-// ─── FIELD_REGISTRY (compact) ─────────────────────────────────────────────────
+// ─── FIELD_REGISTRY ───────────────────────────────────────────────────────────
 const FIELD_REG = {
-  driver_name:           { label: 'Nume complet',          cat: 'Persoana',  source: 'ocr'      },
-  driver_cnp:            { label: 'CNP',                   cat: 'Persoana',  source: 'ocr'      },
-  driver_ci_series:      { label: 'Serie CI',              cat: 'Persoana',  source: 'ocr'      },
-  driver_ci_number:      { label: 'Nr. CI',                cat: 'Persoana',  source: 'ocr'      },
-  driver_birthdate:      { label: 'Data nașterii',         cat: 'Persoana',  source: 'ocr'      },
-  driver_ci_expiry:      { label: 'CI valabilă până',      cat: 'Persoana',  source: 'ocr'      },
-  driver_address:        { label: 'Adresă domiciliu',      cat: 'Persoana',  source: 'manual'   },
-  driver_license_nr:     { label: 'Nr. permis',            cat: 'Persoana',  source: 'ocr'      },
-  driver_license_cat:    { label: 'Categorii permis',      cat: 'Persoana',  source: 'ocr'      },
-  driver_license_expiry: { label: 'Permis valabil până',   cat: 'Persoana',  source: 'ocr'      },
-  company_name:          { label: 'Denumire firmă',        cat: 'Firma',     source: 'profile'  },
-  company_cui:           { label: 'CUI',                   cat: 'Firma',     source: 'profile'  },
-  company_address:       { label: 'Adresă firmă',          cat: 'Firma',     source: 'profile'  },
-  company_reg:           { label: 'Reg. Comerțului',       cat: 'Firma',     source: 'profile'  },
-  company_rep:           { label: 'Reprezentant legal',    cat: 'Firma',     source: 'profile'  },
-  vehicle_make:          { label: 'Marcă',                 cat: 'Vehicul',   source: 'manual'   },
-  vehicle_model:         { label: 'Model',                 cat: 'Vehicul',   source: 'manual'   },
-  vehicle_year:          { label: 'An fabricație',         cat: 'Vehicul',   source: 'manual'   },
-  vehicle_plate:         { label: 'Nr. înmatriculare',     cat: 'Vehicul',   source: 'manual'   },
-  vehicle_color:         { label: 'Culoare',               cat: 'Vehicul',   source: 'manual'   },
-  vehicle_vin:           { label: 'Serie VIN / Șasiu',     cat: 'Vehicul',   source: 'manual'   },
-  contract_date:         { label: 'Data contractului',     cat: 'Contract',  source: 'computed' },
-  contract_location:     { label: 'Locul încheierii',      cat: 'Contract',  source: 'manual'   },
-  contract_start:        { label: 'Data și ora predării',  cat: 'Contract',  source: 'manual'   },
-  contract_end:          { label: 'Data și ora restituirii',cat: 'Contract', source: 'manual'   },
-  contract_days:         { label: 'Nr. zile închiriate',   cat: 'Contract',  source: 'manual'   },
-  contract_handover_location: { label: 'Locul predării',  cat: 'Contract',  source: 'manual'   },
-  contract_price_day:    { label: 'Tarif / zi (RON)',      cat: 'Contract',  source: 'manual'   },
-  contract_total:        { label: 'Valoare totală (RON)',  cat: 'Contract',  source: 'manual'   },
-  contract_deposit:      { label: 'Garanție (RON)',        cat: 'Contract',  source: 'manual'   },
-  contract_payment:      { label: 'Mod de plată',          cat: 'Contract',  source: 'manual'   },
-  contract_km_start:     { label: 'Km la predare',         cat: 'Contract',  source: 'manual'   },
-  contract_km_limit:     { label: 'Km incluși / zi',       cat: 'Contract',  source: 'manual'   },
-  contract_fuel:         { label: 'Combustibil la predare',cat: 'Contract',  source: 'manual'   },
-  contract_franchise:    { label: 'Franșiță daune (RON)',  cat: 'Contract',  source: 'manual'   },
-  contract_casco:        { label: 'Asigurare CASCO',       cat: 'Contract',  source: 'manual'   },
-  contract_notes:        { label: 'Observații / daune',    cat: 'Contract',  source: 'manual'   },
+  // ══ CI Client (OCR) ═══════════════════════════════════════════════════════
+  client_ci_nume_complet:      { label:'Nume complet',           cat:'CI Client',           source:'ocr'     },
+  client_ci_cnp:               { label:'CNP',                    cat:'CI Client',           source:'ocr',     desc:'Cod Numeric Personal' },
+  client_ci_serie:             { label:'Serie CI',               cat:'CI Client',           source:'ocr',     desc:'Ex: RX, MZ, KL' },
+  client_ci_numar:             { label:'Număr CI',               cat:'CI Client',           source:'ocr'     },
+  client_ci_data_nastere:      { label:'Data nașterii',          cat:'CI Client',           source:'ocr'     },
+  client_ci_loc_nastere:       { label:'Locul nașterii',         cat:'CI Client',           source:'ocr'     },
+  client_ci_adresa:            { label:'Adresă domiciliu',       cat:'CI Client',           source:'ocr'     },
+  client_ci_cetatenie:         { label:'Cetățenie',              cat:'CI Client',           source:'ocr'     },
+  client_ci_sex:               { label:'Sex',                    cat:'CI Client',           source:'ocr',     desc:'M / F' },
+  client_ci_emisa_de:          { label:'Emisă de',               cat:'CI Client',           source:'ocr'     },
+  client_ci_data_emitere:      { label:'Data emiterii',          cat:'CI Client',           source:'ocr'     },
+  client_ci_valabila_pana:     { label:'Valabilă până',          cat:'CI Client',           source:'ocr'     },
+
+  // ══ Permis Client (OCR) ═══════════════════════════════════════════════════
+  client_permis_numar:         { label:'Număr permis',           cat:'Permis Client',       source:'ocr'     },
+  client_permis_cnp:           { label:'CNP',                    cat:'Permis Client',       source:'ocr'     },
+  client_permis_nume:          { label:'Nume',                   cat:'Permis Client',       source:'ocr'     },
+  client_permis_prenume:       { label:'Prenume',                cat:'Permis Client',       source:'ocr'     },
+  client_permis_data_nastere:  { label:'Data nașterii',          cat:'Permis Client',       source:'ocr'     },
+  client_permis_emis_de:       { label:'Emis de',                cat:'Permis Client',       source:'ocr'     },
+  client_permis_data_emitere:  { label:'Data emiterii',          cat:'Permis Client',       source:'ocr'     },
+  client_permis_valabil_pana:  { label:'Valabil până',           cat:'Permis Client',       source:'ocr'     },
+  client_permis_categorii:     { label:'Categorii',              cat:'Permis Client',       source:'ocr',     desc:'Ex: B, BE, C' },
+
+  // ══ Pașaport Client (OCR) ════════════════════════════════════════════════
+  client_pasaport_numar:       { label:'Număr pașaport',         cat:'Pașaport Client',     source:'ocr'     },
+  client_pasaport_cnp:         { label:'CNP',                    cat:'Pașaport Client',     source:'ocr'     },
+  client_pasaport_nume:        { label:'Nume',                   cat:'Pașaport Client',     source:'ocr'     },
+  client_pasaport_prenume:     { label:'Prenume',                cat:'Pașaport Client',     source:'ocr'     },
+  client_pasaport_data_nastere:{ label:'Data nașterii',          cat:'Pașaport Client',     source:'ocr'     },
+  client_pasaport_loc_nastere: { label:'Locul nașterii',         cat:'Pașaport Client',     source:'ocr'     },
+  client_pasaport_cetatenie:   { label:'Cetățenie',              cat:'Pașaport Client',     source:'ocr'     },
+  client_pasaport_sex:         { label:'Sex',                    cat:'Pașaport Client',     source:'ocr'     },
+  client_pasaport_emis_de:     { label:'Emis de',                cat:'Pașaport Client',     source:'ocr'     },
+  client_pasaport_data_emitere:{ label:'Data emiterii',          cat:'Pașaport Client',     source:'ocr'     },
+  client_pasaport_valabil_pana:{ label:'Valabil până',           cat:'Pașaport Client',     source:'ocr'     },
+
+  // ══ Asset — Auto ══════════════════════════════════════════════════════════
+  asset_auto_marca:            { label:'Marcă',                  cat:'Asset Auto',          source:'asset'   },
+  asset_auto_model:            { label:'Model',                  cat:'Asset Auto',          source:'asset'   },
+  asset_auto_an:               { label:'An fabricație',          cat:'Asset Auto',          source:'asset'   },
+  asset_auto_culoare:          { label:'Culoare',                cat:'Asset Auto',          source:'asset'   },
+  asset_auto_nr_inmatriculare: { label:'Nr. înmatriculare',      cat:'Asset Auto',          source:'asset'   },
+  asset_auto_vin:              { label:'Serie VIN / Șasiu',      cat:'Asset Auto',          source:'asset'   },
+  asset_auto_combustibil:      { label:'Tip combustibil',        cat:'Asset Auto',          source:'asset'   },
+  asset_auto_capacitate:       { label:'Capacitate motor (cc)',  cat:'Asset Auto',          source:'asset'   },
+  asset_auto_putere:           { label:'Putere (CP / kW)',       cat:'Asset Auto',          source:'asset'   },
+  asset_auto_nr_locuri:        { label:'Nr. locuri',             cat:'Asset Auto',          source:'asset'   },
+  asset_auto_itp_pana:         { label:'ITP valabil până',       cat:'Asset Auto',          source:'asset'   },
+  asset_auto_rca_pana:         { label:'RCA valabil până',       cat:'Asset Auto',          source:'asset'   },
+  asset_auto_casco:            { label:'Asigurare CASCO',        cat:'Asset Auto',          source:'asset',   desc:'Inclusă / Nu este inclusă' },
+
+  // ══ Asset — Proprietate ═══════════════════════════════════════════════════
+  asset_prop_adresa:           { label:'Adresă',                 cat:'Asset Proprietate',   source:'asset'   },
+  asset_prop_oras:             { label:'Oraș',                   cat:'Asset Proprietate',   source:'asset'   },
+  asset_prop_judet:            { label:'Județ',                  cat:'Asset Proprietate',   source:'asset'   },
+  asset_prop_suprafata:        { label:'Suprafață (mp)',         cat:'Asset Proprietate',   source:'asset'   },
+  asset_prop_etaj:             { label:'Etaj',                   cat:'Asset Proprietate',   source:'asset'   },
+  asset_prop_nr_camere:        { label:'Nr. camere',             cat:'Asset Proprietate',   source:'asset'   },
+  asset_prop_nr_cadastral:     { label:'Nr. cadastral',          cat:'Asset Proprietate',   source:'asset'   },
+  asset_prop_cf:               { label:'Nr. carte funciară',     cat:'Asset Proprietate',   source:'asset'   },
+  asset_prop_tip:              { label:'Tip proprietate',        cat:'Asset Proprietate',   source:'asset',   desc:'Apartament, casă, teren...' },
+
+  // ══ Asset — Companie ══════════════════════════════════════════════════════
+  asset_comp_denumire:         { label:'Denumire',               cat:'Asset Companie',      source:'asset'   },
+  asset_comp_cui:              { label:'CUI',                    cat:'Asset Companie',      source:'asset'   },
+  asset_comp_reg_com:          { label:'Reg. Comerțului',        cat:'Asset Companie',      source:'asset'   },
+  asset_comp_adresa:           { label:'Adresă sediu social',    cat:'Asset Companie',      source:'asset'   },
+  asset_comp_oras:             { label:'Oraș',                   cat:'Asset Companie',      source:'asset'   },
+  asset_comp_administrator:    { label:'Administrator / Repr.',  cat:'Asset Companie',      source:'asset'   },
+  asset_comp_capital_social:   { label:'Capital social',         cat:'Asset Companie',      source:'asset'   },
+  asset_comp_iban:             { label:'IBAN',                   cat:'Asset Companie',      source:'asset'   },
+  asset_comp_banca:            { label:'Bancă',                  cat:'Asset Companie',      source:'asset'   },
+
+  // ══ Eu — Date personale (Profil) ══════════════════════════════════════════
+  eu_nume_complet:             { label:'Nume complet',           cat:'Eu',                  source:'profile' },
+  eu_cnp:                      { label:'CNP',                    cat:'Eu',                  source:'profile' },
+  eu_ci_serie:                 { label:'Serie CI',               cat:'Eu',                  source:'profile' },
+  eu_ci_numar:                 { label:'Număr CI',               cat:'Eu',                  source:'profile' },
+  eu_ci_valabila:              { label:'CI valabilă până',       cat:'Eu',                  source:'profile' },
+  eu_adresa:                   { label:'Adresă domiciliu',       cat:'Eu',                  source:'profile' },
+  eu_permis_nr:                { label:'Nr. permis',             cat:'Eu',                  source:'profile' },
+  eu_permis_categorii:         { label:'Categorii permis',       cat:'Eu',                  source:'profile' },
+  eu_permis_valabil_pana:      { label:'Permis valabil până',    cat:'Eu',                  source:'profile' },
+
+  // ══ Firma mea (Profil) ════════════════════════════════════════════════════
+  firma_denumire:              { label:'Denumire firmă',         cat:'Firma mea',           source:'profile' },
+  firma_cui:                   { label:'CUI',                    cat:'Firma mea',           source:'profile' },
+  firma_reg_com:               { label:'Reg. Comerțului',        cat:'Firma mea',           source:'profile' },
+  firma_adresa:                { label:'Adresă',                 cat:'Firma mea',           source:'profile' },
+  firma_reprezentant:          { label:'Reprezentant legal',     cat:'Firma mea',           source:'profile' },
+  firma_iban:                  { label:'IBAN',                   cat:'Firma mea',           source:'profile' },
+  firma_banca:                 { label:'Bancă',                  cat:'Firma mea',           source:'profile' },
+  firma_logo:                  { label:'Logo firmă',             cat:'Firma mea',           source:'profile', type:'image', desc:'Imagine din profil' },
+  rapidact_logo:               { label:'Logo RapidAct',          cat:'Firma mea',           source:'static',  type:'image', desc:'Watermark / branding platformă' },
+
+  // ══ Contract — Generic ════════════════════════════════════════════════════
+  contract_data:               { label:'Data contractului',      cat:'Contract', group:'Generic',     source:'computed', desc:'Completată automat cu data de azi' },
+  contract_numar:              { label:'Număr contract',         cat:'Contract', group:'Generic',     source:'manual'  },
+  contract_loc:                { label:'Locul încheierii',       cat:'Contract', group:'Generic',     source:'manual'  },
+  contract_valoare:            { label:'Valoare totală',         cat:'Contract', group:'Generic',     source:'manual'  },
+  contract_moneda:             { label:'Monedă',                 cat:'Contract', group:'Generic',     source:'manual',  desc:'RON, EUR, USD...' },
+  contract_observatii:         { label:'Observații',             cat:'Contract', group:'Generic',     source:'manual'  },
+
+  // ══ Contract — Auto ═══════════════════════════════════════════════════════
+  contract_start:              { label:'Data și ora predării',   cat:'Contract', group:'Auto',        source:'manual'  },
+  contract_end:                { label:'Data și ora restituirii',cat:'Contract', group:'Auto',        source:'manual'  },
+  contract_durata:             { label:'Nr. zile închiriate',    cat:'Contract', group:'Auto',        source:'computed', desc:'Calculat din date' },
+  contract_pret_zi:            { label:'Tarif / zi (RON)',       cat:'Contract', group:'Auto',        source:'manual'  },
+  contract_total:              { label:'Total (RON)',            cat:'Contract', group:'Auto',        source:'computed', desc:'Zile × tarif' },
+  contract_garantie:           { label:'Garanție (RON)',         cat:'Contract', group:'Auto',        source:'manual'  },
+  contract_mod_plata:          { label:'Mod de plată',           cat:'Contract', group:'Auto',        source:'manual'  },
+  contract_km_start:           { label:'Km la predare',          cat:'Contract', group:'Auto',        source:'manual'  },
+  contract_km_limita:          { label:'Km incluși / zi',        cat:'Contract', group:'Auto',        source:'manual'  },
+  contract_combustibil_nivel:  { label:'Combustibil la predare', cat:'Contract', group:'Auto',        source:'manual',  desc:'1/4, 1/2, 3/4, Plin' },
+  contract_fransiza:           { label:'Franșiță daune (RON)',   cat:'Contract', group:'Auto',        source:'manual'  },
+
+  // ══ Contract — Imobiliare ═════════════════════════════════════════════════
+  contract_chirie_lunara:      { label:'Chirie lunară',          cat:'Contract', group:'Imobiliare',  source:'manual'  },
+  contract_durata_luni:        { label:'Durată (luni)',          cat:'Contract', group:'Imobiliare',  source:'manual'  },
+  contract_termen_plata:       { label:'Termen plată (ziua)',    cat:'Contract', group:'Imobiliare',  source:'manual',  desc:'Ex: ziua 5 a lunii' },
+  contract_data_intrare:       { label:'Data intrării în posesie', cat:'Contract', group:'Imobiliare', source:'manual' },
+  contract_data_iesire:        { label:'Data ieșirii din posesie',cat:'Contract', group:'Imobiliare', source:'manual'  },
+  contract_destinatie:         { label:'Destinația spațiului',   cat:'Contract', group:'Imobiliare',  source:'manual'  },
+  contract_utilitati:          { label:'Utilități incluse',      cat:'Contract', group:'Imobiliare',  source:'manual'  },
+
+  // ══ Contract — Servicii ═══════════════════════════════════════════════════
+  contract_obiect:             { label:'Obiectul contractului',  cat:'Contract', group:'Servicii',    source:'manual'  },
+  contract_termen_livrare:     { label:'Termen de livrare',      cat:'Contract', group:'Servicii',    source:'manual'  },
+  contract_penalitati:         { label:'Penalități întârziere',  cat:'Contract', group:'Servicii',    source:'manual'  },
+  contract_garantie_executie:  { label:'Garanție de execuție',   cat:'Contract', group:'Servicii',    source:'manual'  },
 };
 
+// ─── Constants ────────────────────────────────────────────────────────────────
 const SOURCE_STYLE = {
-  ocr:      { bg: '#dcfce7', color: '#166534', label: 'OCR'    },
-  profile:  { bg: '#dbeafe', color: '#1e40af', label: 'Profil' },
-  manual:   { bg: '#fef9c3', color: '#92400e', label: 'Manual' },
-  computed: { bg: '#f3e8ff', color: '#6b21a8', label: 'Auto'   },
+  ocr:     { bg:'#dcfce7', color:'#166534', label:'OCR'     },
+  profile: { bg:'#dbeafe', color:'#1e40af', label:'Profil'  },
+  manual:  { bg:'#fef9c3', color:'#92400e', label:'Manual'  },
+  computed:{ bg:'#f3e8ff', color:'#6b21a8', label:'Auto'    },
+  asset:   { bg:'#fce7f3', color:'#9d174d', label:'Activ'   },
+  static:  { bg:'#f1f5f9', color:'#475569', label:'Static'  },
+  image:   { bg:'#fff7ed', color:'#9a3412', label:'Imagine' },
 };
 
-const CAT_ORDER = ['Persoana', 'Firma', 'Vehicul', 'Contract'];
-const CAT_EMOJI = { Persoana: '👤', Firma: '🏢', Vehicul: '🚗', Contract: '📋' };
+const CAT_ORDER = [
+  'CI Client','Permis Client','Pașaport Client',
+  'Asset Auto','Asset Proprietate','Asset Companie',
+  'Eu','Firma mea','Contract',
+];
+const CAT_ICONS = {
+  'CI Client':'🪪', 'Permis Client':'🚗', 'Pașaport Client':'🛂',
+  'Asset Auto':'🚙', 'Asset Proprietate':'🏠', 'Asset Companie':'🏢',
+  'Eu':'👤', 'Firma mea':'🏛️', 'Contract':'📋',
+};
+const CONTRACT_GROUPS = ['Generic','Auto','Imobiliare','Servicii'];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function extractFields(body) {
   if (!body) return [];
-  const keys = (body.match(/\{\{([^}]+)\}\}/g) || []).map(m => m.slice(2, -2).trim());
-  return [...new Set(keys.filter(k => k in FIELD_REG))];
-}
-function deriveScanDocs(fields) {
-  const docs = new Set();
-  fields.forEach(k => { if (FIELD_REG[k]?.source === 'ocr') docs.add(FIELD_REG[k].docId || k.split('_')[1] || 'ci'); });
-  return [...docs];
+  return [...new Set(
+    (body.match(/\{\{([^}]+)\}\}/g)||[])
+      .map(m => m.slice(2,-2).trim())
+      .filter(k => k in FIELD_REG)
+  )];
 }
 function generateSlug(name) {
   return name.toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')
     + '-' + Date.now().toString(36);
 }
 function fmtDate(iso) {
   if (!iso) return '—';
-  const d = new Date(iso);
-  return d.toLocaleDateString('ro-RO', { day: '2-digit', month: 'short', year: 'numeric' });
+  return new Date(iso).toLocaleDateString('ro-RO',{day:'2-digit',month:'short',year:'numeric'});
 }
 function fmtDateTime(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
-  return d.toLocaleDateString('ro-RO', { day: '2-digit', month: 'short' }) + ' ' +
-         d.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleDateString('ro-RO',{day:'2-digit',month:'short'}) + ' ' +
+         d.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'});
+}
+// Wrap selected text in textarea with before/after markers
+function wrapSelection(taRef, before, after, body, setBody, cursorRef) {
+  const ta = taRef.current;
+  if (!ta) return;
+  const start = ta.selectionStart;
+  const end   = ta.selectionEnd;
+  const sel   = body.slice(start, end);
+  const replacement = before + (sel || 'text') + after;
+  const newBody = body.slice(0,start) + replacement + body.slice(end);
+  setBody(newBody);
+  const newCursor = start + replacement.length;
+  cursorRef.current = newCursor;
+  setTimeout(() => {
+    ta.focus();
+    const selStart = start + before.length;
+    const selEnd   = sel ? start + before.length + sel.length : start + replacement.length - after.length;
+    ta.setSelectionRange(selStart, selEnd);
+  }, 20);
 }
 
-// ─── Shared UI primitives ─────────────────────────────────────────────────────
-function Badge({ bg, color, children }) {
-  return <span style={{ background: bg, color, borderRadius: 5, padding: '2px 8px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>{children}</span>;
+// ─── Shared UI ────────────────────────────────────────────────────────────────
+function Badge({ bg, color, children, small }) {
+  return (
+    <span style={{ background:bg, color, borderRadius:5, padding: small ? '1px 5px' : '2px 7px', fontSize: small ? 10 : 11, fontWeight:700, whiteSpace:'nowrap', flexShrink:0 }}>
+      {children}
+    </span>
+  );
 }
 function PlanBadge({ plan }) {
-  const c = { free: ['#f1f5f9','#475569'], starter: ['#dbeafe','#1e40af'], pro: ['#f3e8ff','#6b21a8'], business: ['#0f172a','#fff'] };
-  const [bg, color] = c[plan] || c.free;
+  const c = { free:['#f1f5f9','#475569'], starter:['#dbeafe','#1e40af'], pro:['#f3e8ff','#6b21a8'], business:['#0f172a','#fff'] };
+  const [bg,color] = c[plan]||c.free;
   return <Badge bg={bg} color={color}>{plan}</Badge>;
 }
-function Spinner({ size = 20 }) {
-  return <SpinnerIcon size={size} color="#2563eb" />;
+function Spinner({ size=20, color='#2563eb' }) {
+  return <SpinnerIcon size={size} color={color} />;
 }
 function EmptyState({ icon, title, sub, action, onAction }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', color: '#94a3b8', textAlign: 'center' }}>
-      <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.5 }}>{icon}</div>
-      <p style={{ fontWeight: 600, color: '#64748b', fontSize: 15, marginBottom: 4 }}>{title}</p>
-      {sub && <p style={{ fontSize: 13, marginBottom: 16 }}>{sub}</p>}
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'60px 20px', color:'#94a3b8', textAlign:'center', flex:1 }}>
+      <div style={{ fontSize:44, marginBottom:14, opacity:0.4 }}>{icon}</div>
+      <p style={{ fontWeight:700, color:'#64748b', fontSize:15, marginBottom:4 }}>{title}</p>
+      {sub && <p style={{ fontSize:13, marginBottom:18, maxWidth:260 }}>{sub}</p>}
       {action && (
-        <button onClick={onAction} style={{ background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 20px', fontWeight: 600, fontSize: 13 }}>{action}</button>
-      )}
-    </div>
-  );
-}
-function SectionHeader({ title, subtitle, action, onAction }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
-      <div>
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a' }}>{title}</h2>
-        {subtitle && <p style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>{subtitle}</p>}
-      </div>
-      {action && (
-        <button onClick={onAction} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontWeight: 600, fontSize: 13 }}>
-          <PlusIcon size={15} /> {action}
+        <button onClick={onAction} style={{ background:'#2563eb', color:'#fff', border:'none', borderRadius:8, padding:'9px 22px', fontWeight:700, fontSize:13, cursor:'pointer' }}>
+          {action}
         </button>
       )}
     </div>
@@ -149,54 +268,38 @@ function AdminLogin({ onLogin }) {
   const [error,    setError]    = React.useState('');
 
   async function handleSubmit(e) {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+    e.preventDefault(); setError(''); setLoading(true);
     try {
-      const { data, error: err } = await window.sb.auth.signInWithPassword({ email: email.trim(), password });
+      const { data, error:err } = await window.sb.auth.signInWithPassword({ email:email.trim(), password });
       if (err) throw err;
       onLogin(data.user);
-    } catch (err) {
-      setError(err.message || 'Autentificare eșuată.');
-    } finally {
-      setLoading(false);
-    }
+    } catch(err) { setError(err.message||'Autentificare eșuată.'); }
+    finally { setLoading(false); }
   }
 
+  const iStyle = { width:'100%', height:44, border:'1.5px solid #e2e8f0', borderRadius:8, padding:'0 12px', fontSize:14, outline:'none', transition:'border-color 0.15s' };
   return (
-    <div style={{ minHeight: '100vh', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
-      <div style={{ width: 400, background: '#fff', borderRadius: 16, boxShadow: '0 4px 32px rgba(0,0,0,0.10)', padding: '40px 36px' }}>
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ fontSize: 36, marginBottom: 8 }}>⚡</div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a' }}>RapidAct Admin</h1>
-          <p style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>Panou de administrare intern</p>
+    <div style={{ minHeight:'100vh', width:'100%', display:'flex', alignItems:'center', justifyContent:'center', background:'#f8fafc' }}>
+      <div style={{ width:400, background:'#fff', borderRadius:16, boxShadow:'0 4px 32px rgba(0,0,0,0.10)', padding:'40px 36px' }}>
+        <div style={{ textAlign:'center', marginBottom:28 }}>
+          <div style={{ fontSize:36, marginBottom:8 }}>⚡</div>
+          <h1 style={{ fontSize:22, fontWeight:800 }}>RapidAct Admin</h1>
+          <p style={{ fontSize:13, color:'#94a3b8', marginTop:4 }}>Panou de administrare intern</p>
         </div>
-
-        {error && (
-          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#dc2626' }}>
-            {error}
-          </div>
-        )}
-
+        {error && <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:8, padding:'10px 14px', marginBottom:16, fontSize:13, color:'#dc2626' }}>{error}</div>}
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 6 }}>Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus
-              placeholder="admin@rapidact.ro"
-              style={{ width: '100%', height: 44, border: '1.5px solid #e2e8f0', borderRadius: 8, padding: '0 12px', fontSize: 14, outline: 'none', transition: 'border-color 0.15s' }}
-              onFocus={e => e.target.style.borderColor = '#93c5fd'}
-              onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
+          <div style={{ marginBottom:14 }}>
+            <label style={{ fontSize:12, fontWeight:600, color:'#64748b', display:'block', marginBottom:6 }}>Email</label>
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} required autoFocus placeholder="stefan@rapidact.ro"
+              style={iStyle} onFocus={e=>e.target.style.borderColor='#93c5fd'} onBlur={e=>e.target.style.borderColor='#e2e8f0'} />
           </div>
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 6 }}>Parolă</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required
-              placeholder="••••••••"
-              style={{ width: '100%', height: 44, border: '1.5px solid #e2e8f0', borderRadius: 8, padding: '0 12px', fontSize: 14, outline: 'none', transition: 'border-color 0.15s' }}
-              onFocus={e => e.target.style.borderColor = '#93c5fd'}
-              onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
+          <div style={{ marginBottom:22 }}>
+            <label style={{ fontSize:12, fontWeight:600, color:'#64748b', display:'block', marginBottom:6 }}>Parolă</label>
+            <input type="password" value={password} onChange={e=>setPassword(e.target.value)} required placeholder="••••••••"
+              style={iStyle} onFocus={e=>e.target.style.borderColor='#93c5fd'} onBlur={e=>e.target.style.borderColor='#e2e8f0'} />
           </div>
-          <button type="submit" disabled={loading} style={{ width: '100%', height: 44, background: loading ? '#93c5fd' : '#2563eb', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'background 0.15s' }}>
-            {loading ? <><Spinner size={18} /> Autentificare...</> : 'Intră în Admin'}
+          <button type="submit" disabled={loading} style={{ width:'100%', height:44, background:loading?'#93c5fd':'#2563eb', color:'#fff', border:'none', borderRadius:8, fontWeight:700, fontSize:15, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+            {loading ? <><Spinner size={18} color="#fff" /> Autentificare...</> : 'Intră în Admin'}
           </button>
         </form>
       </div>
@@ -205,67 +308,66 @@ function AdminLogin({ onLogin }) {
 }
 
 // ─── AdminSidebar ─────────────────────────────────────────────────────────────
-function AdminSidebar({ section, setSection, adminEmail, onLogout }) {
-  const items = [
-    { id: 'overview',   label: 'Overview',        Icon: HomeIcon     },
-    { id: 'users',      label: 'Utilizatori',     Icon: UsersIcon    },
-    { id: 'templates',  label: 'Template-uri',    Icon: FileTextIcon },
+function AdminSidebar({ section, setSection, adminEmail, onLogout, collapsed, onToggle }) {
+  const NAV = [
+    { id:'overview',  label:'Overview',      Icon:HomeIcon     },
+    { id:'users',     label:'Utilizatori',   Icon:UsersIcon    },
+    { id:'templates', label:'Template-uri',  Icon:FileTextIcon },
   ];
-
   return (
-    <aside style={{
-      width: 220, flexShrink: 0, background: '#0f172a',
-      display: 'flex', flexDirection: 'column',
-      height: '100vh', position: 'sticky', top: 0, overflowY: 'auto',
-    }}>
+    <aside style={{ width:collapsed?52:218, flexShrink:0, background:'#0f172a', display:'flex', flexDirection:'column', height:'100vh', position:'sticky', top:0, transition:'width 0.22s ease', overflow:'hidden' }}>
       {/* Logo */}
-      <div style={{ padding: '24px 20px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 24 }}>⚡</span>
-          <div>
-            <p style={{ fontWeight: 800, fontSize: 15, color: '#fff', lineHeight: 1.1 }}>RapidAct</p>
-            <p style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.8 }}>Admin</p>
+      <div style={{ padding: collapsed?'20px 0':'20px 16px', borderBottom:'1px solid rgba(255,255,255,0.07)', display:'flex', alignItems:'center', justifyContent: collapsed ? 'center' : 'space-between', minHeight:64 }}>
+        {!collapsed && (
+          <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+            <span style={{ fontSize:22 }}>⚡</span>
+            <div>
+              <p style={{ fontWeight:800, fontSize:14, color:'#fff', lineHeight:1.1 }}>RapidAct</p>
+              <p style={{ fontSize:10, color:'#475569', fontWeight:700, textTransform:'uppercase', letterSpacing:0.8 }}>Admin</p>
+            </div>
           </div>
-        </div>
+        )}
+        {collapsed && <span style={{ fontSize:22 }}>⚡</span>}
       </div>
 
-      {/* Nav */}
-      <nav style={{ flex: 1, padding: '12px 10px' }}>
-        {items.map(({ id, label, Icon }) => {
+      {/* Nav items */}
+      <nav style={{ flex:1, padding:'10px 6px' }}>
+        {NAV.map(({ id, label, Icon }) => {
           const active = section === id;
           return (
-            <button key={id} onClick={() => setSection(id)} style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              width: '100%', padding: '10px 12px', borderRadius: 8,
-              border: 'none', textAlign: 'left', marginBottom: 2,
-              background: active ? 'rgba(37,99,235,0.25)' : 'transparent',
+            <button key={id} onClick={() => setSection(id)} title={collapsed ? label : ''} style={{
+              display:'flex', alignItems:'center', gap: collapsed?0:10, justifyContent: collapsed?'center':'flex-start',
+              width:'100%', padding: collapsed?'10px 0':'9px 12px', borderRadius:8, border:'none', marginBottom:2,
+              background: active ? 'rgba(37,99,235,0.28)' : 'transparent',
               color: active ? '#60a5fa' : '#94a3b8',
-              fontWeight: active ? 700 : 500,
-              fontSize: 14, transition: 'all 0.15s',
+              fontWeight: active ? 700 : 500, fontSize:13,
+              cursor:'pointer', transition:'all 0.12s', whiteSpace:'nowrap', overflow:'hidden',
             }}
-              onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
-              onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+              onMouseEnter={e => { if(!active) e.currentTarget.style.background='rgba(255,255,255,0.07)'; }}
+              onMouseLeave={e => { if(!active) e.currentTarget.style.background='transparent'; }}
             >
               <Icon size={17} />
-              {label}
+              {!collapsed && <span>{label}</span>}
+              {active && collapsed && <div style={{ position:'absolute', left:0, width:3, height:32, background:'#2563eb', borderRadius:'0 4px 4px 0' }} />}
             </button>
           );
         })}
       </nav>
 
-      {/* User + logout */}
-      <div style={{ padding: '14px 14px 20px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-        <p style={{ fontSize: 11, color: '#475569', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminEmail}</p>
-        <button onClick={onLogout} style={{
-          display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-          padding: '8px 10px', borderRadius: 7, border: 'none',
-          background: 'transparent', color: '#64748b', fontSize: 13,
-          marginTop: 6, transition: 'all 0.15s',
-        }}
-          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+      {/* Footer */}
+      <div style={{ padding: collapsed?'12px 6px':'12px 10px', borderTop:'1px solid rgba(255,255,255,0.07)' }}>
+        {!collapsed && <p style={{ fontSize:11, color:'#475569', marginBottom:6, padding:'0 4px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{adminEmail}</p>}
+        <button onClick={onToggle} title={collapsed?'Extinde bara':'Colapseaza bara'} style={{ display:'flex', alignItems:'center', justifyContent: collapsed?'center':'flex-start', gap:8, width:'100%', padding: collapsed?'8px 0':'8px 10px', borderRadius:7, border:'none', background:'transparent', color:'#64748b', fontSize:12, cursor:'pointer', marginBottom:4, transition:'all 0.12s' }}
+          onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.06)'}
+          onMouseLeave={e=>e.currentTarget.style.background='transparent'}
         >
-          <LogOutIcon size={15} /> Deconectare
+          {collapsed ? <ChevRightIcon size={16}/> : <><ChevLeftIcon size={16}/><span>Colapseaza</span></>}
+        </button>
+        <button onClick={onLogout} title="Deconectare" style={{ display:'flex', alignItems:'center', justifyContent: collapsed?'center':'flex-start', gap:8, width:'100%', padding: collapsed?'8px 0':'8px 10px', borderRadius:7, border:'none', background:'transparent', color:'#64748b', fontSize:12, cursor:'pointer', transition:'all 0.12s' }}
+          onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.06)'}
+          onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+        >
+          <LogOutIcon size={15}/> {!collapsed && 'Deconectare'}
         </button>
       </div>
     </aside>
@@ -274,70 +376,61 @@ function AdminSidebar({ section, setSection, adminEmail, onLogout }) {
 
 // ─── OverviewSection ──────────────────────────────────────────────────────────
 function OverviewSection({ users, contracts, templates }) {
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const todayContracts = contracts.filter(c => (c.created_at || '').startsWith(todayStr)).length;
-  const activeTemplates = templates.filter(t => t.active).length;
-  const userTemplates = templates.filter(t => t.user_id).length;
-
+  const todayStr = new Date().toISOString().slice(0,10);
   const stats = [
-    { label: 'Utilizatori',           value: users.length,       icon: '👥', bg: '#dbeafe', color: '#1e40af' },
-    { label: 'Contracte totale',       value: contracts.length,   icon: '📄', bg: '#dcfce7', color: '#166534' },
-    { label: 'Template-uri active',    value: activeTemplates,    icon: '📋', bg: '#f3e8ff', color: '#6b21a8' },
-    { label: 'Contracte azi',          value: todayContracts,     icon: '⚡', bg: '#fef9c3', color: '#92400e' },
+    { label:'Utilizatori',        value:users.length,                                           icon:'👥', bg:'#dbeafe', color:'#1e40af' },
+    { label:'Contracte totale',   value:contracts.length,                                       icon:'📄', bg:'#dcfce7', color:'#166534' },
+    { label:'Template-uri active',value:templates.filter(t=>t.active).length,                   icon:'📋', bg:'#f3e8ff', color:'#6b21a8' },
+    { label:'Contracte azi',      value:contracts.filter(c=>(c.created_at||'').startsWith(todayStr)).length, icon:'⚡', bg:'#fef9c3', color:'#92400e' },
   ];
-
-  const recentContracts = [...contracts]
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .slice(0, 10);
+  const recent = [...contracts].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,12);
 
   return (
-    <div className="fade-in" style={{ padding: '32px 36px', maxWidth: 1100 }}>
-      <SectionHeader title="Overview" subtitle="Situație generală a platformei" />
+    <div className="fade-in" style={{ padding:'32px 36px', maxWidth:1100 }}>
+      <div style={{ marginBottom:24 }}>
+        <h2 style={{ fontSize:22, fontWeight:800 }}>Overview</h2>
+        <p style={{ fontSize:13, color:'#64748b', marginTop:2 }}>Situație generală a platformei</p>
+      </div>
 
-      {/* Stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16, marginBottom:32 }}>
         {stats.map(s => (
-          <div key={s.label} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '20px 22px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <p style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.6 }}>{s.label}</p>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>{s.icon}</div>
+          <div key={s.label} style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:12, padding:'18px 20px' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+              <p style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:0.6 }}>{s.label}</p>
+              <div style={{ width:32, height:32, borderRadius:8, background:s.bg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:15 }}>{s.icon}</div>
             </div>
-            <p style={{ fontSize: 32, fontWeight: 800, color: s.color }}>{s.value}</p>
+            <p style={{ fontSize:30, fontWeight:800, color:s.color }}>{s.value}</p>
           </div>
         ))}
       </div>
 
-      {/* Recent contracts */}
-      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0' }}>
-          <p style={{ fontWeight: 700, fontSize: 15 }}>Contracte recente</p>
+      <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:12, overflow:'hidden' }}>
+        <div style={{ padding:'14px 20px', borderBottom:'1px solid #e2e8f0' }}>
+          <p style={{ fontWeight:700, fontSize:15 }}>Contracte recente</p>
         </div>
-        {recentContracts.length === 0 ? (
-          <EmptyState icon="📄" title="Niciun contract încă" sub="Contractele generate de utilizatori vor apărea aici." />
+        {recent.length === 0 ? (
+          <EmptyState icon="📄" title="Niciun contract" sub="Contractele vor apărea aici." />
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse' }}>
             <thead>
-              <tr style={{ background: '#f8fafc' }}>
-                {['Data', 'Utilizator', 'Template', 'Client', 'Status'].map(h => (
-                  <th key={h} style={{ padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.6 }}>{h}</th>
+              <tr style={{ background:'#f8fafc' }}>
+                {['Data','Utilizator','Template','Client','Status'].map(h => (
+                  <th key={h} style={{ padding:'10px 18px', textAlign:'left', fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:0.6, borderBottom:'1px solid #e2e8f0' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {recentContracts.map((c, i) => {
-                const user = users.find(u => u.id === c.user_id);
-                const party = (c.parties || [])[0]?.name || '—';
+              {recent.map((c,i) => {
+                const user = users.find(u=>u.id===c.user_id);
+                const party = (c.parties||[])[0]?.name||'—';
                 return (
-                  <tr key={c.id} style={{ borderTop: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>
-                    <td style={{ padding: '12px 20px', fontSize: 13, color: '#64748b', whiteSpace: 'nowrap' }}>{fmtDateTime(c.created_at)}</td>
-                    <td style={{ padding: '12px 20px', fontSize: 13, fontWeight: 500 }}>{user?.firm_name || user?.email || '—'}</td>
-                    <td style={{ padding: '12px 20px', fontSize: 13, color: '#64748b' }}>{c.template_name || c.template_id || '—'}</td>
-                    <td style={{ padding: '12px 20px', fontSize: 13 }}>{party}</td>
-                    <td style={{ padding: '12px 20px' }}>
-                      <Badge
-                        bg={c.status === 'generated' ? '#dbeafe' : c.status === 'signed' ? '#dcfce7' : '#f1f5f9'}
-                        color={c.status === 'generated' ? '#1e40af' : c.status === 'signed' ? '#166534' : '#64748b'}
-                      >{c.status || 'draft'}</Badge>
+                  <tr key={c.id} style={{ borderTop:'1px solid #f1f5f9', background: i%2===0?'#fff':'#fafbfc' }}>
+                    <td style={{ padding:'11px 18px', fontSize:13, color:'#64748b', whiteSpace:'nowrap' }}>{fmtDateTime(c.created_at)}</td>
+                    <td style={{ padding:'11px 18px', fontSize:13, fontWeight:500 }}>{user?.firm_name||user?.email||'—'}</td>
+                    <td style={{ padding:'11px 18px', fontSize:13, color:'#64748b' }}>{c.template_name||c.template_id||'—'}</td>
+                    <td style={{ padding:'11px 18px', fontSize:13 }}>{party}</td>
+                    <td style={{ padding:'11px 18px' }}>
+                      <Badge bg={c.status==='generated'?'#dbeafe':'#f1f5f9'} color={c.status==='generated'?'#1e40af':'#64748b'}>{c.status||'draft'}</Badge>
                     </td>
                   </tr>
                 );
@@ -352,96 +445,69 @@ function OverviewSection({ users, contracts, templates }) {
 
 // ─── UserDetailPanel ──────────────────────────────────────────────────────────
 function UserDetailPanel({ user, contracts, templates, onNewTemplate, onEditTemplate, onClose }) {
-  const userContracts = contracts.filter(c => c.user_id === user.id)
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  const userTemplates = templates.filter(t => t.user_id === user.id);
-  const globalTemplates = templates.filter(t => !t.user_id);
+  const uContracts = contracts.filter(c=>c.user_id===user.id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  const uTemplates = templates.filter(t=>t.user_id===user.id);
 
   return (
-    <div className="fade-in" style={{
-      width: 400, flexShrink: 0, background: '#fff',
-      borderLeft: '1px solid #e2e8f0', height: '100%', overflowY: 'auto',
-      display: 'flex', flexDirection: 'column',
-    }}>
-      {/* Header */}
-      <div style={{ padding: '20px 22px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', position: 'sticky', top: 0, background: '#fff', zIndex: 5 }}>
+    <div className="fade-in" style={{ width:380, flexShrink:0, background:'#fff', borderLeft:'1px solid #e2e8f0', height:'100%', overflowY:'auto', display:'flex', flexDirection:'column' }}>
+      <div style={{ padding:'18px 20px', borderBottom:'1px solid #e2e8f0', display:'flex', alignItems:'flex-start', justifyContent:'space-between', position:'sticky', top:0, background:'#fff', zIndex:5 }}>
         <div>
-          <p style={{ fontWeight: 700, fontSize: 16, marginBottom: 2 }}>{user.firm_name || '—'}</p>
-          <p style={{ fontSize: 13, color: '#64748b' }}>{user.email}</p>
+          <p style={{ fontWeight:700, fontSize:16, marginBottom:2 }}>{user.firm_name||'—'}</p>
+          <p style={{ fontSize:13, color:'#64748b' }}>{user.email}</p>
         </div>
-        <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, padding: '7px 8px', display: 'flex', alignItems: 'center', color: '#64748b' }}>
-          <XIcon size={16} />
+        <button onClick={onClose} style={{ background:'#f1f5f9', border:'none', borderRadius:8, padding:'7px 8px', display:'flex', alignItems:'center', color:'#64748b', cursor:'pointer' }}>
+          <XIcon size={15}/>
         </button>
       </div>
 
-      <div style={{ padding: '20px 22px', flex: 1 }}>
-        {/* Profile info */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24, background: '#f8fafc', borderRadius: 10, padding: 14 }}>
-          {[
-            ['Plan', <PlanBadge plan={user.plan} />],
-            ['Contracte', `${user.contracts_used || 0} / ${user.contracts_limit || 5}`],
-            ['CUI', user.firm_cui || '—'],
-            ['Repr. legal', user.legal_rep || '—'],
-          ].map(([k, v]) => (
+      <div style={{ padding:'18px 20px', flex:1 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:22, background:'#f8fafc', borderRadius:10, padding:14 }}>
+          {[['Plan',<PlanBadge plan={user.plan||'free'}/>],['Contracte',`${user.contracts_used||0} / ${user.contracts_limit||5}`],['CUI',user.firm_cui||'—'],['Repr.',user.legal_rep||'—']].map(([k,v])=>(
             <div key={k}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 2 }}>{k}</p>
-              <p style={{ fontSize: 13, fontWeight: 500 }}>{v}</p>
+              <p style={{ fontSize:10, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:0.6, marginBottom:2 }}>{k}</p>
+              <p style={{ fontSize:13, fontWeight:500 }}>{v}</p>
             </div>
           ))}
         </div>
 
-        {/* User templates */}
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <p style={{ fontWeight: 700, fontSize: 14 }}>Template-uri personalizate <span style={{ color: '#94a3b8', fontWeight: 500 }}>({userTemplates.length})</span></p>
-            <button onClick={() => onNewTemplate(user)} style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: 7, padding: '5px 10px', fontSize: 12, fontWeight: 700 }}>
-              <PlusIcon size={12} /> Adaugă
+        <div style={{ marginBottom:22 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+            <p style={{ fontWeight:700, fontSize:13 }}>Template-uri <span style={{ color:'#94a3b8', fontWeight:400 }}>({uTemplates.length})</span></p>
+            <button onClick={()=>onNewTemplate(user)} style={{ display:'flex', alignItems:'center', gap:4, background:'#eff6ff', color:'#2563eb', border:'1px solid #bfdbfe', borderRadius:7, padding:'5px 10px', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+              <PlusIcon size={11}/> Adaugă
             </button>
           </div>
-
-          {userTemplates.length === 0 ? (
-            <div style={{ border: '1.5px dashed #e2e8f0', borderRadius: 8, padding: '18px', textAlign: 'center' }}>
-              <p style={{ fontSize: 13, color: '#94a3b8' }}>Niciun template personalizat</p>
-              <button onClick={() => onNewTemplate(user)} style={{ marginTop: 6, fontSize: 12, color: '#2563eb', border: 'none', background: 'none', fontWeight: 600 }}>Creează primul →</button>
+          {uTemplates.length === 0 ? (
+            <div style={{ border:'1.5px dashed #e2e8f0', borderRadius:8, padding:16, textAlign:'center' }}>
+              <p style={{ fontSize:13, color:'#94a3b8' }}>Niciun template personalizat</p>
+              <button onClick={()=>onNewTemplate(user)} style={{ marginTop:4, fontSize:12, color:'#2563eb', border:'none', background:'none', fontWeight:600, cursor:'pointer' }}>Creează primul →</button>
             </div>
-          ) : (
-            userTemplates.map(t => (
-              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8, marginBottom: 6, background: '#fff' }}>
-                <span style={{ fontSize: 20 }}>{t.icon || '📋'}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</p>
-                  <p style={{ fontSize: 11, color: '#94a3b8' }}>{(t.fields || []).length} câmpuri</p>
-                </div>
-                <button onClick={() => onEditTemplate(t)} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px', fontSize: 12, color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <EditIcon size={11} /> Edit
-                </button>
+          ) : uTemplates.map(t=>(
+            <div key={t.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', border:'1px solid #e2e8f0', borderRadius:8, marginBottom:5 }}>
+              <span style={{ fontSize:18 }}>{t.icon||'📋'}</span>
+              <div style={{ flex:1, minWidth:0 }}>
+                <p style={{ fontSize:13, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.name}</p>
+                <p style={{ fontSize:11, color:'#94a3b8' }}>{(t.fields||[]).length} câmpuri</p>
               </div>
-            ))
-          )}
+              <button onClick={()=>onEditTemplate(t)} style={{ background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:6, padding:'4px 8px', fontSize:12, color:'#64748b', display:'flex', alignItems:'center', gap:4, cursor:'pointer' }}>
+                <EditIcon size={11}/> Edit
+              </button>
+            </div>
+          ))}
         </div>
 
-        {/* Contracts */}
         <div>
-          <p style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Contracte recente <span style={{ color: '#94a3b8', fontWeight: 500 }}>({userContracts.length})</span></p>
-          {userContracts.length === 0 ? (
-            <p style={{ fontSize: 13, color: '#94a3b8' }}>Niciun contract generat.</p>
-          ) : (
-            userContracts.slice(0, 8).map(c => {
-              const party = (c.parties || [])[0]?.name || '—';
-              return (
-                <div key={c.id} style={{ padding: '9px 12px', border: '1px solid #e2e8f0', borderRadius: 8, marginBottom: 5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 500 }}>{party}</p>
-                    <p style={{ fontSize: 11, color: '#94a3b8' }}>{c.template_name || c.template_id} · {fmtDate(c.created_at)}</p>
-                  </div>
-                  <Badge
-                    bg={c.status === 'generated' ? '#dbeafe' : '#f1f5f9'}
-                    color={c.status === 'generated' ? '#1e40af' : '#64748b'}
-                  >{c.status || 'draft'}</Badge>
-                </div>
-              );
-            })
-          )}
+          <p style={{ fontWeight:700, fontSize:13, marginBottom:10 }}>Contracte recente <span style={{ color:'#94a3b8', fontWeight:400 }}>({uContracts.length})</span></p>
+          {uContracts.length === 0 ? <p style={{ fontSize:13, color:'#94a3b8' }}>Niciun contract generat.</p>
+          : uContracts.slice(0,6).map(c=>(
+            <div key={c.id} style={{ padding:'9px 12px', border:'1px solid #e2e8f0', borderRadius:8, marginBottom:5, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div>
+                <p style={{ fontSize:13, fontWeight:500 }}>{(c.parties||[])[0]?.name||'—'}</p>
+                <p style={{ fontSize:11, color:'#94a3b8' }}>{c.template_name||c.template_id} · {fmtDate(c.created_at)}</p>
+              </div>
+              <Badge bg="#dbeafe" color="#1e40af">{c.status||'draft'}</Badge>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -450,82 +516,68 @@ function UserDetailPanel({ user, contracts, templates, onNewTemplate, onEditTemp
 
 // ─── UsersSection ─────────────────────────────────────────────────────────────
 function UsersSection({ users, contracts, templates, onNewTemplate, onEditTemplate }) {
-  const [search,       setSearch]       = React.useState('');
-  const [selectedUser, setSelectedUser] = React.useState(null);
+  const [search, setSearch]     = React.useState('');
+  const [selected, setSelected] = React.useState(null);
 
   const filtered = users.filter(u => {
     const q = search.toLowerCase();
-    return !q || (u.firm_name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+    return !q || (u.firm_name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q);
   });
 
   return (
-    <div className="fade-in" style={{ padding: '32px 36px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-      <SectionHeader
-        title="Utilizatori"
-        subtitle={`${users.length} conturi înregistrate`}
-      />
+    <div className="fade-in" style={{ padding:'32px 36px', flex:1, display:'flex', flexDirection:'column', minHeight:0 }}>
+      <div style={{ marginBottom:20 }}>
+        <h2 style={{ fontSize:22, fontWeight:800 }}>Utilizatori</h2>
+        <p style={{ fontSize:13, color:'#64748b', marginTop:2 }}>{users.length} conturi înregistrate</p>
+      </div>
 
-      <div style={{ flex: 1, display: 'flex', gap: 0, minHeight: 0, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
-
-        {/* Table */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          {/* Search bar */}
-          <div style={{ padding: '14px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ position: 'relative', flex: 1, maxWidth: 340 }}>
-              <SearchIcon size={15} color="#94a3b8" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
-              <input value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Caută după firmă sau email..."
-                style={{ width: '100%', height: 36, border: '1.5px solid #e2e8f0', borderRadius: 8, padding: '0 12px 0 32px', fontSize: 13, outline: 'none' }}
-                onFocus={e => e.target.style.borderColor = '#93c5fd'}
-                onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
+      <div style={{ flex:1, display:'flex', minHeight:0, background:'#fff', border:'1px solid #e2e8f0', borderRadius:12, overflow:'hidden' }}>
+        <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0 }}>
+          <div style={{ padding:'12px 18px', borderBottom:'1px solid #e2e8f0', display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ position:'relative', flex:1, maxWidth:320 }}>
+              <SearchIcon size={14} color="#94a3b8" style={{ position:'absolute', left:9, top:'50%', transform:'translateY(-50%)' }}/>
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Caută firmă sau email..."
+                style={{ width:'100%', height:34, border:'1.5px solid #e2e8f0', borderRadius:8, padding:'0 10px 0 30px', fontSize:13, outline:'none' }}
+                onFocus={e=>e.target.style.borderColor='#93c5fd'} onBlur={e=>e.target.style.borderColor='#e2e8f0'} />
             </div>
           </div>
-
-          {/* Table head */}
-          <div style={{ overflowY: 'auto', flex: 1 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
-                <tr style={{ background: '#f8fafc' }}>
-                  {['Firmă', 'Email', 'Plan', 'Contracte', 'Template-uri', 'Înregistrat', ''].map(h => (
-                    <th key={h} style={{ padding: '10px 18px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.6, borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
+          <div style={{ overflowY:'auto', flex:1 }}>
+            <table style={{ width:'100%', borderCollapse:'collapse' }}>
+              <thead style={{ position:'sticky', top:0, zIndex:2 }}>
+                <tr style={{ background:'#f8fafc' }}>
+                  {['Firmă','Email','Plan','Contracte','Template-uri','Înregistrat',''].map(h=>(
+                    <th key={h} style={{ padding:'10px 16px', textAlign:'left', fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:0.6, borderBottom:'1px solid #e2e8f0', whiteSpace:'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 && (
-                  <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, color: '#94a3b8', fontSize: 14 }}>Niciun utilizator găsit.</td></tr>
-                )}
+                {filtered.length===0 && <tr><td colSpan={7} style={{ textAlign:'center', padding:40, color:'#94a3b8' }}>Niciun utilizator găsit.</td></tr>}
                 {filtered.map(u => {
-                  const uContracts  = contracts.filter(c => c.user_id === u.id).length;
-                  const uTemplates  = templates.filter(t => t.user_id === u.id).length;
-                  const isSelected  = selectedUser?.id === u.id;
-                  const isAdmin     = u.is_admin;
+                  const uC = contracts.filter(c=>c.user_id===u.id).length;
+                  const uT = templates.filter(t=>t.user_id===u.id).length;
+                  const isSel = selected?.id===u.id;
                   return (
-                    <tr key={u.id}
-                      onClick={() => setSelectedUser(isSelected ? null : u)}
-                      style={{ borderTop: '1px solid #f1f5f9', cursor: 'pointer', background: isSelected ? '#eff6ff' : '#fff', transition: 'background 0.1s' }}
-                      onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafc'; }}
-                      onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = '#fff'; }}
+                    <tr key={u.id} onClick={()=>setSelected(isSel?null:u)} style={{ borderTop:'1px solid #f1f5f9', cursor:'pointer', background: isSel?'#eff6ff':'#fff', transition:'background 0.1s' }}
+                      onMouseEnter={e=>{ if(!isSel) e.currentTarget.style.background='#f8fafc'; }}
+                      onMouseLeave={e=>{ if(!isSel) e.currentTarget.style.background='#fff'; }}
                     >
-                      <td style={{ padding: '14px 18px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={{ width: 32, height: 32, borderRadius: 8, background: isAdmin ? '#0f172a' : 'linear-gradient(135deg,#2563eb,#10b981)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
-                            {(u.firm_name || u.email || '?')[0].toUpperCase()}
+                      <td style={{ padding:'13px 16px' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+                          <div style={{ width:30, height:30, borderRadius:8, background: u.is_admin?'#0f172a':'linear-gradient(135deg,#2563eb,#10b981)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:12, fontWeight:700, flexShrink:0 }}>
+                            {(u.firm_name||u.email||'?')[0].toUpperCase()}
                           </div>
                           <div>
-                            <p style={{ fontSize: 13, fontWeight: 600 }}>{u.firm_name || '—'}</p>
-                            {isAdmin && <span style={{ fontSize: 10, background: '#0f172a', color: '#fff', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>Admin</span>}
+                            <p style={{ fontSize:13, fontWeight:600 }}>{u.firm_name||'—'}</p>
+                            {u.is_admin && <span style={{ fontSize:9, background:'#0f172a', color:'#fff', borderRadius:4, padding:'1px 5px', fontWeight:700 }}>Admin</span>}
                           </div>
                         </div>
                       </td>
-                      <td style={{ padding: '14px 18px', fontSize: 13, color: '#64748b' }}>{u.email}</td>
-                      <td style={{ padding: '14px 18px' }}><PlanBadge plan={u.plan || 'free'} /></td>
-                      <td style={{ padding: '14px 18px', fontSize: 13, textAlign: 'center' }}><span style={{ fontWeight: 600 }}>{uContracts}</span></td>
-                      <td style={{ padding: '14px 18px', fontSize: 13, textAlign: 'center' }}>{uTemplates > 0 ? <span style={{ fontWeight: 600, color: '#2563eb' }}>{uTemplates}</span> : <span style={{ color: '#cbd5e1' }}>0</span>}</td>
-                      <td style={{ padding: '14px 18px', fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap' }}>{fmtDate(u.created_at)}</td>
-                      <td style={{ padding: '14px 18px' }}>
-                        <ChevRightIcon size={16} color={isSelected ? '#2563eb' : '#cbd5e1'} />
-                      </td>
+                      <td style={{ padding:'13px 16px', fontSize:13, color:'#64748b' }}>{u.email}</td>
+                      <td style={{ padding:'13px 16px' }}><PlanBadge plan={u.plan||'free'}/></td>
+                      <td style={{ padding:'13px 16px', fontSize:13, fontWeight:600, textAlign:'center' }}>{uC}</td>
+                      <td style={{ padding:'13px 16px', fontSize:13, textAlign:'center' }}>{uT>0?<span style={{ fontWeight:700, color:'#2563eb' }}>{uT}</span>:<span style={{ color:'#cbd5e1' }}>0</span>}</td>
+                      <td style={{ padding:'13px 16px', fontSize:12, color:'#94a3b8', whiteSpace:'nowrap' }}>{fmtDate(u.created_at)}</td>
+                      <td style={{ padding:'13px 16px' }}><ChevRightIcon size={15} color={isSel?'#2563eb':'#cbd5e1'}/></td>
                     </tr>
                   );
                 })}
@@ -533,71 +585,83 @@ function UsersSection({ users, contracts, templates, onNewTemplate, onEditTempla
             </table>
           </div>
         </div>
-
-        {/* Detail panel */}
-        {selectedUser && (
-          <UserDetailPanel
-            user={selectedUser}
-            contracts={contracts}
-            templates={templates}
-            onNewTemplate={onNewTemplate}
-            onEditTemplate={onEditTemplate}
-            onClose={() => setSelectedUser(null)}
-          />
+        {selected && (
+          <UserDetailPanel user={selected} contracts={contracts} templates={templates}
+            onNewTemplate={onNewTemplate} onEditTemplate={onEditTemplate}
+            onClose={()=>setSelected(null)} />
         )}
       </div>
     </div>
   );
 }
 
-// ─── FieldPicker (side panel in editor) ──────────────────────────────────────
+// ─── FieldPickerPanel ─────────────────────────────────────────────────────────
 function FieldPickerPanel({ onInsert }) {
-  const [activeCategory, setActiveCategory] = React.useState('Persoana');
-  const fields = Object.entries(FIELD_REG).filter(([, v]) => v.cat === activeCategory);
+  const [activeCat,   setActiveCat]   = React.useState('CI Client');
+  const [activeGroup, setActiveGroup] = React.useState('Generic');
+  const [search,      setSearch]      = React.useState('');
+
+  const fields = Object.entries(FIELD_REG).filter(([key,v]) => {
+    if (v.cat !== activeCat) return false;
+    if (activeCat === 'Contract' && v.group !== activeGroup) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return v.label.toLowerCase().includes(q) || key.toLowerCase().includes(q);
+    }
+    return true;
+  });
 
   return (
-    <div style={{ width: 300, flexShrink: 0, borderLeft: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', background: '#fafcff', height: '100%' }}>
-      <div style={{ padding: '12px 14px', borderBottom: '1px solid #e2e8f0' }}>
-        <p style={{ fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.6 }}>Inserează câmp</p>
+    <div style={{ width:272, flexShrink:0, borderLeft:'1px solid #e2e8f0', background:'#fafbff', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+      {/* Header */}
+      <div style={{ padding:'12px 12px 8px', borderBottom:'1px solid #e2e8f0', background:'#fff' }}>
+        <p style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:0.6, marginBottom:8 }}>Inserează câmp</p>
+        {/* Category dropdown */}
+        <select value={activeCat} onChange={e=>{setActiveCat(e.target.value); setSearch('');}}
+          style={{ width:'100%', height:36, border:'1.5px solid #e2e8f0', borderRadius:8, padding:'0 8px', fontSize:13, background:'#fff', cursor:'pointer', outline:'none', marginBottom:6 }}>
+          {CAT_ORDER.map(cat => (
+            <option key={cat} value={cat}>{CAT_ICONS[cat]} {cat}</option>
+          ))}
+        </select>
+        {/* Search within category */}
+        <div style={{ position:'relative' }}>
+          <SearchIcon size={12} color="#94a3b8" style={{ position:'absolute', left:7, top:'50%', transform:'translateY(-50%)' }}/>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Caută câmp..."
+            style={{ width:'100%', height:30, border:'1px solid #e2e8f0', borderRadius:7, padding:'0 8px 0 24px', fontSize:12, outline:'none', background:'#f8fafc' }}
+            onFocus={e=>e.target.style.borderColor='#93c5fd'} onBlur={e=>e.target.style.borderColor='#e2e8f0'}/>
+        </div>
       </div>
 
-      {/* Category tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', overflow: 'hidden' }}>
-        {CAT_ORDER.map(cat => (
-          <button key={cat} onClick={() => setActiveCategory(cat)} style={{
-            flex: 1, padding: '8px 4px', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
-            background: activeCategory === cat ? '#fff' : 'transparent',
-            color: activeCategory === cat ? '#2563eb' : '#94a3b8',
-            borderBottom: activeCategory === cat ? '2px solid #2563eb' : '2px solid transparent',
-            transition: 'all 0.15s',
-          }}>
-            {CAT_EMOJI[cat]}
-          </button>
-        ))}
-      </div>
-      <div style={{ padding: '4px 6px', borderBottom: '1px solid #e2e8f0' }}>
-        <p style={{ fontSize: 11, fontWeight: 600, color: '#64748b', padding: '4px 6px' }}>{CAT_EMOJI[activeCategory]} {activeCategory}</p>
-      </div>
+      {/* Contract sub-groups */}
+      {activeCat === 'Contract' && (
+        <div style={{ display:'flex', background:'#f8fafc', borderBottom:'1px solid #e2e8f0' }}>
+          {CONTRACT_GROUPS.map(g => (
+            <button key={g} onClick={()=>setActiveGroup(g)} style={{ flex:1, padding:'7px 2px', border:'none', background:'transparent', fontSize:11, fontWeight:700, cursor:'pointer', color: activeGroup===g?'#2563eb':'#94a3b8', borderBottom:`2px solid ${activeGroup===g?'#2563eb':'transparent'}`, transition:'all 0.12s' }}>
+              {g}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {/* Field list */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 8px 16px' }}>
+      {/* Fields */}
+      <div style={{ flex:1, overflowY:'auto', padding:'8px 8px 20px' }}>
+        {fields.length === 0 && (
+          <p style={{ fontSize:12, color:'#94a3b8', padding:16, textAlign:'center' }}>Niciun câmp{search?' găsit':' în această categorie'}.</p>
+        )}
         {fields.map(([key, r]) => {
-          const st = SOURCE_STYLE[r.source] || SOURCE_STYLE.manual;
+          const src = r.type === 'image' ? 'image' : r.source;
+          const st  = SOURCE_STYLE[src] || SOURCE_STYLE.manual;
           return (
-            <button key={key} onClick={() => onInsert(key)} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              width: '100%', padding: '8px 10px', borderRadius: 7,
-              border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer',
-              textAlign: 'left', marginBottom: 5, gap: 8, transition: 'border-color 0.1s, background 0.1s',
-            }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = '#93c5fd'; e.currentTarget.style.background = '#f0f9ff'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#fff'; }}
+            <button key={key} onClick={()=>onInsert(key)} style={{ display:'flex', flexDirection:'column', width:'100%', padding:'8px 10px', borderRadius:7, border:'1px solid #e2e8f0', background:'#fff', cursor:'pointer', textAlign:'left', marginBottom:5, transition:'all 0.1s' }}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor='#93c5fd'; e.currentTarget.style.background='#f0f9ff';}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor='#e2e8f0'; e.currentTarget.style.background='#fff';}}
             >
-              <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.label}</p>
-                <p style={{ fontSize: 11, fontFamily: 'monospace', color: '#2563eb' }}>{`{{${key}}}`}</p>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:3 }}>
+                <span style={{ fontSize:12, fontWeight:600, color:'#0f172a' }}>{r.label}</span>
+                <Badge bg={st.bg} color={st.color} small>{st.label}</Badge>
               </div>
-              <Badge bg={st.bg} color={st.color}>{st.label}</Badge>
+              <span style={{ fontSize:11, fontFamily:'monospace', color:'#2563eb', opacity:0.85 }}>{`{{${key}}}`}</span>
+              {r.desc && <span style={{ fontSize:10, color:'#94a3b8', marginTop:2 }}>{r.desc}</span>}
             </button>
           );
         })}
@@ -606,9 +670,64 @@ function FieldPickerPanel({ onInsert }) {
   );
 }
 
+// ─── FormatToolbar ────────────────────────────────────────────────────────────
+function FormatToolbar({ onFormat, showPicker, onTogglePicker, isFullscreen, onToggleFullscreen }) {
+  const divider = <div style={{ width:1, height:20, background:'#e2e8f0', margin:'0 4px', flexShrink:0 }} />;
+
+  const fmtBtn = (label, title, before, after, extraStyle={}) => (
+    <button onClick={()=>onFormat(before, after)} title={title} style={{ width:28, height:28, border:'1px solid #e2e8f0', borderRadius:6, background:'#fff', cursor:'pointer', fontSize:13, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'background 0.1s', ...extraStyle }}
+      onMouseEnter={e=>e.currentTarget.style.background='#f1f5f9'}
+      onMouseLeave={e=>e.currentTarget.style.background='#fff'}
+    >{label}</button>
+  );
+
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:3, padding:'6px 14px', background:'#fff', borderBottom:'1px solid #e2e8f0', flexShrink:0, overflowX:'auto' }}>
+      {/* Text style */}
+      {fmtBtn('B','Bold','**','**',{ fontWeight:800 })}
+      {fmtBtn('I','Italic','*','*',{ fontStyle:'italic' })}
+      {fmtBtn(<span style={{ textDecoration:'underline' }}>U</span>,'Underline','__','__')}
+      {divider}
+      {/* Size */}
+      {[['Mic','[size=10]','[/size]'],['Normal','',''],['Mare','[size=15]','[/size]'],['Titlu','[size=20]','[/size]']].map(([lbl,before,after])=>(
+        <button key={lbl} onClick={()=>{ if(before) onFormat(before,after); }} title={`Dimensiune: ${lbl}`} style={{ height:26, padding:'0 7px', border:'1px solid #e2e8f0', borderRadius:6, background:'#fff', cursor:'pointer', fontSize:11, fontWeight:600, color:'#475569', transition:'background 0.1s', flexShrink:0 }}
+          onMouseEnter={e=>e.currentTarget.style.background='#f1f5f9'}
+          onMouseLeave={e=>e.currentTarget.style.background='#fff'}
+        >{lbl}</button>
+      ))}
+      {divider}
+      {/* Alignment */}
+      {[['≡','Stânga','[left]','[/left]'],['≡̈','Centru','[center]','[/center]'],['≡','Dreapta','[right]','[/right]']].map(([icon,title,before,after],i)=>(
+        <button key={i} onClick={()=>onFormat(before,after)} title={title} style={{ width:28, height:28, border:'1px solid #e2e8f0', borderRadius:6, background:'#fff', cursor:'pointer', fontSize:14, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'background 0.1s' }}
+          onMouseEnter={e=>e.currentTarget.style.background='#f1f5f9'}
+          onMouseLeave={e=>e.currentTarget.style.background='#fff'}
+        >
+          {i===0&&<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>}
+          {i===1&&<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>}
+          {i===2&&<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>}
+        </button>
+      ))}
+      {divider}
+      {/* Spacer */}
+      <div style={{ flex:1 }} />
+      {/* Picker toggle */}
+      <button onClick={onTogglePicker} style={{ display:'flex', alignItems:'center', gap:5, height:28, padding:'0 10px', background: showPicker?'#1e40af':'#eff6ff', color: showPicker?'#fff':'#2563eb', border:`1px solid ${showPicker?'#1e40af':'#bfdbfe'}`, borderRadius:7, fontSize:12, fontWeight:700, cursor:'pointer', flexShrink:0, transition:'all 0.15s' }}>
+        <PanelIcon size={13}/> {showPicker?'✕ Câmpuri':'+ Câmpuri'}
+      </button>
+      {/* Fullscreen */}
+      <button onClick={onToggleFullscreen} title={isFullscreen?'Ieși din fullscreen':'Fullscreen'} style={{ width:28, height:28, border:'1px solid #e2e8f0', borderRadius:7, background:'#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'background 0.1s', flexShrink:0 }}
+        onMouseEnter={e=>e.currentTarget.style.background='#f1f5f9'}
+        onMouseLeave={e=>e.currentTarget.style.background='#fff'}
+      >
+        {isFullscreen ? <MinimizeIcon size={14}/> : <MaximizeIcon size={14}/>}
+      </button>
+    </div>
+  );
+}
+
 // ─── AdminTemplateEditor ──────────────────────────────────────────────────────
-function AdminTemplateEditor({ template, users, presetUserId, onSave, onDelete, onClose }) {
-  const isNew  = !template;
+function AdminTemplateEditor({ template, users, presetUserId, onSave, onDelete, onClose, isFullscreen, onToggleFullscreen }) {
+  const isNew    = !template;
   const isGlobal = !isNew && !template.user_id;
 
   const [name,        setName]        = React.useState(template?.name        || '');
@@ -618,436 +737,405 @@ function AdminTemplateEditor({ template, users, presetUserId, onSave, onDelete, 
   const [active,      setActive]      = React.useState(template?.active !== false);
   const [body,        setBody]        = React.useState(template?.bodyText || template?.body_template || '');
   const [assignedTo,  setAssignedTo]  = React.useState(template?.user_id || presetUserId || '__global__');
-  const [showPicker,  setShowPicker]  = React.useState(false);
+  const [showPicker,  setShowPicker]  = React.useState(true);
   const [saving,      setSaving]      = React.useState(false);
   const [deleting,    setDeleting]    = React.useState(false);
   const [error,       setError]       = React.useState('');
   const [saved,       setSaved]       = React.useState(false);
+  const [showMeta,    setShowMeta]    = React.useState(false);
 
-  const taRef       = React.useRef(null);
-  const cursorRef   = React.useRef(0);
+  const taRef    = React.useRef(null);
+  const cursorRef= React.useRef(0);
   const derivedFields = extractFields(body);
 
   function saveCursor() {
     if (taRef.current) cursorRef.current = taRef.current.selectionStart ?? body.length;
   }
 
+  function handleFormat(before, after) {
+    wrapSelection(taRef, before, after, body, setBody, cursorRef);
+  }
+
   function insertField(key) {
-    const pos     = cursorRef.current;
+    const ta      = taRef.current;
+    const pos     = ta ? ta.selectionStart : cursorRef.current;
     const snippet = `{{${key}}}`;
-    const newBody = body.slice(0, pos) + snippet + body.slice(pos);
-    const newPos  = pos + snippet.length;
+    const newBody = body.slice(0,pos) + snippet + body.slice(pos);
     setBody(newBody);
+    const newPos  = pos + snippet.length;
     cursorRef.current = newPos;
-    setTimeout(() => {
-      if (taRef.current) {
-        taRef.current.focus();
-        taRef.current.setSelectionRange(newPos, newPos);
-      }
-    }, 30);
+    setTimeout(() => { if(ta){ ta.focus(); ta.setSelectionRange(newPos,newPos); } }, 20);
   }
 
   async function handleSave() {
     if (!name.trim()) { setError('Numele template-ului este obligatoriu.'); return; }
     if (!body.trim()) { setError('Corpul contractului este obligatoriu.'); return; }
-    setError('');
-    setSaving(true);
+    setError(''); setSaving(true);
     try {
       const fields   = extractFields(body);
-      const scanDocs = deriveScanDocs(fields);
-      const now      = new Date().toISOString();
-      const userId   = assignedTo === '__global__' ? null : assignedTo;
-
-      const row = {
-        name: name.trim(), icon: icon || '📋',
-        description: description.trim(), category: category || 'General',
-        active, body_template: body, fields, scan_docs: scanDocs,
-        user_id: userId, updated_at: now,
-      };
+      const scanDocs = [];
+      fields.forEach(k => { if(FIELD_REG[k]?.source==='ocr') { const d=k.split('_')[1]; if(d&&!scanDocs.includes(d)) scanDocs.push(d); } });
+      const now    = new Date().toISOString();
+      const userId = assignedTo === '__global__' ? null : assignedTo;
+      const row    = { name:name.trim(), icon:icon||'📋', description:description.trim(), category:category||'General', active, body_template:body, fields, scan_docs:scanDocs, user_id:userId, updated_at:now };
 
       let savedRow;
       if (isNew) {
-        row.id = generateSlug(name);
-        row.created_at = now;
-        const { data, error: err } = await window.sb.from('contract_templates').insert(row).select().single();
+        row.id = generateSlug(name); row.created_at = now;
+        const { data, error:err } = await window.sb.from('contract_templates').insert(row).select().single();
         if (err) throw err;
         savedRow = data;
       } else {
-        const { data, error: err } = await window.sb.from('contract_templates').update(row).eq('id', template.id).select().single();
+        const { data, error:err } = await window.sb.from('contract_templates').update(row).eq('id', template.id).select().single();
         if (err) throw err;
         savedRow = data;
       }
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
+      setSaved(true); setTimeout(()=>setSaved(false),2500);
       onSave(savedRow);
-    } catch (err) {
-      setError(err.message || 'Eroare la salvare.');
-    } finally {
-      setSaving(false);
-    }
+    } catch(err) { setError(err.message||'Eroare la salvare.'); }
+    finally { setSaving(false); }
   }
 
   async function handleDelete() {
-    if (!window.confirm(`Ștergi template-ul "${name}"? Acțiunea nu poate fi anulată.`)) return;
+    if (!window.confirm(`Ștergi template-ul "${name}"?`)) return;
     setDeleting(true);
     try {
-      const { error: err } = await window.sb.from('contract_templates').delete().eq('id', template.id);
+      const { error:err } = await window.sb.from('contract_templates').delete().eq('id', template.id);
       if (err) throw err;
       onDelete(template.id);
-    } catch (err) {
-      setError(err.message || 'Eroare la ștergere.');
-      setDeleting(false);
-    }
+    } catch(err) { setError(err.message||'Eroare la ștergere.'); setDeleting(false); }
   }
 
-  const iStyle = { width: '100%', height: 38, border: '1.5px solid #e2e8f0', borderRadius: 7, padding: '0 10px', fontSize: 13, outline: 'none', background: '#fff', transition: 'border-color 0.15s' };
-  const iFocus = e => e.target.style.borderColor = '#93c5fd';
-  const iBlur  = e => e.target.style.borderColor = '#e2e8f0';
-
-  return (
-    <div className="fade-in" style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      {/* Editor header */}
-      <div style={{ padding: '16px 22px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <div>
-          <p style={{ fontWeight: 700, fontSize: 15 }}>{isNew ? 'Template nou' : (isGlobal ? `✏️ ${template.name}` : `✏️ ${template.name}`)}</p>
-          {!isNew && isGlobal && <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 1 }}>Template standard (global)</p>}
+  const editorContainer = (
+    <div style={{ flex:1, display:'flex', flexDirection:'column', height:'100%', background:'#f0f2f5', overflow:'hidden' }}>
+      {/* Top bar */}
+      <div style={{ background:'#fff', borderBottom:'1px solid #e2e8f0', padding:'10px 16px', display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
+        {/* Icon */}
+        <input value={icon} onChange={e=>setIcon(e.target.value)} maxLength={2} style={{ width:40, height:36, border:'1.5px solid #e2e8f0', borderRadius:7, fontSize:20, textAlign:'center', outline:'none', flexShrink:0 }}/>
+        {/* Name */}
+        <input value={name} onChange={e=>setName(e.target.value)} placeholder="Nume template..." style={{ flex:1, minWidth:120, height:36, border:'1.5px solid #e2e8f0', borderRadius:7, padding:'0 10px', fontSize:14, fontWeight:600, outline:'none', transition:'border-color 0.15s' }}
+          onFocus={e=>e.target.style.borderColor='#93c5fd'} onBlur={e=>e.target.style.borderColor='#e2e8f0'}/>
+        {/* Assigned to */}
+        <select value={assignedTo} onChange={e=>setAssignedTo(e.target.value)} style={{ height:36, border:'1.5px solid #e2e8f0', borderRadius:7, padding:'0 8px', fontSize:13, cursor:'pointer', outline:'none', maxWidth:200 }}>
+          <option value="__global__">🌐 Global</option>
+          <optgroup label="Utilizatori">
+            {users.filter(u=>!u.is_admin).map(u=>(
+              <option key={u.id} value={u.id}>{u.firm_name||u.email}</option>
+            ))}
+          </optgroup>
+        </select>
+        {/* Categorie toggle */}
+        <button onClick={()=>setShowMeta(m=>!m)} style={{ height:36, padding:'0 10px', border:'1.5px solid #e2e8f0', borderRadius:7, background: showMeta?'#f8fafc':'#fff', fontSize:12, fontWeight:600, color:'#64748b', cursor:'pointer' }}>
+          {showMeta ? '▲ Mai puțin' : '▼ Detalii'}
+        </button>
+        {/* Active */}
+        <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+          <span style={{ fontSize:12, color:'#64748b', fontWeight:500 }}>Activ</span>
+          <button onClick={()=>setActive(a=>!a)} style={{ width:40, height:22, borderRadius:99, border:'none', cursor:'pointer', background: active?'#2563eb':'#cbd5e1', position:'relative', transition:'background 0.2s', flexShrink:0 }}>
+            <div style={{ position:'absolute', top:2, left: active?20:2, width:18, height:18, borderRadius:'50%', background:'#fff', transition:'left 0.2s', boxShadow:'0 1px 3px rgba(0,0,0,0.2)' }}/>
+          </button>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        {/* Actions */}
+        <div style={{ display:'flex', gap:6, flexShrink:0 }}>
           {!isNew && (
-            <button onClick={handleDelete} disabled={deleting} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 7, border: '1.5px solid #fecaca', background: '#fff', color: '#dc2626', fontWeight: 600, fontSize: 13 }}>
-              {deleting ? <Spinner size={14} /> : <TrashIcon size={14} />} Șterge
+            <button onClick={handleDelete} disabled={deleting} style={{ display:'flex', alignItems:'center', gap:4, height:36, padding:'0 12px', border:'1.5px solid #fecaca', borderRadius:7, background:'#fff', color:'#dc2626', fontWeight:600, fontSize:13, cursor:'pointer' }}>
+              {deleting ? <Spinner size={13}/> : <TrashIcon size={13}/>}
             </button>
           )}
-          <button onClick={onClose} style={{ padding: '7px 13px', borderRadius: 7, border: '1.5px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: 600, fontSize: 13 }}>
+          <button onClick={onClose} style={{ height:36, padding:'0 12px', border:'1.5px solid #e2e8f0', borderRadius:7, background:'#fff', color:'#64748b', fontWeight:600, fontSize:13, cursor:'pointer' }}>
             Anulează
           </button>
-          <button onClick={handleSave} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 18px', borderRadius: 7, border: 'none', background: saving ? '#93c5fd' : saved ? '#10b981' : '#2563eb', color: '#fff', fontWeight: 700, fontSize: 13 }}>
-            {saving ? <><Spinner size={14} /> Salvez...</> : saved ? <><CheckIcon size={14} /> Salvat!</> : 'Salvează'}
+          <button onClick={handleSave} disabled={saving} style={{ display:'flex', alignItems:'center', gap:5, height:36, padding:'0 18px', border:'none', borderRadius:7, background: saving?'#93c5fd': saved?'#10b981':'#2563eb', color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer', transition:'background 0.2s' }}>
+            {saving ? <><Spinner size={13} color="#fff"/> Salvez...</> : saved ? <><CheckIcon size={13}/> Salvat!</> : 'Salvează'}
           </button>
         </div>
       </div>
 
-      {/* Editor body */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', minHeight: 0 }}>
-
-        {/* Left: form */}
-        <div style={{ flex: 1, padding: '20px 24px', overflowY: 'auto', minWidth: 0 }}>
-          {error && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#dc2626' }}>{error}</div>
-          )}
-
-          {/* Row 1: Icon + Name */}
-          <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
-            <div>
-              <label style={labelStyle}>Icon</label>
-              <input value={icon} onChange={e => setIcon(e.target.value)} maxLength={2}
-                style={{ width: 48, height: 38, border: '1.5px solid #e2e8f0', borderRadius: 7, fontSize: 20, textAlign: 'center', outline: 'none', background: '#fff' }} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Nume *</label>
-              <input value={name} onChange={e => setName(e.target.value)} placeholder="ex. Închiriere Auto"
-                style={iStyle} onFocus={iFocus} onBlur={iBlur} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Categorie</label>
-              <select value={category} onChange={e => setCategory(e.target.value)} style={{ ...iStyle, cursor: 'pointer' }}>
-                {['General', 'Închiriere Auto', 'Imobiliare', 'Servicii', 'Muncă', 'Altele'].map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
+      {/* Collapsible meta */}
+      {showMeta && (
+        <div style={{ background:'#f8fafc', borderBottom:'1px solid #e2e8f0', padding:'12px 16px', display:'flex', gap:12, flexShrink:0 }}>
+          <div style={{ flex:1 }}>
+            <label style={{ fontSize:10, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:0.6, display:'block', marginBottom:4 }}>Descriere</label>
+            <input value={description} onChange={e=>setDescription(e.target.value)} placeholder="Scurtă descriere..."
+              style={{ width:'100%', height:32, border:'1px solid #e2e8f0', borderRadius:6, padding:'0 8px', fontSize:12, outline:'none', background:'#fff' }}/>
           </div>
-
-          {/* Row 2: Description */}
-          <div style={{ marginBottom: 14 }}>
-            <label style={labelStyle}>Descriere</label>
-            <input value={description} onChange={e => setDescription(e.target.value)}
-              placeholder="Scurtă descriere a template-ului"
-              style={iStyle} onFocus={iFocus} onBlur={iBlur} />
+          <div style={{ width:180 }}>
+            <label style={{ fontSize:10, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:0.6, display:'block', marginBottom:4 }}>Categorie</label>
+            <select value={category} onChange={e=>setCategory(e.target.value)} style={{ width:'100%', height:32, border:'1px solid #e2e8f0', borderRadius:6, padding:'0 6px', fontSize:12, cursor:'pointer', outline:'none', background:'#fff' }}>
+              {['General','Închiriere Auto','Imobiliare','Servicii','Muncă','Altele'].map(c=>(
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
           </div>
+        </div>
+      )}
 
-          {/* Row 3: Assigned to + Active */}
-          <div style={{ display: 'flex', gap: 12, marginBottom: 18, alignItems: 'flex-end' }}>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Atribuit la</label>
-              <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)} style={{ ...iStyle, cursor: 'pointer' }}>
-                <option value="__global__">🌐 Global — toți utilizatorii</option>
-                <optgroup label="Utilizatori">
-                  {users.filter(u => !u.is_admin).map(u => (
-                    <option key={u.id} value={u.id}>{u.firm_name || u.email}</option>
-                  ))}
-                </optgroup>
-              </select>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 1 }}>
-              <span style={{ fontSize: 13, color: '#64748b', fontWeight: 500 }}>Activ</span>
-              <button onClick={() => setActive(a => !a)} style={{
-                width: 44, height: 24, borderRadius: 99, border: 'none', cursor: 'pointer',
-                background: active ? '#2563eb' : '#cbd5e1', position: 'relative', transition: 'background 0.2s',
-              }}>
-                <div style={{ position: 'absolute', top: 2, left: active ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
-              </button>
-            </div>
-          </div>
+      {/* Error */}
+      {error && (
+        <div style={{ background:'#fef2f2', borderBottom:'1px solid #fecaca', padding:'8px 16px', fontSize:13, color:'#dc2626', flexShrink:0 }}>{error}</div>
+      )}
 
-          {/* Divider */}
-          <div style={{ height: 1, background: '#f1f5f9', margin: '0 -24px 18px' }} />
+      {/* Format toolbar */}
+      <FormatToolbar
+        onFormat={handleFormat}
+        showPicker={showPicker}
+        onTogglePicker={()=>setShowPicker(p=>!p)}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={onToggleFullscreen}
+      />
 
-          {/* Body textarea */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <label style={labelStyle}>Corp contract *</label>
-              <button onClick={() => { saveCursor(); setShowPicker(p => !p); }} style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                background: showPicker ? '#2563eb' : '#eff6ff',
-                color: showPicker ? '#fff' : '#2563eb',
-                border: '1px solid ' + (showPicker ? '#2563eb' : '#bfdbfe'),
-                borderRadius: 7, padding: '5px 12px', fontSize: 12, fontWeight: 700,
-              }}>
-                <PlusIcon size={12} /> {showPicker ? 'Închide câmpuri' : 'Câmpuri disponibile'}
-              </button>
-            </div>
-
+      {/* Document area + picker */}
+      <div style={{ flex:1, display:'flex', overflow:'hidden', minHeight:0 }}>
+        {/* Document scroll area */}
+        <div style={{ flex:1, overflowY:'auto', padding:'28px 24px', background:'#e8eaed' }}>
+          {/* Paper */}
+          <div style={{ maxWidth:794, margin:'0 auto', background:'#fff', boxShadow:'0 2px 20px rgba(0,0,0,0.14)', borderRadius:2, position:'relative' }}>
             <textarea
               ref={taRef}
               value={body}
-              onChange={e => setBody(e.target.value)}
+              onChange={e=>setBody(e.target.value)}
               onMouseUp={saveCursor} onKeyUp={saveCursor} onClick={saveCursor}
-              placeholder={`Scrie corpul contractului. Folosește {{câmp}} pentru câmpuri dinamice.\n\nEx: Subsemnatul {{driver_name}}, CNP {{driver_cnp}}, legitimat cu CI seria {{driver_ci_series}} nr. {{driver_ci_number}}, în calitate de Locatar, am primit spre folosință temporară autovehiculul marca {{vehicle_make}} model {{vehicle_model}}...`}
+              placeholder={`Scrie corpul contractului.\n\nFolosește {{câmp}} pentru câmpuri dinamice — apasă "+ Câmpuri" în dreapta pentru a le insera.\n\nEx:\nCONTRACT DE ÎNCHIRIERE AUTO\n\nÎncheiat astăzi, {{contract_data}}, în {{contract_loc}},\n\nÎntre:\n{{firma_denumire}}, CUI {{firma_cui}}, reprezentată prin {{firma_reprezentant}}, denumit în continuare LOCATOR,\n\nȘi:\n{{client_ci_nume_complet}}, CNP {{client_ci_cnp}}, CI seria {{client_ci_serie}} nr. {{client_ci_numar}},\ncu domiciliul în {{client_ci_adresa}}, denumit în continuare LOCATAR...`}
               style={{
-                width: '100%', minHeight: 320, borderRadius: 8,
-                border: '1.5px solid #e2e8f0', padding: '12px 14px',
-                fontSize: 13, lineHeight: 1.7, resize: 'vertical',
-                fontFamily: '"SF Mono","Fira Code","Consolas",monospace',
-                background: '#fafcff', outline: 'none', transition: 'border-color 0.15s',
+                width:'100%', minHeight:1060, border:'none', outline:'none',
+                padding:'64px 72px', fontSize:13, lineHeight:1.9,
+                fontFamily:'"Georgia","Times New Roman",serif',
+                background:'transparent', resize:'none',
+                color:'#0f172a',
               }}
-              onFocus={e => e.target.style.borderColor = '#93c5fd'}
-              onBlur={e => e.target.style.borderColor = '#e2e8f0'}
             />
-
-            {/* Detected fields */}
-            {derivedFields.length > 0 && (
-              <div style={{ marginTop: 12 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 7 }}>
-                  Câmpuri detectate — {derivedFields.length}
-                </p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                  {derivedFields.map(key => {
-                    const r  = FIELD_REG[key];
-                    const st = r ? (SOURCE_STYLE[r.source] || SOURCE_STYLE.manual) : { bg: '#f1f5f9', color: '#64748b', label: '?' };
-                    return (
-                      <span key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '3px 8px', fontSize: 11 }}>
-                        <span style={{ fontFamily: 'monospace', color: '#2563eb', fontWeight: 600 }}>{`{{${key}}}`}</span>
-                        <Badge bg={st.bg} color={st.color}>{st.label}</Badge>
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
+
+          {/* Detected fields bar */}
+          {derivedFields.length > 0 && (
+            <div style={{ maxWidth:794, margin:'16px auto 0', background:'#fff', borderRadius:8, padding:'10px 14px', boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+              <p style={{ fontSize:10, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:0.6, marginBottom:7 }}>
+                Câmpuri detectate — {derivedFields.length}
+              </p>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                {derivedFields.map(key => {
+                  const r  = FIELD_REG[key];
+                  const src = r?.type==='image' ? 'image' : (r?.source||'manual');
+                  const st = SOURCE_STYLE[src] || SOURCE_STYLE.manual;
+                  return (
+                    <span key={key} style={{ display:'inline-flex', alignItems:'center', gap:4, background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:6, padding:'3px 7px', fontSize:11 }}>
+                      <span style={{ fontFamily:'monospace', color:'#2563eb', fontWeight:600 }}>{`{{${key}}}`}</span>
+                      <Badge bg={st.bg} color={st.color} small>{st.label}</Badge>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <div style={{ height:40 }}/>
         </div>
 
-        {/* Right: field picker */}
-        {showPicker && (
-          <FieldPickerPanel onInsert={key => { insertField(key); }} />
-        )}
+        {/* Field picker panel */}
+        {showPicker && <FieldPickerPanel onInsert={insertField} />}
       </div>
     </div>
   );
+
+  // Fullscreen wraps in fixed overlay
+  if (isFullscreen) {
+    return (
+      <div style={{ position:'fixed', inset:0, zIndex:500, display:'flex', flexDirection:'column', background:'#e8eaed' }}>
+        {editorContainer}
+      </div>
+    );
+  }
+
+  return editorContainer;
 }
 
-// label style helper (used in AdminTemplateEditor)
-const labelStyle = {
-  fontSize: 11, fontWeight: 700, color: '#64748b',
-  textTransform: 'uppercase', letterSpacing: 0.6,
-  display: 'block', marginBottom: 5,
-};
+// ─── TemplateListItem ─────────────────────────────────────────────────────────
+function TemplateListItem({ template, active, onClick }) {
+  return (
+    <button onClick={onClick} style={{ display:'flex', alignItems:'center', gap:9, width:'100%', padding:'9px 12px', border:'none', textAlign:'left', background: active?'#eff6ff':'transparent', borderLeft:`3px solid ${active?'#2563eb':'transparent'}`, cursor:'pointer', transition:'all 0.1s' }}
+      onMouseEnter={e=>{ if(!active) e.currentTarget.style.background='#f8fafc'; }}
+      onMouseLeave={e=>{ if(!active) e.currentTarget.style.background='transparent'; }}
+    >
+      <span style={{ fontSize:17, flexShrink:0 }}>{template.icon||'📋'}</span>
+      <div style={{ flex:1, minWidth:0 }}>
+        <p style={{ fontSize:12, fontWeight: active?700:500, color: active?'#1e40af':'#0f172a', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{template.name}</p>
+        <p style={{ fontSize:10, color:'#94a3b8' }}>{(template.fields||[]).length} câmpuri{!template.active?' · Inactiv':''}</p>
+      </div>
+    </button>
+  );
+}
 
 // ─── TemplatesSection ─────────────────────────────────────────────────────────
 function TemplatesSection({ templates, users, nav, onNavConsumed, onSave, onDelete }) {
-  const [selected,     setSelected]     = React.useState(null);  // template obj | 'new'
-  const [presetUserId, setPresetUserId] = React.useState(null);
-  const [search,       setSearch]       = React.useState('');
+  const [selected,      setSelected]      = React.useState(null);
+  const [presetUserId,  setPresetUserId]  = React.useState(null);
+  const [showList,      setShowList]      = React.useState(true);
+  const [isFullscreen,  setIsFullscreen]  = React.useState(false);
+  const [listSearch,    setListSearch]    = React.useState('');
 
-  // Handle external navigation (from Users section)
+  // Handle cross-section navigation from UsersSection
   React.useEffect(() => {
     if (!nav) return;
-    if (nav.action === 'new')  { setPresetUserId(nav.userId || null); setSelected('new'); }
+    if (nav.action === 'new')  { setPresetUserId(nav.userId||null); setSelected('new'); }
     if (nav.action === 'edit') { setPresetUserId(null); setSelected(nav.template); }
     onNavConsumed();
   }, [nav]);
 
-  function openNew(userId) {
-    setPresetUserId(userId || null);
-    setSelected('new');
-  }
-
-  function openEdit(t) {
-    setPresetUserId(null);
-    setSelected(t);
-  }
+  function openNew(userId) { setPresetUserId(userId||null); setSelected('new'); }
+  function openEdit(t)      { setPresetUserId(null); setSelected(t); }
 
   function handleSave(savedRow) {
     onSave(savedRow);
-    // Keep editor open with updated data
-    setSelected(prev => prev === 'new' ? { ...savedRow, bodyText: savedRow.body_template } : { ...savedRow, bodyText: savedRow.body_template });
+    setSelected({ ...savedRow, bodyText:savedRow.body_template });
   }
+  function handleDelete(id) { onDelete(id); setSelected(null); }
 
-  function handleDelete(id) {
-    onDelete(id);
-    setSelected(null);
-  }
-
-  // Group templates: global first, then by user
-  const global = templates.filter(t => !t.user_id);
+  // Group templates
+  const globalTemplates = templates.filter(t=>!t.user_id);
   const byUser = {};
-  templates.filter(t => t.user_id).forEach(t => {
+  templates.filter(t=>t.user_id).forEach(t => {
     if (!byUser[t.user_id]) byUser[t.user_id] = [];
     byUser[t.user_id].push(t);
   });
 
-  const filteredGlobal = global.filter(t => !search || t.name.toLowerCase().includes(search.toLowerCase()));
+  const filterFn = t => !listSearch || t.name.toLowerCase().includes(listSearch.toLowerCase());
 
   return (
-    <div className="fade-in" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '32px 36px', minHeight: 0 }}>
-      <SectionHeader
-        title="Template-uri"
-        subtitle={`${templates.length} template-uri — ${global.length} globale, ${templates.length - global.length} personalizate`}
-        action="Template nou"
-        onAction={() => openNew(null)}
-      />
+    <div style={{ flex:1, display:'flex', height:'100%', overflow:'hidden', position:'relative' }}>
 
-      <div style={{ flex: 1, display: 'flex', gap: 20, minHeight: 0 }}>
-
-        {/* Left: template list */}
-        <div style={{ width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
-          {/* Search */}
-          <div style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>
-            <div style={{ position: 'relative' }}>
-              <SearchIcon size={13} color="#94a3b8" style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)' }} />
-              <input value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Caută template..."
-                style={{ width: '100%', height: 34, border: '1.5px solid #e2e8f0', borderRadius: 7, padding: '0 8px 0 28px', fontSize: 12, outline: 'none' }}
-                onFocus={e => e.target.style.borderColor = '#93c5fd'}
-                onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
+      {/* Template list */}
+      {showList && !isFullscreen && (
+        <div style={{ width:200, flexShrink:0, background:'#fff', borderRight:'1px solid #e2e8f0', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+          {/* List header */}
+          <div style={{ padding:'10px 10px 6px', borderBottom:'1px solid #e2e8f0' }}>
+            <div style={{ position:'relative', marginBottom:6 }}>
+              <SearchIcon size={12} color="#94a3b8" style={{ position:'absolute', left:7, top:'50%', transform:'translateY(-50%)' }}/>
+              <input value={listSearch} onChange={e=>setListSearch(e.target.value)} placeholder="Caută..."
+                style={{ width:'100%', height:28, border:'1px solid #e2e8f0', borderRadius:7, padding:'0 6px 0 24px', fontSize:11, outline:'none' }}
+                onFocus={e=>e.target.style.borderColor='#93c5fd'} onBlur={e=>e.target.style.borderColor='#e2e8f0'}/>
             </div>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto' }}>
-            {/* Global section */}
-            <div style={{ padding: '10px 12px 4px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
-              <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.8 }}>🌐 Standard</p>
+          {/* Template groups */}
+          <div style={{ flex:1, overflowY:'auto' }}>
+            {/* Global */}
+            <div style={{ padding:'7px 10px 3px', background:'#f8fafc', borderBottom:'1px solid #f1f5f9' }}>
+              <p style={{ fontSize:9, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:0.8 }}>🌐 Standard</p>
             </div>
-            {filteredGlobal.length === 0 && (
-              <p style={{ padding: '12px 14px', fontSize: 12, color: '#94a3b8' }}>Niciun template global.</p>
-            )}
-            {filteredGlobal.map(t => <TemplateListItem key={t.id} template={t} active={selected?.id === t.id} onClick={() => openEdit(t)} />)}
+            {globalTemplates.filter(filterFn).map(t=>(
+              <TemplateListItem key={t.id} template={t} active={selected?.id===t.id} onClick={()=>openEdit(t)}/>
+            ))}
 
-            {/* Per-user sections */}
-            {Object.entries(byUser).map(([uid, uts]) => {
-              const user = users.find(u => u.id === uid);
-              const label = user?.firm_name || user?.email || uid.slice(0, 8);
-              const filtered = uts.filter(t => !search || t.name.toLowerCase().includes(search.toLowerCase()));
-              if (filtered.length === 0) return null;
+            {/* Per user */}
+            {Object.entries(byUser).map(([uid,uts])=>{
+              const user  = users.find(u=>u.id===uid);
+              const label = user?.firm_name||user?.email||uid.slice(0,8);
+              const filt  = uts.filter(filterFn);
+              if (!filt.length && listSearch) return null;
               return (
                 <div key={uid}>
-                  <div style={{ padding: '10px 12px 4px', background: '#f8fafc', borderTop: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <p style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>👤 {label}</p>
-                    <button onClick={() => openNew(uid)} style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: 16, lineHeight: 1, cursor: 'pointer', padding: 0, flexShrink: 0 }} title="Adaugă template pentru acest user">+</button>
+                  <div style={{ padding:'7px 10px 3px', background:'#f8fafc', borderTop:'1px solid #f1f5f9', borderBottom:'1px solid #f1f5f9', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                    <p style={{ fontSize:9, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:0.8, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>👤 {label}</p>
+                    <button onClick={()=>openNew(uid)} style={{ background:'none', border:'none', color:'#2563eb', fontSize:15, lineHeight:1, cursor:'pointer', flexShrink:0 }} title="Adaugă template">+</button>
                   </div>
-                  {filtered.map(t => <TemplateListItem key={t.id} template={t} active={selected?.id === t.id} onClick={() => openEdit(t)} />)}
+                  {filt.length===0 && !listSearch && (
+                    <p style={{ fontSize:11, color:'#cbd5e1', padding:'8px 12px', fontStyle:'italic' }}>Niciun template</p>
+                  )}
+                  {filt.map(t=><TemplateListItem key={t.id} template={t} active={selected?.id===t.id} onClick={()=>openEdit(t)}/>)}
                 </div>
               );
             })}
           </div>
 
           {/* Add button */}
-          <div style={{ padding: '12px', borderTop: '1px solid #e2e8f0' }}>
-            <button onClick={() => openNew(null)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '9px', borderRadius: 8, border: '1.5px dashed #bfdbfe', background: '#f0f9ff', color: '#2563eb', fontWeight: 700, fontSize: 13 }}>
-              <PlusIcon size={14} /> Nou template
+          <div style={{ padding:'8px', borderTop:'1px solid #e2e8f0' }}>
+            <button onClick={()=>openNew(null)} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:4, width:'100%', padding:'7px', borderRadius:7, border:'1.5px dashed #bfdbfe', background:'#f0f9ff', color:'#2563eb', fontWeight:700, fontSize:12, cursor:'pointer' }}>
+              <PlusIcon size={12}/> Nou
             </button>
           </div>
         </div>
+      )}
 
-        {/* Right: editor or placeholder */}
-        <div style={{ flex: 1, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden', display: 'flex', minWidth: 0 }}>
-          {selected ? (
-            <AdminTemplateEditor
-              template={selected === 'new' ? null : selected}
-              users={users}
-              presetUserId={presetUserId}
-              onSave={handleSave}
-              onDelete={handleDelete}
-              onClose={() => setSelected(null)}
-            />
-          ) : (
-            <EmptyState icon="📋" title="Selectează un template" sub="Sau creează unul nou din butonul de mai jos." action="Template nou" onAction={() => openNew(null)} />
-          )}
-        </div>
+      {/* Toggle list button (when editor is open) */}
+      {selected && !isFullscreen && (
+        <button onClick={()=>setShowList(s=>!s)} title={showList?'Ascunde lista':'Arată lista'} style={{ position:'absolute', left: showList?192:0, top:'50%', transform:'translateY(-50%)', width:18, height:48, background:'#fff', border:'1px solid #e2e8f0', borderRadius: showList?'0 6px 6px 0':'0 6px 6px 0', borderLeft: showList?'none':'1px solid #e2e8f0', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', zIndex:10, transition:'left 0.22s ease', boxShadow:'2px 0 6px rgba(0,0,0,0.06)' }}>
+          {showList ? <ChevLeftIcon size={11} color="#94a3b8"/> : <ChevRightIcon size={11} color="#94a3b8"/>}
+        </button>
+      )}
+
+      {/* Editor or empty state */}
+      <div style={{ flex:1, display:'flex', overflow:'hidden', position:'relative' }}>
+        {selected ? (
+          <AdminTemplateEditor
+            template={selected==='new'?null:selected}
+            users={users}
+            presetUserId={presetUserId}
+            onSave={handleSave}
+            onDelete={handleDelete}
+            onClose={()=>setSelected(null)}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={()=>setIsFullscreen(f=>!f)}
+          />
+        ) : (
+          <div style={{ flex:1, display:'flex', flexDirection:'column' }}>
+            {/* Section header when no template selected */}
+            <div style={{ padding:'24px 28px', borderBottom:'1px solid #e2e8f0', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <div>
+                <h2 style={{ fontSize:20, fontWeight:800 }}>Template-uri</h2>
+                <p style={{ fontSize:13, color:'#64748b', marginTop:2 }}>{templates.length} total — {globalTemplates.length} globale, {templates.length-globalTemplates.length} personalizate</p>
+              </div>
+              <button onClick={()=>openNew(null)} style={{ display:'flex', alignItems:'center', gap:6, background:'#2563eb', color:'#fff', border:'none', borderRadius:8, padding:'9px 16px', fontWeight:700, fontSize:13, cursor:'pointer' }}>
+                <PlusIcon size={14}/> Template nou
+              </button>
+            </div>
+            <EmptyState icon="📋" title="Selectează un template" sub="Alege din lista din stânga sau creează unul nou." action="+ Template nou" onAction={()=>openNew(null)}/>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function TemplateListItem({ template, active, onClick }) {
-  return (
-    <button onClick={onClick} style={{
-      display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-      padding: '10px 12px', border: 'none', textAlign: 'left',
-      background: active ? '#eff6ff' : 'transparent',
-      borderLeft: `3px solid ${active ? '#2563eb' : 'transparent'}`,
-      cursor: 'pointer', transition: 'all 0.12s',
-    }}
-      onMouseEnter={e => { if (!active) e.currentTarget.style.background = '#f8fafc'; }}
-      onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
-    >
-      <span style={{ fontSize: 18, flexShrink: 0 }}>{template.icon || '📋'}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: active ? '#1e40af' : '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{template.name}</p>
-        <p style={{ fontSize: 11, color: '#94a3b8' }}>{(template.fields || []).length} câmpuri {!template.active ? '· Inactiv' : ''}</p>
-      </div>
-    </button>
-  );
-}
-
-// ─── AdminApp (root) ──────────────────────────────────────────────────────────
+// ─── AdminApp ─────────────────────────────────────────────────────────────────
 function AdminApp() {
-  const [authState,  setAuthState]  = React.useState('loading'); // loading | login | unauthorized | ready
-  const [adminEmail, setAdminEmail] = React.useState('');
-  const [section,    setSection]    = React.useState('overview');
-  const [templateNav, setTemplateNav] = React.useState(null); // { action: 'new', userId } | { action: 'edit', templateId }
+  const [authState,     setAuthState]     = React.useState('loading');
+  const [adminEmail,    setAdminEmail]    = React.useState('');
+  const [section,       setSection]       = React.useState('overview');
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(() => {
+    try { return localStorage.getItem('ra_admin_sidebar') === 'collapsed'; } catch { return false; }
+  });
+  const [templateNav,   setTemplateNav]   = React.useState(null);
+  const [users,         setUsers]         = React.useState([]);
+  const [contracts,     setContracts]     = React.useState([]);
+  const [templates,     setTemplates]     = React.useState([]);
+  const [dataLoading,   setDataLoading]   = React.useState(false);
 
-  const [users,     setUsers]     = React.useState([]);
-  const [contracts, setContracts] = React.useState([]);
-  const [templates, setTemplates] = React.useState([]);
-  const [dataLoading, setDataLoading] = React.useState(false);
+  function toggleSidebar() {
+    setSidebarCollapsed(c => {
+      const next = !c;
+      try { localStorage.setItem('ra_admin_sidebar', next ? 'collapsed' : 'expanded'); } catch {}
+      return next;
+    });
+  }
 
-  // ── Auth check ──────────────────────────────────────────────────────────────
   React.useEffect(() => {
     checkSession();
-    const { data: { subscription } } = window.sb.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') { setAuthState('login'); setAdminEmail(''); clearData(); }
+    const { data:{ subscription } } = window.sb.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') { setAuthState('login'); setAdminEmail(''); setUsers([]); setContracts([]); setTemplates([]); }
     });
     return () => subscription.unsubscribe();
   }, []);
 
-  function clearData() { setUsers([]); setContracts([]); setTemplates([]); }
-
   async function checkSession() {
     try {
-      const { data: { session } } = await window.sb.auth.getSession();
+      const { data:{ session } } = await window.sb.auth.getSession();
       if (!session) { setAuthState('login'); return; }
       await handleUser(session.user);
-    } catch {
-      setAuthState('login');
-    }
+    } catch { setAuthState('login'); }
   }
 
   async function handleUser(user) {
     setAdminEmail(user.email);
-    // Check is_admin
-    const { data: profile } = await window.sb.from('profiles').select('is_admin').eq('id', user.id).single();
+    const { data:profile } = await window.sb.from('profiles').select('is_admin').eq('id', user.id).single();
     if (!profile?.is_admin) { setAuthState('unauthorized'); return; }
     setAuthState('ready');
     loadAllData();
@@ -1056,105 +1144,80 @@ function AdminApp() {
   async function loadAllData() {
     setDataLoading(true);
     try {
-      const [{ data: usersData }, { data: contractsData }, { data: templatesData }] = await Promise.all([
-        window.sb.from('profiles').select('*').order('created_at', { ascending: false }),
-        window.sb.from('contracts').select('*').order('created_at', { ascending: false }),
-        window.sb.from('contract_templates').select('*').order('sort_order', { ascending: true, nullsFirst: false }),
+      const { data:{ user } } = await window.sb.auth.getUser();
+      if (!user) return;
+      const [{ data:u },{ data:c },{ data:t }] = await Promise.all([
+        window.sb.from('profiles').select('*').order('created_at',{ ascending:false }),
+        window.sb.from('contracts').select('*').order('created_at',{ ascending:false }),
+        window.sb.from('contract_templates').select('*').order('sort_order',{ ascending:true, nullsFirst:false }),
       ]);
-      if (usersData)     setUsers(usersData);
-      if (contractsData) setContracts(contractsData);
-      if (templatesData) setTemplates(templatesData.map(t => ({ ...t, bodyText: t.body_template })));
-    } catch (err) {
-      console.error('[Admin] loadAllData:', err);
-    } finally {
-      setDataLoading(false);
-    }
+      if(u) setUsers(u);
+      if(c) setContracts(c);
+      if(t) setTemplates(t.map(row=>({ ...row, bodyText:row.body_template })));
+    } catch(err) { console.error('[Admin] loadAllData:', err); }
+    finally { setDataLoading(false); }
   }
 
-  async function handleLogout() {
-    await window.sb.auth.signOut();
-  }
-
-  // ── Template CRUD callbacks ─────────────────────────────────────────────────
   function handleTemplateSave(savedRow) {
-    const parsed = { ...savedRow, bodyText: savedRow.body_template };
-    setTemplates(prev => {
-      const idx = prev.findIndex(t => t.id === parsed.id);
-      if (idx >= 0) { const n = [...prev]; n[idx] = parsed; return n; }
-      return [...prev, parsed];
-    });
+    const parsed = { ...savedRow, bodyText:savedRow.body_template };
+    setTemplates(prev => { const idx=prev.findIndex(t=>t.id===parsed.id); if(idx>=0){const n=[...prev];n[idx]=parsed;return n;} return [...prev,parsed]; });
   }
-  function handleTemplateDelete(id) {
-    setTemplates(prev => prev.filter(t => t.id !== id));
-  }
+  function handleTemplateDelete(id) { setTemplates(prev=>prev.filter(t=>t.id!==id)); }
 
-  // ── Render ──────────────────────────────────────────────────────────────────
-  if (authState === 'loading') {
-    return (
-      <div style={{ minHeight: '100vh', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 14, background: '#f8fafc' }}>
-        <span style={{ fontSize: 36 }}>⚡</span>
-        <Spinner size={28} />
-        <p style={{ color: '#64748b', fontSize: 14 }}>Se verifică sesiunea...</p>
+  // Loading
+  if (authState === 'loading') return (
+    <div style={{ minHeight:'100vh', width:'100%', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:14, background:'#f8fafc' }}>
+      <span style={{ fontSize:36 }}>⚡</span><Spinner size={28}/><p style={{ color:'#64748b', fontSize:14 }}>Se verifică sesiunea...</p>
+    </div>
+  );
+  if (authState === 'login') return <AdminLogin onLogin={u=>handleUser(u)} />;
+  if (authState === 'unauthorized') return (
+    <div style={{ minHeight:'100vh', width:'100%', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16, background:'#f8fafc' }}>
+      <ShieldOffIcon size={48} color="#ef4444"/>
+      <div style={{ textAlign:'center' }}>
+        <p style={{ fontSize:20, fontWeight:700 }}>Acces neautorizat</p>
+        <p style={{ fontSize:14, color:'#64748b', marginTop:4 }}>Contul <strong>{adminEmail}</strong> nu are drepturi de admin.</p>
       </div>
-    );
-  }
+      <button onClick={()=>window.sb.auth.signOut()} style={{ background:'#0f172a', color:'#fff', border:'none', borderRadius:8, padding:'10px 24px', fontWeight:600, fontSize:14, cursor:'pointer' }}>Deconectare</button>
+    </div>
+  );
 
-  if (authState === 'login') {
-    return <AdminLogin onLogin={user => handleUser(user)} />;
-  }
-
-  if (authState === 'unauthorized') {
-    return (
-      <div style={{ minHeight: '100vh', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, background: '#f8fafc' }}>
-        <ShieldOffIcon size={48} color="#ef4444" />
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Acces neautorizat</p>
-          <p style={{ fontSize: 14, color: '#64748b', marginTop: 4 }}>Contul <strong>{adminEmail}</strong> nu are drepturi de admin.</p>
-        </div>
-        <button onClick={handleLogout} style={{ background: '#0f172a', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 600, fontSize: 14 }}>Deconectare</button>
-      </div>
-    );
-  }
-
-  // ── Full admin shell ────────────────────────────────────────────────────────
   const mainProps = { users, contracts, templates };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', width: '100%', overflow: 'hidden' }}>
-      <AdminSidebar section={section} setSection={setSection} adminEmail={adminEmail} onLogout={handleLogout} />
+    <div style={{ display:'flex', height:'100vh', width:'100%', overflow:'hidden' }}>
+      <AdminSidebar section={section} setSection={setSection} adminEmail={adminEmail}
+        onLogout={()=>window.sb.auth.signOut()}
+        collapsed={sidebarCollapsed} onToggle={toggleSidebar}/>
 
-      <main style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      <main style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', position:'relative' }}>
         {/* Top bar */}
-        <div style={{ padding: '12px 36px', borderBottom: '1px solid #e2e8f0', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, position: 'sticky', top: 0, zIndex: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#64748b' }}>
-            <span style={{ fontSize: 16 }}>{{ overview: '📊', users: '👥', templates: '📋' }[section]}</span>
-            <span style={{ fontWeight: 600, color: '#0f172a' }}>{{ overview: 'Overview', users: 'Utilizatori', templates: 'Template-uri' }[section]}</span>
+        <div style={{ padding:'0 24px', height:48, borderBottom:'1px solid #e2e8f0', background:'#fff', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:7, fontSize:13 }}>
+            <span style={{ fontSize:16 }}>{{ overview:'📊', users:'👥', templates:'📋' }[section]}</span>
+            <span style={{ fontWeight:700, color:'#0f172a' }}>{{ overview:'Overview', users:'Utilizatori', templates:'Template-uri' }[section]}</span>
           </div>
-          <button onClick={loadAllData} disabled={dataLoading} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 12px', fontSize: 13, color: '#64748b', fontWeight: 500 }}>
-            {dataLoading ? <Spinner size={14} /> : <RefreshIcon size={14} />} Reîncarcă
+          <button onClick={loadAllData} disabled={dataLoading} style={{ display:'flex', alignItems:'center', gap:5, background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:8, padding:'6px 12px', fontSize:12, color:'#64748b', fontWeight:500, cursor:'pointer' }}>
+            {dataLoading ? <Spinner size={13}/> : <RefreshIcon size={13}/>} Reîncarcă
           </button>
         </div>
 
-        {/* Sections */}
-        {section === 'overview' && (
-          <OverviewSection {...mainProps} />
-        )}
-        {section === 'users' && (
-          <UsersSection
-            {...mainProps}
-            onNewTemplate={(user) => { setTemplateNav({ action: 'new', userId: user.id }); setSection('templates'); }}
-            onEditTemplate={(t)    => { setTemplateNav({ action: 'edit', template: t   }); setSection('templates'); }}
-          />
-        )}
-        {section === 'templates' && (
-          <TemplatesSection
-            {...mainProps}
-            nav={templateNav}
-            onNavConsumed={() => setTemplateNav(null)}
-            onSave={handleTemplateSave}
-            onDelete={handleTemplateDelete}
-          />
-        )}
+        {/* Section content */}
+        <div style={{ flex:1, overflow: section==='templates'?'hidden':'auto', display:'flex', flexDirection:'column', minHeight:0 }}>
+          {section==='overview'  && <OverviewSection {...mainProps}/>}
+          {section==='users'     && (
+            <UsersSection {...mainProps}
+              onNewTemplate={u=>{ setTemplateNav({ action:'new', userId:u.id }); setSection('templates'); }}
+              onEditTemplate={t=>{ setTemplateNav({ action:'edit', template:t }); setSection('templates'); }}
+            />
+          )}
+          {section==='templates' && (
+            <TemplatesSection {...mainProps}
+              nav={templateNav} onNavConsumed={()=>setTemplateNav(null)}
+              onSave={handleTemplateSave} onDelete={handleTemplateDelete}
+            />
+          )}
+        </div>
       </main>
     </div>
   );
