@@ -542,6 +542,46 @@ const CATEGORIES = [
   { id: 'Comercial',     icon: '🏪' },
 ];
 
+// ─── Favorite template card (Step 0) ─────────────────────────────────────────
+function FavTemplateCard({ t, isFav, onToggleFav, onSelect }) {
+  const ok = t.active;
+  return (
+    <div
+      onClick={() => ok && onSelect(t)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        border: `1.5px solid ${ok ? '#dbeafe' : '#f1f5f9'}`,
+        borderRadius: 14, padding: '14px 16px',
+        background: ok ? '#fafcff' : '#fafafa',
+        cursor: ok ? 'pointer' : 'default',
+        transition: 'all 0.15s',
+      }}
+      onMouseEnter={e => { if (ok) { e.currentTarget.style.borderColor = '#93c5fd'; e.currentTarget.style.background = '#eff6ff'; } }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = ok ? '#dbeafe' : '#f1f5f9'; e.currentTarget.style.background = ok ? '#fafcff' : '#fafafa'; }}
+    >
+      <div style={{ width: 52, height: 52, borderRadius: 13, background: ok ? '#eff6ff' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>
+        {t.icon}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+          <p style={{ fontWeight: 700, fontSize: 15, color: ok ? '#0f172a' : '#94a3b8' }}>{t.name}</p>
+          {!ok && <span style={{ background: '#f1f5f9', color: '#94a3b8', borderRadius: 5, padding: '1px 6px', fontSize: 10, fontWeight: 700 }}>CURÂND</span>}
+        </div>
+        <p style={{ fontSize: 12, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.desc}</p>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        <button
+          onClick={e => { e.stopPropagation(); onToggleFav(t.id); }}
+          style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', background: isFav ? '#fef3c7' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14 }}
+        >
+          {isFav ? '⭐' : '☆'}
+        </button>
+        {ok && <ChevRightIcon size={16} color="#2563eb" />}
+      </div>
+    </div>
+  );
+}
+
 // ─── Step 1: Template ─────────────────────────────────────────────────────────
 function StepTemplate({ onSelect, templates }) {
   templates = templates || TEMPLATES;
@@ -565,63 +605,43 @@ function StepTemplate({ onSelect, templates }) {
     if (template) onSelect(template);
   }
 
-  const favList    = ALL_TEMPLATE_LIST.filter(t => favorites.includes(t.id));
-  // Adaugă template-urile active din DB care nu sunt în lista hardcoded
-  const dbActiveExtra = templates.filter(t => t.active && t.isDbTemplate && !ALL_TEMPLATE_LIST.find(x => x.id === t.id))
-    .map(t => ({ id: t.id, name: t.name, icon: t.icon, desc: t.description, category: t.category, active: true }));
-  const activeList = [...ALL_TEMPLATE_LIST.filter(t => t.active), ...dbActiveExtra];
+  const favList = ALL_TEMPLATE_LIST.filter(t => favorites.includes(t.id));
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '18px 18px 32px' }}>
-      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Alege contractul</h2>
-      <p style={{ fontSize: 13, color: '#64748b', marginBottom: 18 }}>Apasă pe un contract pentru a-l citi înainte de a-l alege.</p>
+    <div style={{ flex: 1, overflowY: 'auto', padding: '20px 18px 32px' }}>
+      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Ce contract generezi?</h2>
+      <p style={{ fontSize: 13, color: '#64748b', marginBottom: 22 }}>Alege un template favorit sau exploreaza toate tipurile disponibile.</p>
 
-      {/* Favorites */}
-      {favList.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <SectionLabel>⭐ Favorite</SectionLabel>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {favList.map(t => <TemplateCard key={t.id} t={t} isFav onToggleFav={toggleFav} onSelect={handleSelect} />)}
-          </div>
+      {favList.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+          {favList.map(t => (
+            <FavTemplateCard key={t.id} t={t} isFav onToggleFav={toggleFav} onSelect={handleSelect} />
+          ))}
+        </div>
+      ) : (
+        <div style={{ border: '1.5px dashed #e2e8f0', borderRadius: 14, padding: '28px 20px', textAlign: 'center', marginBottom: 24, background: '#fafafa' }}>
+          <p style={{ fontSize: 32, marginBottom: 10 }}>⭐</p>
+          <p style={{ fontWeight: 600, fontSize: 14, color: '#334155', marginBottom: 6 }}>Niciun template favorit</p>
+          <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
+            Marcheaza template-uri cu ⭐ din<br />
+            <strong>Profil → Template-uri</strong>
+          </p>
         </div>
       )}
 
-      {/* Active contracts + browse all button */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <SectionLabel>Toate contractele</SectionLabel>
-          <button onClick={() => setShowAll(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f1f5f9', border: 'none', borderRadius: 8, padding: '5px 10px', fontSize: 12, fontWeight: 600, color: '#475569', cursor: 'pointer', marginBottom: 8 }}
-            onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
-            onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}>
-            🗂️ Browse ({ALL_TEMPLATE_LIST.length})
-          </button>
+      <button
+        onClick={() => setShowAll(true)}
+        style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '14px 16px', background: '#fff', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = '#93c5fd'; e.currentTarget.style.background = '#f8fafc'; }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#fff'; }}
+      >
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>🗂️</div>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontWeight: 600, color: '#1e40af', fontSize: 14 }}>Alege alt contract</p>
+          <p style={{ fontSize: 12, color: '#64748b' }}>Exploreaza toate tipurile disponibile</p>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {activeList.map(t => <TemplateCard key={t.id} t={t} isFav={favorites.includes(t.id)} onToggleFav={toggleFav} onSelect={handleSelect} />)}
-        </div>
-        <button onClick={() => setShowAll(true)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', border: '1px dashed #e2e8f0', borderRadius: 10, padding: '11px 14px', background: 'none', cursor: 'pointer', marginTop: 8, transition: 'background 0.15s' }}
-          onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-          onMouseLeave={e => e.currentTarget.style.background = 'none'}>
-          <span style={{ fontSize: 16 }}>🔍</span>
-          <span style={{ fontSize: 13, color: '#94a3b8', flex: 1, textAlign: 'left' }}>+{ALL_TEMPLATE_LIST.filter(t => !t.active).length} template-uri în curând — Explorează toate categoriile</span>
-          <ChevRightIcon size={15} color="#94a3b8" />
-        </button>
-      </div>
-
-      {/* Upload own */}
-      <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 16 }}>
-        <SectionLabel>Contract propriu</SectionLabel>
-        <button onClick={() => setShowUpload(true)} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: '1.5px dashed #cbd5e1', borderRadius: 12, padding: '14px 16px', background: '#f8fafc', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = '#64748b'; e.currentTarget.style.background = '#f1f5f9'; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; }}>
-          <div style={{ width: 44, height: 44, borderRadius: 12, background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>📤</div>
-          <div style={{ flex: 1 }}>
-            <p style={{ fontWeight: 600, color: '#334155' }}>Încarcă contractul tău</p>
-            <p style={{ fontSize: 12, color: '#94a3b8' }}>Îl vom adăuga în profilul tău în 24-48h</p>
-          </div>
-          <ChevRightIcon size={16} color="#94a3b8" />
-        </button>
-      </div>
+        <ChevRightIcon size={16} color="#64748b" />
+      </button>
 
       {showAll    && <AllContractsSheet favorites={favorites} onToggleFav={toggleFav} onSelect={handleSelect} onClose={() => setShowAll(false)} />}
       {showUpload && <UploadContractSheet onClose={() => setShowUpload(false)} />}
@@ -1616,12 +1636,9 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
     loadDbTemplates();
   }, []);
 
-  // Auto-skip pas selecție dacă există exact 1 template activ
-  const activeDbTemplates = allTemplates.filter(t => t.active);
-  const autoTemplate = ACTIVE_TEMPLATES.length === 1 ? ACTIVE_TEMPLATES[0] : null;
-  const fullAutoTpl  = autoTemplate ? allTemplates.find(t => t.id === autoTemplate.id) || autoTemplate : null;
-  const [stepIdx, setStepIdx]     = React.useState(fullAutoTpl ? 1 : 0);
-  const [template, setTemplate]   = React.useState(fullAutoTpl || null);
+
+  const [stepIdx, setStepIdx]     = React.useState(0);
+  const [template, setTemplate]   = React.useState(null);
   const [docData, setDocData]     = React.useState({});
   const [scanCui, setScanCui]     = React.useState('');
   const [formValues, setFormValues] = React.useState({});
@@ -1635,14 +1652,9 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
   const step = STEPS[stepIdx];
 
   function goBack() {
-    // M35 — dacă template a fost auto-selectat, "înapoi" de la scan merge direct la dashboard
-    const firstStep = fullAutoTpl ? 1 : 0;
-    if (stepIdx <= firstStep) {
+    if (stepIdx === 0) {
       navigate('dashboard');
     } else {
-      // B6 — Dacă userul se întoarce de la formular la scan, resetăm valorile formularului
-      // astfel la re-scanare câmpurile se pre-completează din nou din OCR + profil.
-      // Dacă se întoarce de la preview la formular, formValues se PĂSTREAZĂ (init via savedValues).
       if (stepIdx === 2) setFormValues({});
       setStepIdx(i => i - 1);
     }
@@ -1792,8 +1804,7 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
   }
 
   function reset() {
-    // M35 — la reset, pornim din nou de la pasul corect (1 dacă template auto-selectat)
-    setStepIdx(fullAutoTpl ? 1 : 0); setTemplate(fullAutoTpl || null);
+    setStepIdx(0); setTemplate(null);
     setDocData({});
     setScanCui('');
     setFormValues({}); setDone(false); setSkipSig(false);

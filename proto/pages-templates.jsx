@@ -141,7 +141,7 @@ function FieldPickerSheet({ onSelect, onClose }) {
 }
 
 // ─── TemplateCard ─────────────────────────────────────────────────────────────
-function TemplateCard({ template, onEdit }) {
+function TemplateCard({ template, onEdit, isFav, onToggleFav }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 12,
@@ -152,7 +152,6 @@ function TemplateCard({ template, onEdit }) {
       onMouseEnter={e => e.currentTarget.style.borderColor = '#93c5fd'}
       onMouseLeave={e => e.currentTarget.style.borderColor = '#e2e8f0'}
     >
-      {/* Icon */}
       <div style={{
         width: 46, height: 46, borderRadius: 12, background: '#f1f5f9',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -161,7 +160,6 @@ function TemplateCard({ template, onEdit }) {
         {template.icon}
       </div>
 
-      {/* Info */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
           <p style={{ fontWeight: 600, fontSize: 14 }}>{template.name}</p>
@@ -177,7 +175,16 @@ function TemplateCard({ template, onEdit }) {
         </p>
       </div>
 
-      {/* Action */}
+      {onToggleFav && (
+        <button
+          onClick={e => { e.stopPropagation(); onToggleFav(template.id); }}
+          title={isFav ? 'Elimină din favorite' : 'Adaugă la favorite'}
+          style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', background: isFav ? '#fef3c7' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14, flexShrink: 0, transition: 'background 0.15s' }}
+        >
+          {isFav ? '⭐' : '☆'}
+        </button>
+      )}
+
       <button onClick={onEdit} style={{
         background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8,
         padding: '6px 13px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
@@ -513,6 +520,18 @@ function TemplateDashboardScreen({ navigate, profile }) {
   const [loadError,  setLoadError]  = React.useState('');
   const [editTarget, setEditTarget] = React.useState(null); // null | 'new' | templateObj
   const [userId,     setUserId]     = React.useState(null);
+  const [favorites, setFavorites] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem('ra_fav_tpl') || '[]'); } catch { return []; }
+  });
+
+  function toggleFav(id) {
+    setFavorites(prev => {
+      const next = prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id];
+      localStorage.setItem('ra_fav_tpl', JSON.stringify(next));
+      return next;
+    });
+  }
+
 
   React.useEffect(() => {
     loadAll();
@@ -580,6 +599,7 @@ function TemplateDashboardScreen({ navigate, profile }) {
 
   const globalTemplates = templates.filter(t => t.isGlobal);
   const userTemplates   = templates.filter(t => !t.isGlobal);
+  const favTemplates   = templates.filter(t => favorites.includes(t.id));
 
   return (
     <AppFrame>
@@ -611,6 +631,16 @@ function TemplateDashboardScreen({ navigate, profile }) {
           </div>
         ) : (
           <>
+            {/* ── Favorite templates ── */}
+            {favTemplates.length > 0 && (
+              <section>
+                <SectionLabel>⭐ Favorite</SectionLabel>
+                {favTemplates.map(t => (
+                  <TemplateCard key={t.id} template={t} isFav onToggleFav={toggleFav} onEdit={() => setEditTarget(t)} />
+                ))}
+              </section>
+            )}
+
             {/* ── Standard (global) templates ── */}
             <section>
               <SectionLabel>Standard</SectionLabel>
@@ -619,7 +649,7 @@ function TemplateDashboardScreen({ navigate, profile }) {
                 <p style={{ fontSize: 13, color: '#94a3b8', padding: '4px 0 8px' }}>Niciun template standard disponibil.</p>
               ) : (
                 globalTemplates.map(t => (
-                  <TemplateCard key={t.id} template={t} onEdit={() => setEditTarget(t)} />
+                  <TemplateCard key={t.id} template={t} isFav={favorites.includes(t.id)} onToggleFav={toggleFav} onEdit={() => setEditTarget(t)} />
                 ))
               )}
             </section>
@@ -648,7 +678,7 @@ function TemplateDashboardScreen({ navigate, profile }) {
                 </div>
               ) : (
                 userTemplates.map(t => (
-                  <TemplateCard key={t.id} template={t} onEdit={() => setEditTarget(t)} />
+                  <TemplateCard key={t.id} template={t} isFav={favorites.includes(t.id)} onToggleFav={toggleFav} onEdit={() => setEditTarget(t)} />
                 ))
               )}
             </section>
