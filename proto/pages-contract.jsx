@@ -542,46 +542,6 @@ const CATEGORIES = [
   { id: 'Comercial',     icon: '🏪' },
 ];
 
-// ─── Favorite template card (Step 0) ─────────────────────────────────────────
-function FavTemplateCard({ t, isFav, onToggleFav, onSelect }) {
-  const ok = t.active;
-  return (
-    <div
-      onClick={() => ok && onSelect(t)}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        border: `1.5px solid ${ok ? '#dbeafe' : '#f1f5f9'}`,
-        borderRadius: 14, padding: '14px 16px',
-        background: ok ? '#fafcff' : '#fafafa',
-        cursor: ok ? 'pointer' : 'default',
-        transition: 'all 0.15s',
-      }}
-      onMouseEnter={e => { if (ok) { e.currentTarget.style.borderColor = '#93c5fd'; e.currentTarget.style.background = '#eff6ff'; } }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = ok ? '#dbeafe' : '#f1f5f9'; e.currentTarget.style.background = ok ? '#fafcff' : '#fafafa'; }}
-    >
-      <div style={{ width: 52, height: 52, borderRadius: 13, background: ok ? '#eff6ff' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>
-        {t.icon}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-          <p style={{ fontWeight: 700, fontSize: 15, color: ok ? '#0f172a' : '#94a3b8' }}>{t.name}</p>
-          {!ok && <span style={{ background: '#f1f5f9', color: '#94a3b8', borderRadius: 5, padding: '1px 6px', fontSize: 10, fontWeight: 700 }}>CURÂND</span>}
-        </div>
-        <p style={{ fontSize: 12, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.desc}</p>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-        <button
-          onClick={e => { e.stopPropagation(); onToggleFav(t.id); }}
-          style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', background: isFav ? '#fef3c7' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14 }}
-        >
-          {isFav ? '⭐' : '☆'}
-        </button>
-        {ok && <ChevRightIcon size={16} color="#2563eb" />}
-      </div>
-    </div>
-  );
-}
-
 // ─── Step 1: Template ─────────────────────────────────────────────────────────
 function StepTemplate({ onSelect, templates }) {
   templates = templates || TEMPLATES;
@@ -609,39 +569,56 @@ function StepTemplate({ onSelect, templates }) {
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '20px 18px 32px' }}>
-      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Ce contract generezi?</h2>
-      <p style={{ fontSize: 13, color: '#64748b', marginBottom: 22 }}>Alege un template favorit sau exploreaza toate tipurile disponibile.</p>
+      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Alege contractul</h2>
+      <p style={{ fontSize: 13, color: '#64748b', marginBottom: 22 }}>Apasă pe un contract pentru a-l vedea sau pe „Alege" ca să continui.</p>
 
+      {/* Favorite */}
       {favList.length > 0 ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
-          {favList.map(t => (
-            <FavTemplateCard key={t.id} t={t} isFav onToggleFav={toggleFav} onSelect={handleSelect} />
-          ))}
+        <div style={{ marginBottom: 20 }}>
+          <SectionLabel>⭐ Favorite</SectionLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {favList.map(t => <TemplateCard key={t.id} t={t} isFav onToggleFav={toggleFav} onSelect={handleSelect} />)}
+          </div>
         </div>
       ) : (
-        <div style={{ border: '1.5px dashed #e2e8f0', borderRadius: 14, padding: '28px 20px', textAlign: 'center', marginBottom: 24, background: '#fafafa' }}>
-          <p style={{ fontSize: 32, marginBottom: 10 }}>⭐</p>
-          <p style={{ fontWeight: 600, fontSize: 14, color: '#334155', marginBottom: 6 }}>Niciun template favorit</p>
+        <div style={{ border: '1.5px dashed #e2e8f0', borderRadius: 14, padding: '24px 20px', textAlign: 'center', marginBottom: 20, background: '#fafafa' }}>
+          <p style={{ fontSize: 30, marginBottom: 8 }}>⭐</p>
+          <p style={{ fontWeight: 600, fontSize: 14, color: '#334155', marginBottom: 6 }}>Niciun contract favorit</p>
           <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
-            Marcheaza template-uri cu ⭐ din<br />
-            <strong>Profil → Template-uri</strong>
+            Alege un contract de mai jos sau marchează-l cu ⭐ ca să apară aici.
           </p>
         </div>
       )}
 
+      {/* Alege alt contract → sheet cu toate categoriile */}
       <button
         onClick={() => setShowAll(true)}
-        style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '14px 16px', background: '#fff', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}
+        style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '14px 16px', background: '#fff', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s', marginBottom: 20 }}
         onMouseEnter={e => { e.currentTarget.style.borderColor = '#93c5fd'; e.currentTarget.style.background = '#f8fafc'; }}
         onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#fff'; }}
       >
         <div style={{ width: 44, height: 44, borderRadius: 12, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>🗂️</div>
         <div style={{ flex: 1 }}>
           <p style={{ fontWeight: 600, color: '#1e40af', fontSize: 14 }}>Alege alt contract</p>
-          <p style={{ fontSize: 12, color: '#64748b' }}>Exploreaza toate tipurile disponibile</p>
+          <p style={{ fontSize: 12, color: '#64748b' }}>Explorează toate categoriile disponibile</p>
         </div>
         <ChevRightIcon size={16} color="#64748b" />
       </button>
+
+      {/* Contract propriu */}
+      <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 16 }}>
+        <SectionLabel>Contract propriu</SectionLabel>
+        <button onClick={() => setShowUpload(true)} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: '1.5px dashed #cbd5e1', borderRadius: 12, padding: '14px 16px', background: '#f8fafc', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#64748b'; e.currentTarget.style.background = '#f1f5f9'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>📤</div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontWeight: 600, color: '#334155' }}>Încarcă contractul tău</p>
+            <p style={{ fontSize: 12, color: '#94a3b8' }}>Îl vom adăuga în profilul tău în 24-48h</p>
+          </div>
+          <ChevRightIcon size={16} color="#94a3b8" />
+        </button>
+      </div>
 
       {showAll    && <AllContractsSheet favorites={favorites} onToggleFav={toggleFav} onSelect={handleSelect} onClose={() => setShowAll(false)} />}
       {showUpload && <UploadContractSheet onClose={() => setShowUpload(false)} />}
@@ -865,7 +842,7 @@ function AllContractsSheet({ favorites, onToggleFav, onSelect, onClose }) {
               {CATEGORIES.map(cat => {
                 const items = ALL_TEMPLATE_LIST.filter(t => t.category === cat.id);
                 if (!items.length) return null;
-                const isOpen = expanded[cat.id] !== false;
+                const isOpen = expanded[cat.id] === true;
                 return (
                   <div key={cat.id} style={{ border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
                     <button onClick={() => toggleCat(cat.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 14px', border: 'none', background: isOpen ? '#f8fafc' : '#fff', cursor: 'pointer', textAlign: 'left' }}>
