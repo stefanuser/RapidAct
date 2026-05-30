@@ -5,7 +5,7 @@ const {
   DashboardScreen, AssetsScreen, HistoryScreen, SettingsScreen,
   DatePersonaleScreen, DateFirmaScreen,
   ContractNewScreen, ContractTemplatesScreen,
-  TemplateDashboardScreen, GearIcon,
+  GearIcon,
 } = window;
 
 // ─── Profile default ──────────────────────────────────────────────────────────
@@ -313,7 +313,6 @@ function App() {
     'date-firma':     <DateFirmaScreen {...shared} />,
     'contract-new':        <ContractNewScreen {...shared} onContractCreated={addContract} />,
     'contracte':           <ContractTemplatesScreen {...shared} />,
-    'templates-dashboard': <TemplateDashboardScreen {...shared} />,
   };
 
   return (

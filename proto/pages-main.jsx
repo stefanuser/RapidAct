@@ -4,7 +4,6 @@ const {
   AppFrame, BottomNav, StatusBadge, Avatar, SectionLabel, PrimaryBtn, SecondaryBtn,
   PlusIcon, ChevRightIcon, FileTextIcon, ArchiveIcon, LogOutIcon,
   Building2Icon, CreditCardIcon, ShieldIcon, UserIcon, SpinnerIcon, CheckIcon,
-  EditIcon,
 } = window;
 
 // ─── Shared sheet primitive (local) ──────────────────────────────────────────
@@ -473,7 +472,6 @@ function SettingsScreen({ navigate, profile, setProfile, logout }) {
             const items = [
               { Icon: UserIcon,       label: 'Date personale',   sub: personalSub, onClick: () => navigate('date-personale') },
               { Icon: Building2Icon,  label: 'Date firmă',       sub: firmaSub,    onClick: () => navigate('date-firma') },
-              { Icon: EditIcon,       label: 'Template-uri',     sub: 'Favorite, template-uri personalizate', onClick: () => navigate('templates-dashboard') },
               { Icon: CreditCardIcon, label: 'Plan și plăți',    sub: `Plan ${profile.plan} · ${used}/${limit} contracte`, onClick: () => setToast('Plan și plăți — vine în curând 🚀') },
               { Icon: ShieldIcon,     label: 'Securitate',       sub: 'Parolă, 2FA', onClick: () => setToast('Securitate (parolă, 2FA) — vine în curând 🔐') },
             ];

@@ -184,6 +184,22 @@ const CAT_ICONS = {
 };
 const CONTRACT_GROUPS = ['Generic','Auto','Imobiliare','Servicii'];
 
+// ─── Categorii TEMPLATE (sursă unică: picker contract, admin, editor user) ───────
+// Cele 4 categorii tematice — atribuibile oricărui template (global SAU al userului).
+const TEMPLATE_CATEGORIES = [
+  { id:'Imobiliare',    icon:'🏠' },
+  { id:'Rent a car',    icon:'🚗' },
+  { id:'Resurse Umane', icon:'👥' },
+  { id:'General',       icon:'📋' },
+];
+// Grupare VIRTUALĂ (nu se atribuie din dropdown): template-urile create de
+// utilizator (user_id ≠ null). În admin = secțiunea per-utilizator (👤).
+const TEMPLATE_CAT_MINE         = { id:'Contractele Mele', icon:'📁' };
+const TEMPLATE_CAT_IDS          = TEMPLATE_CATEGORIES.map(c => c.id);
+const DEFAULT_TEMPLATE_CATEGORY = 'General';
+const templateCatIcon = (cat) =>
+  (TEMPLATE_CATEGORIES.find(c => c.id === cat)?.icon) || '📄';
+
 // ─── Stiluri badge pe sursă ─────────────────────────────────────────────────────
 const SOURCE_STYLE = {
   ocr:      { bg:'#dcfce7', color:'#166534', label:'OCR'     },
@@ -217,5 +233,7 @@ function fieldsByCategory(cat, group) {
 // ─── Export global ──────────────────────────────────────────────────────────────
 Object.assign(window, {
   FIELD_REGISTRY, CAT_ORDER, CAT_ICONS, CONTRACT_GROUPS, SOURCE_STYLE,
+  TEMPLATE_CATEGORIES, TEMPLATE_CAT_MINE, TEMPLATE_CAT_IDS,
+  DEFAULT_TEMPLATE_CATEGORY, templateCatIcon,
   extractFields, fieldsByCategory,
 });
