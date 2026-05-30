@@ -113,7 +113,6 @@ const TEMPLATES = [
     ],
   },
 ];
-// All templates defined in ALL_TEMPLATE_LIST below
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 // M10 — toRoDate mutat în shared.jsx; referință la global
@@ -524,15 +523,6 @@ ________________________    ________________________
   (semnătură + ștampilă)          (semnătură)`;
 }
 // ─── All available templates (active + coming soon) ──────────────────────────
-const ALL_TEMPLATE_LIST = [
-  { id: 'rentacar-standard',   name: 'Închiriere Auto',            icon: '🚗', desc: 'Contract predare-primire autovehicul',    category: 'Rent a car',    active: true  },
-  { id: 'inchiriere-apt',      name: 'Închiriere Apartament',      icon: '🏠', desc: 'Contract de locațiune rezidențial',       category: 'Imobiliare',    active: false },
-  { id: 'vanzare-proprietate', name: 'Vânzare Proprietate',        icon: '🏘️', desc: 'Antecontract / promisiune de vânzare',    category: 'Imobiliare',    active: false },
-  { id: 'cim',                 name: 'Contract Individual Muncă',  icon: '👥', desc: 'CIM conform Codul Muncii',                category: 'Resurse Umane', active: false },
-  { id: 'prestari-servicii',   name: 'Prestări Servicii',          icon: '📋', desc: 'Contract de servicii B2B',               category: 'General',       active: false },
-  { id: 'colaborare-pfa',      name: 'Colaborare PFA',             icon: '🤝', desc: 'Contract colaborare cu persoană fizică',  category: 'Resurse Umane', active: false },
-  { id: 'inchiriere-spatiu',   name: 'Închiriere Spațiu Comercial',icon: '🏪', desc: 'Birou, depozit sau spațiu comercial',     category: 'Imobiliare',    active: false },
-];
 
 // Categorii canonice — sursă unică în field-registry.jsx (window.TEMPLATE_CATEGORIES)
 const CATEGORIES = window.TEMPLATE_CATEGORIES;
@@ -560,7 +550,7 @@ function StepTemplate({ onSelect, templates }) {
     if (template) onSelect(template);
   }
 
-  const favList = ALL_TEMPLATE_LIST.filter(t => favorites.includes(t.id));
+  const favList = templates.filter(t => favorites.includes(t.id) && t.active);
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '20px 18px 32px' }}>
@@ -615,7 +605,7 @@ function StepTemplate({ onSelect, templates }) {
         </button>
       </div>
 
-      {showAll    && <AllContractsSheet favorites={favorites} onToggleFav={toggleFav} onSelect={handleSelect} onClose={() => setShowAll(false)} />}
+      {showAll    && <AllContractsSheet templates={templates} favorites={favorites} onToggleFav={toggleFav} onSelect={handleSelect} onClose={() => setShowAll(false)} />}
       {showUpload && <UploadContractSheet onClose={() => setShowUpload(false)} />}
     </div>
   );
@@ -636,7 +626,7 @@ function TemplateCard({ t, isFav, onToggleFav, onSelect }) {
             <p style={{ fontWeight: 600, fontSize: 14, color: t.active ? '#0f172a' : '#94a3b8' }}>{t.name}</p>
             {!t.active && <span style={{ background: '#f1f5f9', color: '#94a3b8', borderRadius: 5, padding: '1px 6px', fontSize: 10, fontWeight: 700 }}>CURÂND</span>}
           </div>
-          <p style={{ fontSize: 12, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.desc}</p>
+          <p style={{ fontSize: 12, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.desc || t.description}</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
           <button onClick={e => { e.stopPropagation(); onToggleFav(t.id); }} title={isFav ? 'Elimină' : 'Favorit'} style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', background: isFav ? '#fef3c7' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14 }}>
@@ -656,8 +646,8 @@ function TemplateCard({ t, isFav, onToggleFav, onSelect }) {
 
 // ─── Contract preview sheet ───────────────────────────────────────────────────
 function ContractPreviewSheet({ t, onSelect, onClose }) {
-  const template = TEMPLATES.find(tp => tp.id === t.id);
-  const previewText = template ? buildContractBody(template, {}) : null;
+  // bodyText din DB (template-uri reale) sau fallback la corpul hardcodat (rentacar legacy)
+  const previewText = buildContractBody(t, {});
   const [downloading, setDownloading] = React.useState(false);
 
   async function generateBlankPDF() {
@@ -700,7 +690,7 @@ function ContractPreviewSheet({ t, onSelect, onClose }) {
   }
 
   async function handleDownloadBlank() {
-    if (!template || downloading) return;
+    if (downloading) return;
     setDownloading(true);
     try {
       const pdfBytes = await generateBlankPDF();
@@ -715,7 +705,7 @@ function ContractPreviewSheet({ t, onSelect, onClose }) {
   }
 
   async function handleShare() {
-    if (!template || downloading) return;
+    if (downloading) return;
     setDownloading(true);
     try {
       const pdfBytes = await generateBlankPDF();
@@ -748,10 +738,10 @@ function ContractPreviewSheet({ t, onSelect, onClose }) {
           <div style={{ width: 40, height: 40, borderRadius: 11, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>{t.icon}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ fontWeight: 700, fontSize: 15 }}>{t.name}</p>
-            <p style={{ fontSize: 12, color: '#64748b' }}>{t.desc}</p>
+            <p style={{ fontSize: 12, color: '#64748b' }}>{t.desc || t.description}</p>
           </div>
           <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-            {template && (
+            {previewText && (
               <button onClick={handleShare} title="Distribuie template" disabled={downloading} style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: downloading ? 'wait' : 'pointer', fontSize: 14, opacity: downloading ? 0.6 : 1 }}>📤</button>
             )}
             <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14 }}>✕</button>
@@ -795,19 +785,27 @@ function ContractPreviewSheet({ t, onSelect, onClose }) {
 }
 
 // ─── All contracts sheet (categorized + search) ───────────────────────────────
-function AllContractsSheet({ favorites, onToggleFav, onSelect, onClose }) {
+function AllContractsSheet({ templates, favorites, onToggleFav, onSelect, onClose }) {
   const [search, setSearch]     = React.useState('');
   const [expanded, setExpanded] = React.useState({});
+  templates = (templates || []).filter(t => t.active);
 
   function toggleCat(cat) { setExpanded(prev => ({ ...prev, [cat]: !prev[cat] })); }
 
+  const q = search.toLowerCase();
   const filtered = search
-    ? ALL_TEMPLATE_LIST.filter(t =>
-        t.name.toLowerCase().includes(search.toLowerCase()) ||
-        t.category.toLowerCase().includes(search.toLowerCase()) ||
-        t.desc.toLowerCase().includes(search.toLowerCase())
+    ? templates.filter(t =>
+        (t.name || '').toLowerCase().includes(q) ||
+        (t.category || '').toLowerCase().includes(q) ||
+        (t.desc || t.description || '').toLowerCase().includes(q)
       )
     : null;
+
+  // Grupare: categoriile canonice (globale) + grup virtual „Contractele Mele" (user_id ≠ null)
+  const groups = [
+    ...CATEGORIES.map(cat => ({ id: cat.id, icon: cat.icon, items: templates.filter(t => !t.userId && (t.category || 'General') === cat.id) })),
+    { id: window.TEMPLATE_CAT_MINE.id, icon: window.TEMPLATE_CAT_MINE.icon, items: templates.filter(t => t.userId) },
+  ].filter(g => g.items.length);
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
@@ -834,9 +832,8 @@ function AllContractsSheet({ favorites, onToggleFav, onSelect, onClose }) {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {CATEGORIES.map(cat => {
-                const items = ALL_TEMPLATE_LIST.filter(t => t.category === cat.id);
-                if (!items.length) return null;
+              {groups.map(cat => {
+                const items = cat.items;
                 const isOpen = expanded[cat.id] === true;
                 return (
                   <div key={cat.id} style={{ border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
@@ -1832,97 +1829,6 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
 }
 
 // ─── ContractTemplates Screen ─────────────────────────────────────────────────
-function ContractTemplatesScreen({ navigate }) {
-  const [favorites, setFavorites] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem('ra_fav_tpl') || '[]'); } catch { return []; }
-  });
-  const [showAll, setShowAll]       = React.useState(false);
-  const [showUpload, setShowUpload] = React.useState(false);
-
-  function toggleFav(id) {
-    setFavorites(prev => {
-      const next = prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id];
-      localStorage.setItem('ra_fav_tpl', JSON.stringify(next));
-      return next;
-    });
-  }
-
-  function handleSelect(t) {
-    if (!t.active) return;
-    navigate('contract-new');
-  }
-
-  const favList    = ALL_TEMPLATE_LIST.filter(t => favorites.includes(t.id));
-  const activeList = ALL_TEMPLATE_LIST.filter(t => t.active);
-
-  return (
-    <AppFrame>
-      <header style={{ position: 'sticky', top: 0, zIndex: 10, background: '#fff', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px' }}>
-        <button onClick={() => navigate('settings')} style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-          <ChevLeftIcon size={16} color="#475569" />
-        </button>
-        <p style={{ fontWeight: 700, fontSize: 17 }}>Contractele mele</p>
-      </header>
-
-      <div style={{ flex: 1, overflowY: 'auto', padding: '18px 18px 100px' }}>
-        <p style={{ fontSize: 13, color: '#64748b', marginBottom: 18 }}>Gestionează template-urile favorite și alege contractul potrivit.</p>
-
-        {/* Favorites */}
-        {favList.length > 0 && (
-          <div style={{ marginBottom: 20 }}>
-            <SectionLabel>⭐ Favorite</SectionLabel>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {favList.map(t => <TemplateCard key={t.id} t={t} isFav onToggleFav={toggleFav} onSelect={handleSelect} />)}
-            </div>
-          </div>
-        )}
-
-        {/* All active + browse all */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <SectionLabel>Toate contractele</SectionLabel>
-            <button onClick={() => setShowAll(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f1f5f9', border: 'none', borderRadius: 8, padding: '5px 10px', fontSize: 12, fontWeight: 600, color: '#475569', cursor: 'pointer', marginBottom: 8 }}
-              onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
-              onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}>
-              🗂️ Browse ({ALL_TEMPLATE_LIST.length})
-            </button>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {activeList.map(t => <TemplateCard key={t.id} t={t} isFav={favorites.includes(t.id)} onToggleFav={toggleFav} onSelect={handleSelect} />)}
-          </div>
-          <button onClick={() => setShowAll(true)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', border: '1px dashed #e2e8f0', borderRadius: 10, padding: '11px 14px', background: 'none', cursor: 'pointer', marginTop: 8, transition: 'background 0.15s' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-            onMouseLeave={e => e.currentTarget.style.background = 'none'}>
-            <span style={{ fontSize: 16 }}>🔍</span>
-            <span style={{ fontSize: 13, color: '#94a3b8', flex: 1, textAlign: 'left' }}>+{ALL_TEMPLATE_LIST.filter(t => !t.active).length} template-uri în curând — Explorează toate categoriile</span>
-            <ChevRightIcon size={15} color="#94a3b8" />
-          </button>
-        </div>
-
-        {/* Upload own */}
-        <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 16 }}>
-          <SectionLabel>Contract propriu</SectionLabel>
-          <button onClick={() => setShowUpload(true)} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', border: '1.5px dashed #cbd5e1', borderRadius: 12, padding: '14px 16px', background: '#f8fafc', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = '#64748b'; e.currentTarget.style.background = '#f1f5f9'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>📤</div>
-            <div style={{ flex: 1 }}>
-              <p style={{ fontWeight: 600, color: '#334155' }}>Încarcă contractul tău</p>
-              <p style={{ fontSize: 12, color: '#94a3b8' }}>Îl vom adăuga în profilul tău în 24-48h</p>
-            </div>
-            <ChevRightIcon size={16} color="#94a3b8" />
-          </button>
-        </div>
-      </div>
-
-      <BottomNav active="settings" navigate={navigate} />
-
-      {showAll    && <AllContractsSheet favorites={favorites} onToggleFav={toggleFav} onSelect={handleSelect} onClose={() => setShowAll(false)} />}
-      {showUpload && <UploadContractSheet onClose={() => setShowUpload(false)} />}
-    </AppFrame>
-  );
-}
-
 // Expus global pentru regenerare PDF din arhivă (ContractDetailSheet în pages-main.jsx)
 window.buildContractBody = buildContractBody;
 // TEMPLATES_MAP: keyed atât by id cât și by name (pages-main.jsx caută by template_name)
@@ -1932,4 +1838,4 @@ window.TEMPLATES_MAP = {
 };
 // window.FIELD_REGISTRY e definit în field-registry.jsx (încărcat primul în index.html)
 
-Object.assign(window, { ContractNewScreen, ContractTemplatesScreen });
+Object.assign(window, { ContractNewScreen });

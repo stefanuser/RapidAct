@@ -4,7 +4,7 @@ const {
   LandingScreen, LoginScreen, RegisterScreen, OnboardingScreen,
   DashboardScreen, AssetsScreen, HistoryScreen, SettingsScreen,
   DatePersonaleScreen, DateFirmaScreen,
-  ContractNewScreen, ContractTemplatesScreen,
+  ContractNewScreen,
   GearIcon,
 } = window;
 
@@ -312,7 +312,6 @@ function App() {
     'date-personale': <DatePersonaleScreen {...shared} />,
     'date-firma':     <DateFirmaScreen {...shared} />,
     'contract-new':        <ContractNewScreen {...shared} onContractCreated={addContract} />,
-    'contracte':           <ContractTemplatesScreen {...shared} />,
   };
 
   return (
