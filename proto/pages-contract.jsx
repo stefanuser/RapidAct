@@ -1947,6 +1947,6 @@ window.TEMPLATES_MAP = {
   ...Object.fromEntries(TEMPLATES.map(t => [t.id, t])),
   ...Object.fromEntries(TEMPLATES.map(t => [t.name, t])),
 };
-window.FIELD_REGISTRY = FIELD_REGISTRY;
+// window.FIELD_REGISTRY e definit în field-registry.jsx (încărcat primul în index.html)
 
 Object.assign(window, { ContractNewScreen, ContractTemplatesScreen });
