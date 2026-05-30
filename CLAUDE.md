@@ -45,7 +45,7 @@ URL admin: `https://stefanuser.github.io/RapidAct/admin.html`
 | `pages-firma.jsx` | 200 | Date firmă (DateFirmaScreen) |
 | `pages-assets.jsx` | 605 | Active: mașini / proprietăți / companii. `ASSET_TYPES`, `AssetPickerSheet` |
 | `pages-contract.jsx` | 1952 | **Fluxul de generare** (4 pași: Template → Scan → Form → Preview). ⚠️ ÎNCĂ pe FIELD_REGISTRY local VECHI — DE MIGRAT la `field-registry.jsx` |
-| `pages-templates.jsx` | 703 | Management template-uri **user-facing** (mobile). Rută `templates-dashboard` |
+| ~~`pages-templates.jsx`~~ | — | **ELIMINAT** — management template-uri e acum doar în `admin.jsx` (admin-only). Ruta `templates-dashboard` nu mai există. |
 | `admin.jsx` | 1106 | **Dashboard admin** (desktop). ✅ consumă `window.FIELD_REGISTRY` din `field-registry.jsx` |
 
 ### Routing (`app.jsx`)
@@ -110,8 +110,23 @@ Prefixe / categorii:
 
 ---
 
-## Categorii template (curent)
-**Imobiliare · Închirieri Auto · HR · Altele**
+## Categorii template
+
+**Sursă unică:** `proto/field-registry.jsx` → `window.TEMPLATE_CATEGORIES` (consumat de `admin.jsx` și `pages-contract.jsx`). NU mai hardcoda liste de categorii în alte fișiere.
+
+Cele 4 categorii **atribuibile** (dropdown admin + editor):
+**Imobiliare 🏠 · Rent a car 🚗 · Resurse Umane 👥 · General 📋**
+
+`DEFAULT_TEMPLATE_CATEGORY = 'General'` (fallback când lipsește categoria).
+
+**Contractele Mele 📁** = grupare **virtuală** (NU se atribuie din dropdown): template-urile create de utilizator (`user_id ≠ null`). În admin apar grupate per-utilizator (`👤`); pentru user sunt template-urile proprii. Definit ca `window.TEMPLATE_CAT_MINE`.
+
+**Template-uri în DB (global, `user_id = null`) — 3 per categorie, cele `test-*` sunt de test:**
+- General: `Contract Decomodat`, `Prestări Servicii` (test), `NDA` (test)
+- Imobiliare: `Închiriere Apartament`, `Comodat Imobil`, `Antecontract Vânzare` (toate test)
+- Rent a car: `Închiriere Auto`, `Comodat Auto` (test), `Predare-Primire Auto` (test)
+- Resurse Umane: `Contract Individual de Muncă`, `Colaborare PFA`, `Act Adițional CIM` (toate test)
+- + `test-mele-imprumut` (Contractele Mele, atașat lui `stefan@rapidact.ro`)
 
 ---
 
