@@ -525,22 +525,17 @@ ________________________    ________________________
 }
 // ─── All available templates (active + coming soon) ──────────────────────────
 const ALL_TEMPLATE_LIST = [
-  { id: 'rentacar-standard',   name: 'Închiriere Auto',            icon: '🚗', desc: 'Contract predare-primire autovehicul',    category: 'Mobilitate',    active: true  },
+  { id: 'rentacar-standard',   name: 'Închiriere Auto',            icon: '🚗', desc: 'Contract predare-primire autovehicul',    category: 'Rent a car',    active: true  },
   { id: 'inchiriere-apt',      name: 'Închiriere Apartament',      icon: '🏠', desc: 'Contract de locațiune rezidențial',       category: 'Imobiliare',    active: false },
   { id: 'vanzare-proprietate', name: 'Vânzare Proprietate',        icon: '🏘️', desc: 'Antecontract / promisiune de vânzare',    category: 'Imobiliare',    active: false },
   { id: 'cim',                 name: 'Contract Individual Muncă',  icon: '👥', desc: 'CIM conform Codul Muncii',                category: 'Resurse Umane', active: false },
-  { id: 'prestari-servicii',   name: 'Prestări Servicii',          icon: '📋', desc: 'Contract de servicii B2B',               category: 'Servicii',      active: false },
+  { id: 'prestari-servicii',   name: 'Prestări Servicii',          icon: '📋', desc: 'Contract de servicii B2B',               category: 'General',       active: false },
   { id: 'colaborare-pfa',      name: 'Colaborare PFA',             icon: '🤝', desc: 'Contract colaborare cu persoană fizică',  category: 'Resurse Umane', active: false },
-  { id: 'inchiriere-spatiu',   name: 'Închiriere Spațiu Comercial',icon: '🏪', desc: 'Birou, depozit sau spațiu comercial',     category: 'Comercial',     active: false },
+  { id: 'inchiriere-spatiu',   name: 'Închiriere Spațiu Comercial',icon: '🏪', desc: 'Birou, depozit sau spațiu comercial',     category: 'Imobiliare',    active: false },
 ];
 
-const CATEGORIES = [
-  { id: 'Mobilitate',    icon: '🚗' },
-  { id: 'Imobiliare',    icon: '🏠' },
-  { id: 'Resurse Umane', icon: '👥' },
-  { id: 'Servicii',      icon: '📋' },
-  { id: 'Comercial',     icon: '🏪' },
-];
+// Categorii canonice — sursă unică în field-registry.jsx (window.TEMPLATE_CATEGORIES)
+const CATEGORIES = window.TEMPLATE_CATEGORIES;
 
 // ─── Step 1: Template ─────────────────────────────────────────────────────────
 function StepTemplate({ onSelect, templates }) {

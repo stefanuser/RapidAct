@@ -595,7 +595,7 @@ function AdminTemplateEditor({ template, users, presetUserId, onSave, onDelete, 
   const [name,        setName]        = React.useState(template?.name        || '');
   const [icon,        setIcon]        = React.useState(template?.icon        || '📋');
   const [description, setDescription] = React.useState(template?.description || '');
-  const [category,    setCategory]    = React.useState(template?.category    || 'Altele');
+  const [category,    setCategory]    = React.useState(template?.category    || window.DEFAULT_TEMPLATE_CATEGORY || 'General');
   const [active,      setActive]      = React.useState(template?.active !== false);
   const [body,        setBody]        = React.useState(template?.bodyText || template?.body_template || '');
   const [assignedTo,  setAssignedTo]  = React.useState(template?.user_id || presetUserId || '__global__');
@@ -639,7 +639,7 @@ function AdminTemplateEditor({ template, users, presetUserId, onSave, onDelete, 
       fields.forEach(k => { if(FIELD_REG[k]?.source==='ocr') { const d=k.split('_')[1]; if(d&&!scanDocs.includes(d)) scanDocs.push(d); } });
       const now    = new Date().toISOString();
       const userId = assignedTo === '__global__' ? null : assignedTo;
-      const row    = { name:name.trim(), icon:icon||'📋', description:description.trim(), category:category||'Altele', active, body_template:body, fields, scan_docs:scanDocs, user_id:userId, updated_at:now };
+      const row    = { name:name.trim(), icon:icon||'📋', description:description.trim(), category:category||window.DEFAULT_TEMPLATE_CATEGORY||'General', active, body_template:body, fields, scan_docs:scanDocs, user_id:userId, updated_at:now };
 
       let savedRow;
       if (isNew) {
@@ -724,7 +724,7 @@ function AdminTemplateEditor({ template, users, presetUserId, onSave, onDelete, 
           <div style={{ width:180 }}>
             <label style={{ fontSize:10, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:0.6, display:'block', marginBottom:4 }}>Categorie</label>
             <select value={category} onChange={e=>setCategory(e.target.value)} style={{ width:'100%', height:32, border:'1px solid #e2e8f0', borderRadius:6, padding:'0 6px', fontSize:12, cursor:'pointer', outline:'none', background:'#fff' }}>
-              {['Imobiliare','Închirieri Auto','HR','Altele'].map(c=>(
+              {(window.TEMPLATE_CAT_IDS || ['Imobiliare','Rent a car','Resurse Umane','General']).map(c=>(
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
@@ -858,10 +858,12 @@ function TemplatesSection({ templates, users, nav, onNavConsumed, onSave, onDele
     if (!byUser[t.user_id]) byUser[t.user_id] = [];
     byUser[t.user_id].push(t);
   });
-  // Global templates grouped by category
+  // Global templates grouped by category (ordine canonică din TEMPLATE_CATEGORIES)
+  const DEF_CAT = window.DEFAULT_TEMPLATE_CATEGORY || 'General';
   const globalByCategory = {};
+  (window.TEMPLATE_CAT_IDS || []).forEach(c => { globalByCategory[c] = []; });
   globalTemplates.forEach(t => {
-    const cat = t.category || 'Altele';
+    const cat = t.category || DEF_CAT;
     if (!globalByCategory[cat]) globalByCategory[cat] = [];
     globalByCategory[cat].push(t);
   });
@@ -893,7 +895,7 @@ function TemplatesSection({ templates, users, nav, onNavConsumed, onSave, onDele
               return (
                 <div key={cat}>
                   <div style={{ padding:'7px 10px 3px', background:'#f8fafc', borderBottom:'1px solid #f1f5f9' }}>
-                    <p style={{ fontSize:9, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:0.8 }}>🌐 {cat}</p>
+                    <p style={{ fontSize:9, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:0.8 }}>🌐 {window.templateCatIcon ? window.templateCatIcon(cat)+' ' : ''}{cat}</p>
                   </div>
                   {filt.map(t=>(
                     <TemplateListItem key={t.id} template={t} active={selected?.id===t.id} onClick={()=>openEdit(t)}/>
