@@ -1742,8 +1742,14 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
       setPdfBlob(blob);
       setPdfFilename(filename);
 
-      // 2. Salvează în DB — întotdeauna primul, fără niciun download automat
-      await onContractCreated({
+      // 2. Arată ecranul de succes IMEDIAT — PDF-ul e gata, nu blocăm pe DB.
+      //    (înainte, dacă salvarea în DB atârna pe web, butonul rămânea blocat
+      //     pe „Se generează" pentru că setDone/finally nu se mai executau.)
+      setDone(true);
+      setGenerating(false);
+
+      // 3. Salvează în arhivă în FUNDAL, cu timeout — userul are deja PDF-ul.
+      const saveToArchive = onContractCreated({
         template_name: template.name,
         status:        'generated',
         parties:       [{ name: formValues.client_ci_nume_complet || 'Necunoscut' }],
@@ -1751,9 +1757,11 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
         created_at:    new Date().toISOString(),
         pdf_url:       null,
       });
-
-      // 3. Arată ecranul de succes — userul descarcă manual prin buton
-      setDone(true);
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout salvare arhivă')), 15000));
+      Promise.race([saveToArchive, timeout]).catch(err => {
+        console.error('[RapidAct] Salvare în arhivă eșuată/lentă:', err);
+      });
+      return; // succesul nu mai depinde de DB
     } catch (err) {
       console.error('PDF generation error:', err);
       setPdfError(err.message || 'Eroare la generarea PDF. Încearcă din nou.');
