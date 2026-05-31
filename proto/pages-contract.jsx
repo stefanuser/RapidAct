@@ -104,7 +104,9 @@ async function compressImage(file) {
     img.onload = () => {
       clearTimeout(guard);
       cleanup();
-      const MAX = 1300;
+      // 1100px latură lungă: OpenAI (detail:'high') reduce oricum la ~768px latură
+      // scurtă, deci OCR-ul nu pierde nimic, dar upload-ul e mai rapid pe net slab.
+      const MAX = 1100;
       let w = img.width, h = img.height;
       if (w > MAX || h > MAX) {
         if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
@@ -140,6 +142,23 @@ function parseDocOcr(docId, json) {
       confidence[f.key] = f.confidence || 'confident';
     }
   }
+
+  // Data nașterii = sursă autoritară din CNP (cifrele 2-7 = YYMMDD → DD.MM.YY),
+  // nu din data tipărită citită de OCR. Verificare încrucișată: dacă data tipărită
+  // diferă de cea din CNP (sau CNP-ul e invalid) → marcăm uncertain (⚠️).
+  if ('cnp' in values && values.cnp) {
+    const fromCnp = window.cnpToBirthdate(values.cnp);
+    if (fromCnp) {
+      const printed = values.data_nastere || '';                 // DD/MM/YYYY de la OCR
+      const pm = printed.match(/^(\d{2})\D(\d{2})\D(\d{2,4})$/);
+      const printedShort = pm ? `${pm[1]}.${pm[2]}.${pm[3].slice(-2)}` : '';
+      values.data_nastere = fromCnp;
+      confidence.data_nastere =
+        (validateCnp(values.cnp) && (!printedShort || printedShort === fromCnp))
+          ? 'confident' : 'uncertain';
+    }
+  }
+
   return { values, confidence };
 }
 

@@ -1329,7 +1329,9 @@ function ProfileScanSheet({ onDone, onClose }) {
         const objUrl = URL.createObjectURL(file);
         img.onload = () => {
           URL.revokeObjectURL(objUrl);
-          const MAX = 1300;
+          // 1100px latură lungă — vezi nota din pages-contract.jsx: OpenAI reduce
+          // oricum la ~768px latură scurtă, deci OCR neschimbat, upload mai rapid.
+          const MAX = 1100;
           let w = img.width, h = img.height;
           if (w > MAX || h > MAX) {
             if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
@@ -1373,7 +1375,18 @@ function ProfileScanSheet({ onDone, onClose }) {
         if (json.ci_series) { vals.ci_serie     = json.ci_series;             conf.ci_serie     = 'confident'; }
         if (json.ci_number) { vals.ci_nr        = json.ci_number;             conf.ci_nr        = 'confident'; }
         // Noul CI românesc nu are adresă pe el
-        if (json.birthdate)   { vals.data_nastere    = toRoDate(json.birthdate);   conf.data_nastere    = 'confident'; }
+        // Data nașterii = din CNP (cifrele 2-7 = YYMMDD → DD.MM.YY), sursă autoritară.
+        // Fallback la data tipărită doar dacă CNP-ul lipsește/e invalid.
+        const bFromCnp = window.cnpToBirthdate(json.cnp);
+        if (bFromCnp) {
+          const printed = toRoDate(json.birthdate) || '';
+          const pm = printed.match(/^(\d{2})\D(\d{2})\D(\d{2,4})$/);
+          const printedShort = pm ? `${pm[1]}.${pm[2]}.${pm[3].slice(-2)}` : '';
+          vals.data_nastere = bFromCnp;
+          conf.data_nastere = (!printedShort || printedShort === bFromCnp) ? 'confident' : 'uncertain';
+        } else if (json.birthdate) {
+          vals.data_nastere = toRoDate(json.birthdate); conf.data_nastere = 'confident';
+        }
         if (json.valid_until) { vals.ci_valabilitate = toRoDate(json.valid_until); conf.ci_valabilitate = 'confident'; }
         stop = true; setBarW(100);
         if (mode && mode.id === 'ci_permis') {

@@ -274,6 +274,25 @@ function toRoDate(s) {
   return s;
 }
 
+// ─── Data nașterii din CNP românesc ─────────────────────────────────────────────
+// CNP = S YY MM DD JJ NNN C. Cifrele 2-7 = YYMMDD → reordonate dau DD.MM.YY.
+// Sursă autoritară (deterministă) pentru data nașterii. Întoarce '' dacă invalid.
+function cnpToBirthdate(cnp) {
+  const d = String(cnp || '').replace(/\D/g, '');
+  if (d.length < 7) return '';
+  const yy = d.slice(1, 3); // cifrele 2-3 = anul
+  const mm = d.slice(3, 5); // cifrele 4-5 = luna
+  const dd = d.slice(5, 7); // cifrele 6-7 = ziua
+  // Validăm calendaristic folosind secolul dedus din prima cifră (doar pentru check).
+  const c = d[0];
+  const century = (c === '1' || c === '2') ? '19'
+                : (c === '3' || c === '4') ? '18'
+                : (c === '5' || c === '6') ? '20'
+                : '19'; // 7/8/9 (rezidenți/străini) — secol nesigur, dar verificăm ziua/luna
+  if (!isValidCalendarDate(dd, mm, `${century}${yy}`)) return '';
+  return `${dd}.${mm}.${yy}`;
+}
+
 Object.assign(window, {
   Svg, HomeIcon, PackageIcon, ArchiveIcon, UserIcon, PlusIcon,
   ChevRightIcon, ChevLeftIcon, CameraIcon, UploadIcon, CheckCircleIcon,
@@ -282,5 +301,5 @@ Object.assign(window, {
   EditIcon, GearIcon,
   AppFrame, BottomNav, StatusBadge, Avatar, StepBar, Logo,
   FieldInput, PrimaryBtn, SecondaryBtn, SectionLabel, Spinner,
-  toRoDate,
+  toRoDate, cnpToBirthdate,
 });
