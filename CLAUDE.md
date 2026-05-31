@@ -150,4 +150,5 @@ Cele 4 categorii **atribuibile** (dropdown admin + editor):
 3. **Randare formatare în PDF** — interpretează `**bold**`, `[center]`, `[size=N]` la generare (pdf-lib).
 4. **Câmpuri tip imagine în PDF** — `firma_logo` (profiles.logo_url), `rapidact_logo` (static), `semnatura_mea` (profiles.signature), `semnatura_client` (desenată la generare).
 5. **Coloane DB lipsă** (opțional): `profiles.firm_iban`, `profiles.firm_banca` (pentru `firma_iban/firma_banca`).
-6. La fiecare deploy: bump `?v=` în `index.html` + `admin.html`, update `version.json`, commit (push manual din GitHub Desktop).
+6. **Bonus 10 contracte „de test" la cont nou (prima lună).** La înscriere oferim +10 contracte peste limita planului, pentru testare în prima lună. Implementare la onboarding (`handleFinish`/`handleSkip` în `pages-auth.jsx`): fie setăm `contracts_limit` mai mare (ex. `5 + 10`), fie un câmp separat `trial_bonus` (+ `trial_expires_at`) ca să-l putem expira după 30 zile. Decizia curentă (consum la generare, **fără refund la ștergere** — `deleteContract` în `app.jsx` NU scade `contracts_used`) e intenționată și compatibilă cu bonusul.
+7. La fiecare deploy: bump `?v=` în `index.html` + `admin.html`, update `version.json`, commit (push manual din GitHub Desktop).
