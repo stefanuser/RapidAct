@@ -1391,9 +1391,17 @@ function StepPreview({ template, values, onGenerate, generating, pdfError, profi
         <p style={{ fontSize: 13, color: '#64748b' }}>Verifică textul înainte de generare.</p>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '14px 18px' }}>
-        <div style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: '16px', fontFamily: 'ui-monospace, monospace', fontSize: 11, lineHeight: 1.7, color: '#334155', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-          {body}
-        </div>
+        {/* Preview randat — HTML cu formatare vizibilă */}
+        <div
+          style={{
+            background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0',
+            padding: '20px 22px',
+            fontFamily: '"Georgia","Times New Roman",serif',
+            fontSize: '9pt', lineHeight: 1.6, color: '#0f172a',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+          }}
+          dangerouslySetInnerHTML={{ __html: window.renderMarkupHtml(body, null) }}
+        />
 
         {/* ── LOCATOR (user) signature card ── */}
         <div style={{ marginTop: 14, border: `1.5px solid ${sig && !skipSig ? '#6ee7b7' : sig && skipSig ? '#e2e8f0' : '#fde68a'}`, borderRadius: 12, background: sig && !skipSig ? '#f0fdf4' : sig && skipSig ? '#f8fafc' : '#fffbeb', padding: 14 }}>
@@ -1638,6 +1646,44 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
     }
   }
 
+  // ── Parsing formatare markup pentru PDF ──────────────────────────────────────
+  // Returnează { align, segments, lineFS } pentru o linie din body_template.
+  // segments = [{text, bold, underline, size}] — fragmente cu stiluri individuale.
+  function parseMarkupLine(rawLine) {
+    let line = rawLine;
+    let align = 'left';
+    let lineFS = null;
+    let m;
+
+    // Aliniere bloc (înconjoară tot rândul)
+    if ((m = line.match(/^\[center\]([\s\S]*)\[\/center\]$/))) { align = 'center'; line = m[1]; }
+    else if ((m = line.match(/^\[right\]([\s\S]*)\[\/right\]$/))) { align = 'right'; line = m[1]; }
+    else if ((m = line.match(/^\[left\]([\s\S]*)\[\/left\]$/))) { line = m[1]; }
+
+    // Dimensiune bloc
+    if ((m = line.match(/^\[size=(\d+)\]([\s\S]*)\[\/size\]$/))) {
+      lineFS = parseFloat(m[1]); line = m[2];
+    }
+
+    // Parse inline: **bold**, *italic* (afișat normal în PDF), __underline__, [size=N]...[/size]
+    const segments = [];
+    const RE = /\*\*(.+?)\*\*|\*([^*\n]+?)\*|__(.+?)__|\[size=(\d+)\](.+?)\[\/size\]/g;
+    let lastIdx = 0;
+
+    while ((m = RE.exec(line)) !== null) {
+      if (m.index > lastIdx) segments.push({ text: line.slice(lastIdx, m.index), bold: false, underline: false, size: lineFS });
+      if (m[1] !== undefined) segments.push({ text: m[1], bold: true,  underline: false, size: lineFS });
+      else if (m[2] !== undefined) segments.push({ text: m[2], bold: false, underline: false, size: lineFS }); // italic → normal
+      else if (m[3] !== undefined) segments.push({ text: m[3], bold: false, underline: true,  size: lineFS });
+      else if (m[4] !== undefined) segments.push({ text: m[5], bold: false, underline: false, size: parseFloat(m[4]) });
+      lastIdx = m.index + m[0].length;
+    }
+    if (lastIdx < line.length) segments.push({ text: line.slice(lastIdx), bold: false, underline: false, size: lineFS });
+    if (segments.length === 0) segments.push({ text: line, bold: false, underline: false, size: lineFS });
+
+    return { align, segments, lineFS };
+  }
+
   async function handleGenerate(clientSig = null) {
     setGenerating(true);
     try {
@@ -1764,46 +1810,89 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
       const tokExact = new RegExp('^' + O + 'IMG:([a-z_]+)' + C + '$');
 
       for (const rawLine of contractBody.split('\n')) {
-        if (!tokTest.test(rawLine)) {
-          // linie normală — wrap + draw text
-          for (const wl of wrapText(rawLine, TW)) {
-            if (y < MY) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
-            if (wl) page.drawText(wl, { x: MX, y, font, size: FS, color: rgb(0, 0, 0) });
-            y -= LH;
+        // ── Linie cu imagine inline (token private-use) ──
+        if (tokTest.test(rawLine)) {
+          if (y < MY + LOGO_H) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
+          let x = MX, lineImgH = 0;
+          for (const part of rawLine.split(tokSplit)) {
+            if (!part) continue;
+            const m = part.match(tokExact);
+            if (m) {
+              const img = imgMap[m[1]];
+              const isLogo = m[1].indexOf('logo') >= 0;
+              if (img) {
+                let h = isLogo ? LOGO_H : SIG_H;
+                let w = img.width * (h / img.height);
+                const maxW = isLogo ? LOGO_MAXW : SIG_MAXW;
+                if (w > maxW) { h = h * (maxW / w); w = maxW; }
+                page.drawImage(img, { x, y: y + FS * 0.7 - h, width: w, height: h });
+                x += w + 4;
+                lineImgH = Math.max(lineImgH, h);
+              } else if (m[1].indexOf('semnatura') === 0) {
+                const ph = '____________';
+                page.drawText(ph, { x, y, font, size: FS, color: rgb(0, 0, 0) });
+                x += font.widthOfTextAtSize(ph, FS);
+              }
+            } else {
+              page.drawText(part, { x, y, font, size: FS, color: rgb(0, 0, 0) });
+              x += font.widthOfTextAtSize(part, FS);
+            }
           }
+          y -= Math.max(LH, lineImgH + 6);
           continue;
         }
-        // linie cu imagine inline — segmente stânga→dreapta, fără wrap
-        if (y < MY + LOGO_H) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
-        let x = MX, lineImgH = 0;
-        for (const part of rawLine.split(tokSplit)) {
-          if (!part) continue;
-          const m = part.match(tokExact);
-          if (m) {
-            const img = imgMap[m[1]];
-            const isLogo = m[1].indexOf('logo') >= 0;
-            if (img) {
-              let h = isLogo ? LOGO_H : SIG_H;
-              let w = img.width * (h / img.height);
-              const maxW = isLogo ? LOGO_MAXW : SIG_MAXW;
-              if (w > maxW) { h = h * (maxW / w); w = maxW; }
-              // imaginea atârnă SUB linia identificatorului (sus aliniat la text, nu deasupra)
-              page.drawImage(img, { x, y: y + FS * 0.7 - h, width: w, height: h });
-              x += w + 4;
-              lineImgH = Math.max(lineImgH, h);
-            } else if (m[1].indexOf('semnatura') === 0) {
-              // semnătură lipsă/omisă → linie goală pentru semnat manual
-              const ph = '____________';
-              page.drawText(ph, { x, y, font, size: FS, color: rgb(0, 0, 0) });
-              x += font.widthOfTextAtSize(ph, FS);
-            }
-            // logo lipsă → nu desenăm nimic
-          } else {
-            page.drawText(part, { x, y, font, size: FS, color: rgb(0, 0, 0) });
-            x += font.widthOfTextAtSize(part, FS);
-          }
+
+        // ── Linie text cu formatare markup ──
+        const { align, segments, lineFS } = parseMarkupLine(rawLine);
+        const domFS  = lineFS || FS;
+        const domLH  = domFS * 1.55;
+        const cleanText = segments.map(s => s.text).join('');
+
+        // Linie goală
+        if (!cleanText.trim() && !rawLine.trim()) {
+          if (y < MY) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
+          y -= domLH; continue;
         }
-        y -= Math.max(LH, lineImgH + 6);
+
+        // Verifică dacă avem formatare inline mixtă (mai mult de un segment cu stiluri diferite)
+        const hasInline = segments.length > 1 || segments.some(s => s.bold || s.underline || (s.size && s.size !== FS));
+
+        if (!hasInline) {
+          // Caz simplu: wrap + draw cu stil uniform
+          const seg0 = segments[0] || {};
+          for (const wl of wrapText(cleanText, TW)) {
+            if (y < MY) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
+            if (wl) {
+              const tw = font.widthOfTextAtSize(wl, domFS);
+              let sx = MX;
+              if (align === 'center') sx = MX + (TW - tw) / 2;
+              else if (align === 'right') sx = MX + TW - tw;
+              page.drawText(wl, { x: sx, y, font, size: domFS, color: rgb(0, 0, 0) });
+              if (seg0.bold) page.drawText(wl, { x: sx + 0.35, y, font, size: domFS, color: rgb(0, 0, 0) });
+              if (seg0.underline) page.drawLine({ start: {x: sx, y: y-1.5}, end: {x: sx + tw, y: y-1.5}, thickness: 0.6, color: rgb(0, 0, 0) });
+            }
+            y -= domLH;
+          }
+        } else {
+          // Formatare inline mixtă: desenăm segment cu segment (fără wrap pe linie formatată)
+          if (y < MY) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
+          // Lățime totală pentru aliniere
+          let totalW = 0;
+          for (const seg of segments) totalW += font.widthOfTextAtSize(seg.text, seg.size || domFS);
+          let x = MX;
+          if (align === 'center') x = MX + (TW - totalW) / 2;
+          else if (align === 'right') x = MX + TW - totalW;
+          for (const seg of segments) {
+            if (!seg.text) continue;
+            const segFS = seg.size || domFS;
+            const segW  = font.widthOfTextAtSize(seg.text, segFS);
+            page.drawText(seg.text, { x, y, font, size: segFS, color: rgb(0, 0, 0) });
+            if (seg.bold) page.drawText(seg.text, { x: x + 0.35, y, font, size: segFS, color: rgb(0, 0, 0) });
+            if (seg.underline) page.drawLine({ start: {x, y: y-1.5}, end: {x: x + segW, y: y-1.5}, thickness: 0.6, color: rgb(0, 0, 0) });
+            x += segW;
+          }
+          y -= domLH;
+        }
       }
 
       const pdfBytes = await pdfDoc.save();

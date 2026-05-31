@@ -293,6 +293,70 @@ function cnpToBirthdate(cnp) {
   return `${dd}.${mm}.${yy}`;
 }
 
+// ─── Markup renderer (HTML) ───────────────────────────────────────────────────
+// Converteste sintaxa de formatare (body_template) în HTML.
+// values = null → câmpurile {{key}} sunt afișate ca chips albastre (preview editor).
+// values = {key:val} → câmpurile sunt înlocuite cu valorile reale (preview final).
+function renderMarkupHtml(text, values) {
+  if (!text) return '';
+
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function inlineParse(s, vals) {
+    // Escape HTML mai întâi, apoi aplică formatarea
+    let r = esc(s);
+    // Bold: **text**
+    r = r.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    // Italic: *text* (nu lângă stele duble)
+    r = r.replace(/\*([^*\n]+?)\*/g, '<em>$1</em>');
+    // Underline: __text__
+    r = r.replace(/__(.+?)__/g, '<u>$1</u>');
+    // Inline size: [size=N]text[/size]
+    r = r.replace(/\[size=(\d+)\](.+?)\[\/size\]/g, (_, n, t) =>
+      `<span style="font-size:${n}pt;line-height:1.4">${t}</span>`);
+    // Câmpuri dinamice
+    if (vals) {
+      r = r.replace(/\{\{(\w+)\}\}/g, (_, k) => esc(vals[k] || '___________'));
+    } else {
+      r = r.replace(/\{\{(\w+)\}\}/g,
+        '<span style="background:#eff6ff;color:#2563eb;padding:1px 4px;border-radius:3px;' +
+        'font-size:0.82em;font-family:monospace;white-space:nowrap;font-weight:600">{{$1}}</span>');
+    }
+    return r;
+  }
+
+  const lines = text.split('\n');
+  let html = '';
+
+  for (const rawLine of lines) {
+    let line = rawLine;
+    let alignStyle = '';
+    let sizeStyle = '';
+    let m;
+
+    // Aliniere bloc (tag-uri înconjoară tot rândul)
+    if ((m = line.match(/^\[center\]([\s\S]*)\[\/center\]$/))) {
+      alignStyle = 'text-align:center;'; line = m[1];
+    } else if ((m = line.match(/^\[right\]([\s\S]*)\[\/right\]$/))) {
+      alignStyle = 'text-align:right;'; line = m[1];
+    } else if ((m = line.match(/^\[left\]([\s\S]*)\[\/left\]$/))) {
+      line = m[1];
+    }
+
+    // Dimensiune bloc (tag-uri înconjoară tot rândul, după aliniere)
+    if ((m = line.match(/^\[size=(\d+)\]([\s\S]*)\[\/size\]$/))) {
+      sizeStyle = `font-size:${m[1]}pt;line-height:1.4;`; line = m[2];
+    }
+
+    const style = alignStyle + sizeStyle + 'margin:0;min-height:1.55em;';
+    html += `<p style="${style}">${inlineParse(line, values)}</p>\n`;
+  }
+
+  return html;
+}
+
 Object.assign(window, {
   Svg, HomeIcon, PackageIcon, ArchiveIcon, UserIcon, PlusIcon,
   ChevRightIcon, ChevLeftIcon, CameraIcon, UploadIcon, CheckCircleIcon,
@@ -301,5 +365,5 @@ Object.assign(window, {
   EditIcon, GearIcon,
   AppFrame, BottomNav, StatusBadge, Avatar, StepBar, Logo,
   FieldInput, PrimaryBtn, SecondaryBtn, SectionLabel, Spinner,
-  toRoDate, cnpToBirthdate,
+  toRoDate, cnpToBirthdate, renderMarkupHtml,
 });

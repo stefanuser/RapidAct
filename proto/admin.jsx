@@ -32,6 +32,38 @@ const {
   extractFields,
 } = window;
 
+// ─── Markup renderer (local, admin standalone — shared.jsx nu e inclus în admin.html) ──
+function renderMarkupHtml(text, values) {
+  if (!text) return '';
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function inlineParse(s, vals) {
+    let r = esc(s);
+    r = r.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    r = r.replace(/\*([^*\n]+?)\*/g, '<em>$1</em>');
+    r = r.replace(/__(.+?)__/g, '<u>$1</u>');
+    r = r.replace(/\[size=(\d+)\](.+?)\[\/size\]/g, (_, n, t) =>
+      `<span style="font-size:${n}pt;line-height:1.4">${t}</span>`);
+    if (vals) {
+      r = r.replace(/\{\{(\w+)\}\}/g, (_, k) => esc(vals[k] || '___________'));
+    } else {
+      r = r.replace(/\{\{(\w+)\}\}/g,
+        '<span style="background:#eff6ff;color:#2563eb;padding:1px 4px;border-radius:3px;' +
+        'font-size:0.82em;font-family:monospace;white-space:nowrap;font-weight:600">{{$1}}</span>');
+    }
+    return r;
+  }
+  const lines = text.split('\n'); let html = '';
+  for (const rawLine of lines) {
+    let line = rawLine, alignStyle = '', sizeStyle = '', m;
+    if ((m = line.match(/^\[center\]([\s\S]*)\[\/center\]$/))) { alignStyle = 'text-align:center;'; line = m[1]; }
+    else if ((m = line.match(/^\[right\]([\s\S]*)\[\/right\]$/))) { alignStyle = 'text-align:right;'; line = m[1]; }
+    else if ((m = line.match(/^\[left\]([\s\S]*)\[\/left\]$/))) { line = m[1]; }
+    if ((m = line.match(/^\[size=(\d+)\]([\s\S]*)\[\/size\]$/))) { sizeStyle = `font-size:${m[1]}pt;line-height:1.4;`; line = m[2]; }
+    html += `<p style="${alignStyle + sizeStyle}margin:0;min-height:1.55em;">${inlineParse(line, values)}</p>\n`;
+  }
+  return html;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function generateSlug(name) {
   return name.toLowerCase()
@@ -533,35 +565,61 @@ function FieldPickerPanel({ onInsert }) {
 }
 
 // ─── FormatToolbar ────────────────────────────────────────────────────────────
-function FormatToolbar({ onFormat, showPicker, onTogglePicker, isFullscreen, onToggleFullscreen }) {
+function FormatToolbar({ onFormat, onInsertRaw, showPicker, onTogglePicker, isFullscreen, onToggleFullscreen, previewMode, onTogglePreview }) {
   const divider = <div style={{ width:1, height:20, background:'#e2e8f0', margin:'0 4px', flexShrink:0 }} />;
 
   const fmtBtn = (label, title, before, after, extraStyle={}) => (
-    <button onClick={()=>onFormat(before, after)} title={title} style={{ width:28, height:28, border:'1px solid #e2e8f0', borderRadius:6, background:'#fff', cursor:'pointer', fontSize:13, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'background 0.1s', ...extraStyle }}
-      onMouseEnter={e=>e.currentTarget.style.background='#f1f5f9'}
+    <button onClick={()=>onFormat(before, after)} title={title} disabled={previewMode}
+      style={{ width:28, height:28, border:'1px solid #e2e8f0', borderRadius:6, background:'#fff', cursor: previewMode?'default':'pointer', fontSize:13, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'background 0.1s', opacity: previewMode ? 0.4 : 1, ...extraStyle }}
+      onMouseEnter={e=>{ if(!previewMode) e.currentTarget.style.background='#f1f5f9'; }}
+      onMouseLeave={e=>e.currentTarget.style.background='#fff'}
+    >{label}</button>
+  );
+
+  const insertBtn = (label, title, raw, extraStyle={}) => (
+    <button onClick={()=>onInsertRaw(raw)} title={title} disabled={previewMode}
+      style={{ height:26, padding:'0 7px', border:'1px solid #e2e8f0', borderRadius:6, background:'#fff', cursor: previewMode?'default':'pointer', fontSize:11, fontWeight:600, color:'#475569', transition:'background 0.1s', flexShrink:0, opacity: previewMode ? 0.4 : 1, ...extraStyle }}
+      onMouseEnter={e=>{ if(!previewMode) e.currentTarget.style.background='#f1f5f9'; }}
       onMouseLeave={e=>e.currentTarget.style.background='#fff'}
     >{label}</button>
   );
 
   return (
     <div style={{ display:'flex', alignItems:'center', gap:3, padding:'6px 14px', background:'#fff', borderBottom:'1px solid #e2e8f0', flexShrink:0, overflowX:'auto' }}>
+      {/* Preview mode toggle */}
+      <button onClick={onTogglePreview} title={previewMode ? 'Înapoi la editare' : 'Previzualizare document'} style={{
+        display:'flex', alignItems:'center', gap:5, height:28, padding:'0 10px',
+        background: previewMode ? '#0f172a' : '#f8fafc',
+        color: previewMode ? '#fff' : '#475569',
+        border: `1px solid ${previewMode ? '#0f172a' : '#e2e8f0'}`,
+        borderRadius:7, fontSize:12, fontWeight:700, cursor:'pointer', flexShrink:0, transition:'all 0.15s',
+      }}>
+        {previewMode
+          ? <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Editare</>
+          : <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Preview</>
+        }
+      </button>
+      {divider}
       {/* Text style */}
       {fmtBtn('B','Bold','**','**',{ fontWeight:800 })}
       {fmtBtn('I','Italic','*','*',{ fontStyle:'italic' })}
       {fmtBtn(<span style={{ textDecoration:'underline' }}>U</span>,'Underline','__','__')}
       {divider}
       {/* Size */}
-      {[['Mic','[size=10]','[/size]'],['Normal','',''],['Mare','[size=15]','[/size]'],['Titlu','[size=20]','[/size]']].map(([lbl,before,after])=>(
-        <button key={lbl} onClick={()=>{ if(before) onFormat(before,after); }} title={`Dimensiune: ${lbl}`} style={{ height:26, padding:'0 7px', border:'1px solid #e2e8f0', borderRadius:6, background:'#fff', cursor:'pointer', fontSize:11, fontWeight:600, color:'#475569', transition:'background 0.1s', flexShrink:0 }}
-          onMouseEnter={e=>e.currentTarget.style.background='#f1f5f9'}
+      {[['Mic','[size=9]','[/size]'],['Normal','',''],['Mare','[size=13]','[/size]'],['Titlu','[size=18]','[/size]']].map(([lbl,before,after])=>(
+        <button key={lbl} onClick={()=>{ if(before && !previewMode) onFormat(before,after); }} title={`Dimensiune: ${lbl}`}
+          disabled={previewMode}
+          style={{ height:26, padding:'0 7px', border:'1px solid #e2e8f0', borderRadius:6, background:'#fff', cursor: previewMode?'default':'pointer', fontSize:11, fontWeight:600, color:'#475569', transition:'background 0.1s', flexShrink:0, opacity: previewMode ? 0.4 : 1 }}
+          onMouseEnter={e=>{ if(!previewMode) e.currentTarget.style.background='#f1f5f9'; }}
           onMouseLeave={e=>e.currentTarget.style.background='#fff'}
         >{lbl}</button>
       ))}
       {divider}
       {/* Alignment */}
-      {[['≡','Stânga','[left]','[/left]'],['≡̈','Centru','[center]','[/center]'],['≡','Dreapta','[right]','[/right]']].map(([icon,title,before,after],i)=>(
-        <button key={i} onClick={()=>onFormat(before,after)} title={title} style={{ width:28, height:28, border:'1px solid #e2e8f0', borderRadius:6, background:'#fff', cursor:'pointer', fontSize:14, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'background 0.1s' }}
-          onMouseEnter={e=>e.currentTarget.style.background='#f1f5f9'}
+      {[['Stânga','[left]','[/left]'],['Centru','[center]','[/center]'],['Dreapta','[right]','[/right]']].map(([title,before,after],i)=>(
+        <button key={i} onClick={()=>{ if(!previewMode) onFormat(before,after); }} title={title} disabled={previewMode}
+          style={{ width:28, height:28, border:'1px solid #e2e8f0', borderRadius:6, background:'#fff', cursor: previewMode?'default':'pointer', fontSize:14, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'background 0.1s', opacity: previewMode ? 0.4 : 1 }}
+          onMouseEnter={e=>{ if(!previewMode) e.currentTarget.style.background='#f1f5f9'; }}
           onMouseLeave={e=>e.currentTarget.style.background='#fff'}
         >
           {i===0&&<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>}
@@ -569,6 +627,9 @@ function FormatToolbar({ onFormat, showPicker, onTogglePicker, isFullscreen, onT
           {i===2&&<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>}
         </button>
       ))}
+      {divider}
+      {/* Elemente speciale */}
+      {insertBtn('── Linie','Inserează linie separator','\n─────────────────────────────────────────────────────────\n')}
       {divider}
       {/* Spacer */}
       <div style={{ flex:1 }} />
@@ -599,16 +660,28 @@ function AdminTemplateEditor({ template, users, presetUserId, onSave, onDelete, 
   const [active,      setActive]      = React.useState(template?.active !== false);
   const [body,        setBody]        = React.useState(template?.bodyText || template?.body_template || '');
   const [assignedTo,  setAssignedTo]  = React.useState(template?.user_id || presetUserId || '__global__');
-  const [showPicker,  setShowPicker]  = React.useState(true);
-  const [saving,      setSaving]      = React.useState(false);
-  const [deleting,    setDeleting]    = React.useState(false);
-  const [error,       setError]       = React.useState('');
-  const [saved,       setSaved]       = React.useState(false);
-  const [showMeta,    setShowMeta]    = React.useState(false);
+  const [showPicker,   setShowPicker]   = React.useState(true);
+  const [previewMode,  setPreviewMode]  = React.useState(false);
+  const [saving,       setSaving]       = React.useState(false);
+  const [deleting,     setDeleting]     = React.useState(false);
+  const [error,        setError]        = React.useState('');
+  const [saved,        setSaved]        = React.useState(false);
+  const [showMeta,     setShowMeta]     = React.useState(false);
 
   const taRef    = React.useRef(null);
   const cursorRef= React.useRef(0);
   const derivedFields = extractFields(body);
+
+  // Calculare ghiduri de pagini A4 în editor.
+  // A4 la 96dpi = 794×1123px. Editor: font 13px × line-height 1.9 = 24.7px/linie.
+  // PDF: (841.89-90)/14.725 ≈ 51 linii/pagină → 51×24.7 ≈ 1260px conținut/pagină.
+  // Ghid la: 64(padding-top) + n×1260px din topul textareaei.
+  const PAGE_CONTENT_PX = 1260;
+  const PAGE_PAD_TOP    = 64;
+  // Număr de ghiduri: estimăm din numărul de linii din body
+  const lineCount = body.split('\n').length;
+  const pageGuideCount = Math.max(1, Math.ceil(lineCount / 51) + 1);
+  const pageGuides = Array.from({ length: pageGuideCount }, (_, i) => PAGE_PAD_TOP + (i + 1) * PAGE_CONTENT_PX);
 
   function saveCursor() {
     if (taRef.current) cursorRef.current = taRef.current.selectionStart ?? body.length;
@@ -616,6 +689,16 @@ function AdminTemplateEditor({ template, users, presetUserId, onSave, onDelete, 
 
   function handleFormat(before, after) {
     wrapSelection(taRef, before, after, body, setBody, cursorRef);
+  }
+
+  function handleInsertRaw(raw) {
+    const ta  = taRef.current;
+    const pos = ta ? ta.selectionStart : cursorRef.current;
+    const newBody = body.slice(0, pos) + raw + body.slice(pos);
+    setBody(newBody);
+    const newPos = pos + raw.length;
+    cursorRef.current = newPos;
+    setTimeout(() => { if (ta) { ta.focus(); ta.setSelectionRange(newPos, newPos); } }, 20);
   }
 
   function insertField(key) {
@@ -740,35 +823,79 @@ function AdminTemplateEditor({ template, users, presetUserId, onSave, onDelete, 
       {/* Format toolbar */}
       <FormatToolbar
         onFormat={handleFormat}
+        onInsertRaw={handleInsertRaw}
         showPicker={showPicker}
         onTogglePicker={()=>setShowPicker(p=>!p)}
         isFullscreen={isFullscreen}
         onToggleFullscreen={onToggleFullscreen}
+        previewMode={previewMode}
+        onTogglePreview={()=>setPreviewMode(m=>!m)}
       />
 
       {/* Document area + picker */}
       <div style={{ flex:1, display:'flex', overflow:'hidden', minHeight:0 }}>
         {/* Document scroll area */}
-        <div style={{ flex:1, overflowY:'auto', padding:'28px 24px', background:'#e8eaed' }}>
-          {/* Paper */}
-          <div style={{ maxWidth:794, margin:'0 auto', background:'#fff', boxShadow:'0 2px 20px rgba(0,0,0,0.14)', borderRadius:2, position:'relative' }}>
-            <textarea
-              ref={taRef}
-              value={body}
-              onChange={e=>setBody(e.target.value)}
-              onMouseUp={saveCursor} onKeyUp={saveCursor} onClick={saveCursor}
-              placeholder={`Scrie corpul contractului.\n\nFolosește {{câmp}} pentru câmpuri dinamice — apasă "+ Câmpuri" în dreapta pentru a le insera.\n\nEx:\nCONTRACT DE ÎNCHIRIERE AUTO\n\nÎncheiat astăzi, {{contract_data}}, în {{contract_loc}},\n\nÎntre:\n{{firma_denumire}}, CUI {{firma_cui}}, reprezentată prin {{firma_reprezentant}}, denumit în continuare LOCATOR,\n\nȘi:\n{{client_ci_nume_complet}}, CNP {{client_ci_cnp}}, CI seria {{client_ci_serie}} nr. {{client_ci_numar}},\ncu domiciliul în {{client_ci_adresa}}, denumit în continuare LOCATAR...`}
-              style={{
-                width:'100%', minHeight:1060, border:'none', outline:'none',
-                padding:'64px 72px', fontSize:13, lineHeight:1.9,
-                fontFamily:'"Georgia","Times New Roman",serif',
-                background:'transparent', resize:'none',
-                color:'#0f172a',
-              }}
-            />
+        <div style={{ flex:1, overflowY:'auto', padding:'28px 24px', background:'#e2e5e9' }}>
+
+          {/* Preview mode banner */}
+          {previewMode && (
+            <div style={{ maxWidth:794, margin:'0 auto 12px', background:'#1e40af', color:'#fff', borderRadius:8, padding:'8px 14px', fontSize:12, fontWeight:600, display:'flex', alignItems:'center', gap:8 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              Previzualizare — exact cum va arăta contractul (câmpurile {{}} sunt marcate cu albastru)
+            </div>
+          )}
+
+          {/* Paper — conține textarea (editare) SAU preview randat */}
+          <div style={{ maxWidth:794, margin:'0 auto', background:'#fff', boxShadow:'0 4px 24px rgba(0,0,0,0.18)', borderRadius:2, position:'relative', overflow:'hidden' }}>
+
+            {/* ── Ghiduri pagini A4 (doar în modul editare) ── */}
+            {!previewMode && pageGuides.map((yPx, idx) => (
+              <div key={idx} style={{
+                position:'absolute', left:0, right:0,
+                top: yPx,
+                height:0, borderTop:'2px dashed #bfdbfe',
+                pointerEvents:'none', zIndex:5,
+              }}>
+                <span style={{
+                  position:'absolute', right:8, top:-18,
+                  fontSize:10, fontWeight:700, color:'#93c5fd',
+                  background:'#fff', padding:'1px 6px', borderRadius:4,
+                  letterSpacing:0.4, userSelect:'none',
+                }}>Pagina {idx + 2}</span>
+              </div>
+            ))}
+
+            {previewMode ? (
+              /* ── Preview mode: randat HTML ── */
+              <div
+                style={{
+                  width:'100%', minHeight:1123, padding:'64px 72px',
+                  fontSize:'9.5pt', lineHeight:1.55,
+                  fontFamily:'"Georgia","Times New Roman",serif',
+                  color:'#0f172a',
+                }}
+                dangerouslySetInnerHTML={{ __html: renderMarkupHtml(body, null) || '<p style="color:#94a3b8;font-style:italic">Contractul este gol…</p>' }}
+              />
+            ) : (
+              /* ── Edit mode: textarea ── */
+              <textarea
+                ref={taRef}
+                value={body}
+                onChange={e=>setBody(e.target.value)}
+                onMouseUp={saveCursor} onKeyUp={saveCursor} onClick={saveCursor}
+                placeholder={`Scrie corpul contractului.\n\nFolosește {{câmp}} pentru câmpuri dinamice — apasă "+ Câmpuri" în dreapta.\n\nEx:\n[center]**CONTRACT DE ÎNCHIRIERE AUTO**[/center]\n\nÎncheiat astăzi, {{contract_data}}, în {{contract_loc}},\n\nÎntre:\n{{firma_denumire}}, CUI {{firma_cui}}, reprezentată prin {{firma_reprezentant}}, denumit în continuare LOCATOR,\n\nȘi:\n{{client_ci_nume_complet}}, CNP {{client_ci_cnp}}, CI seria {{client_ci_serie}} nr. {{client_ci_numar}},\ncu domiciliul în {{client_ci_adresa}}, denumit în continuare LOCATAR...`}
+                style={{
+                  width:'100%', minHeight:1123, border:'none', outline:'none',
+                  padding:'64px 72px', fontSize:13, lineHeight:1.9,
+                  fontFamily:'"Georgia","Times New Roman",serif',
+                  background:'transparent', resize:'none',
+                  color:'#0f172a',
+                }}
+              />
+            )}
           </div>
 
-          {/* Detected fields bar */}
+          {/* Detected fields bar (editare și preview) */}
           {derivedFields.length > 0 && (
             <div style={{ maxWidth:794, margin:'16px auto 0', background:'#fff', borderRadius:8, padding:'10px 14px', boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
               <p style={{ fontSize:10, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:0.6, marginBottom:7 }}>
