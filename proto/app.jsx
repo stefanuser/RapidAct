@@ -245,6 +245,21 @@ function App() {
     return localContract;
   }
 
+  async function deleteContract(id) {
+    // Optimist: scoatem din listă imediat
+    setContracts(prev => prev.filter(x => x.id !== id));
+    try {
+      const { error } = await window.sb.from('contracts').delete().eq('id', id);
+      if (error) throw error;
+    } catch (err) {
+      console.error('[RapidAct] Contract delete error:', err);
+      // Reîncărcăm lista dacă ștergerea a eșuat, ca să nu rămână desincronizat
+      const { data: { user } } = await window.sb.auth.getUser();
+      if (user) loadContracts(user.id);
+      throw err;
+    }
+  }
+
   async function addAsset(a) {
     try {
       const { data: { user } } = await window.sb.auth.getUser();
@@ -299,7 +314,7 @@ function App() {
     );
   }
 
-  const shared = { navigate, profile, setProfile, contracts, assets, setAssets, logout, addAsset, deleteAsset };
+  const shared = { navigate, profile, setProfile, contracts, assets, setAssets, logout, addAsset, deleteAsset, deleteContract };
 
   const screens = {
     landing:        <LandingScreen navigate={navigate} />,

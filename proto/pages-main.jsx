@@ -27,7 +27,7 @@ const PROFILE_TYPES_LIST = window.PROFILE_TYPES;
 const PROFILE_TYPE_MAP   = Object.fromEntries(PROFILE_TYPES_LIST.map(p => [p.id, p]));
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
-function DashboardScreen({ navigate, profile, contracts }) {
+function DashboardScreen({ navigate, profile, contracts, deleteContract }) {
   const used  = profile.contracts_used;
   const limit = profile.contracts_limit;
   const pct   = Math.min(Math.round((used / limit) * 100), 100);
@@ -79,7 +79,7 @@ function DashboardScreen({ navigate, profile, contracts }) {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {recent.map(c => <ContractRow key={c.id} contract={c} />)}
+              {recent.map(c => <ContractRow key={c.id} contract={c} onDelete={deleteContract} />)}
             </div>
           )}
         </div>
@@ -90,7 +90,7 @@ function DashboardScreen({ navigate, profile, contracts }) {
   );
 }
 
-function ContractRow({ contract: c }) {
+function ContractRow({ contract: c, onDelete }) {
   const [open, setOpen] = React.useState(false);
   const name = c.parties?.[0]?.name ?? '—';
   const date = new Date(c.created_at).toLocaleDateString('ro-RO', { day: '2-digit', month: 'short' });
@@ -106,13 +106,13 @@ function ContractRow({ contract: c }) {
         </div>
         <StatusBadge status={c.status} />
       </div>
-      {open && <ContractDetailSheet contract={c} onClose={() => setOpen(false)} />}
+      {open && <ContractDetailSheet contract={c} onClose={() => setOpen(false)} onDelete={onDelete} />}
     </>
   );
 }
 
 // ─── History ──────────────────────────────────────────────────────────────────
-function HistoryScreen({ navigate, contracts, addContract }) {
+function HistoryScreen({ navigate, contracts, addContract, deleteContract }) {
   const [search, setSearch]     = React.useState('');
   const [selected, setSelected] = React.useState(null);
   const [showUpload, setUpload] = React.useState(false);
@@ -195,7 +195,7 @@ function HistoryScreen({ navigate, contracts, addContract }) {
 
       <BottomNav active="history" navigate={navigate} />
 
-      {selected && <ContractDetailSheet contract={selected} onClose={() => setSelected(null)} />}
+      {selected && <ContractDetailSheet contract={selected} onClose={() => setSelected(null)} onDelete={deleteContract} />}
       {showUpload && <AddContractSheet onClose={() => setUpload(false)} onAdd={addContract} />}
     </AppFrame>
   );
@@ -790,12 +790,13 @@ function SignatureSheet({ current, onSave, onClose }) {
 }
 
 // ─── Contract Detail Sheet ────────────────────────────────────────────────────
-function ContractDetailSheet({ contract: c, onClose }) {
+function ContractDetailSheet({ contract: c, onClose, onDelete }) {
   const [emailStep, setEmailStep]     = React.useState('idle'); // idle | form | sent
   const [emailAddr, setEmailAddr]     = React.useState('');
   const [downloading, setDownloading] = React.useState(false);
   const [downloaded, setDownloaded]   = React.useState(false);
   const [viewing, setViewing]         = React.useState(false);
+  const [deleting, setDeleting]       = React.useState(false);
   const [dlToast, setDlToast]         = React.useState('');
   const name = c.parties?.[0]?.name ?? '—';
   const date = new Date(c.created_at).toLocaleDateString('ro-RO', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -944,6 +945,20 @@ function ContractDetailSheet({ contract: c, onClose }) {
     setEmailStep('sent');
   }
 
+  async function handleDelete() {
+    if (!onDelete || deleting) return;
+    if (!window.confirm('Sigur dorești să ștergi acest contract? Acțiunea nu poate fi anulată.')) return;
+    setDeleting(true);
+    try {
+      await onDelete(c.id);
+      onClose();
+    } catch (err) {
+      setDlToast('⚠️ Eroare la ștergere. Încearcă din nou.');
+      setTimeout(() => setDlToast(''), 3000);
+      setDeleting(false);
+    }
+  }
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(2px)' }} />
@@ -1029,6 +1044,16 @@ function ContractDetailSheet({ contract: c, onClose }) {
                 <p style={{ fontSize: 12, color: '#059669' }}>Atașează PDF-ul și apasă Trimite</p>
               </div>
             </div>
+          )}
+
+          {/* Ștergere — buton roșu cu confirmare */}
+          {onDelete && (
+            <button onClick={handleDelete} disabled={deleting} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', border: '1.5px solid #fecaca', borderRadius: 12, padding: '11px 16px', background: '#fff5f5', cursor: deleting ? 'wait' : 'pointer', transition: 'all 0.15s', marginTop: 2 }}
+              onMouseEnter={e => { if (!deleting) e.currentTarget.style.background = '#fee2e2'; }}
+              onMouseLeave={e => e.currentTarget.style.background = '#fff5f5'}>
+              {deleting ? <SpinnerIcon size={16} color="#dc2626" /> : <span style={{ fontSize: 15 }}>🗑️</span>}
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#dc2626' }}>{deleting ? 'Se șterge...' : 'Șterge contractul'}</span>
+            </button>
           )}
 
           <button onClick={onClose} style={{ border: 'none', background: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer', padding: '4px', marginTop: 2 }}>Închide</button>

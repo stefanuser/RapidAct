@@ -37,7 +37,7 @@ URL admin: `https://stefanuser.github.io/RapidAct/admin.html`
 
 | Fișier | Linii | Rol |
 |---|---|---|
-| `field-registry.jsx` | ~230 | **SURSĂ UNICĂ câmpuri.** `window.FIELD_REGISTRY` (114 câmpuri) + `CAT_ORDER/CAT_ICONS/CONTRACT_GROUPS/SOURCE_STYLE` + `extractFields()/fieldsByCategory()`. Încărcat PRIMUL în ambele HTML |
+| `field-registry.jsx` | ~230 | **SURSĂ UNICĂ câmpuri.** `window.FIELD_REGISTRY` (121 câmpuri) + `CAT_ORDER/CAT_ICONS/CONTRACT_GROUPS/SOURCE_STYLE` + `extractFields()/fieldsByCategory()`. Încărcat PRIMUL în ambele HTML |
 | `shared.jsx` | 286 | Iconițe SVG, `AppFrame`, `BottomNav`, `StatusBadge`, `Avatar`, primitive UI |
 | `app.jsx` | 352 | Root `App()`. Routing pe string (`screen` state). Sesiune Supabase, `navigate(to)`, CRUD contracte/assets |
 | `pages-auth.jsx` | 431 | Landing, Login, Register, Onboarding, `PROFILE_TYPES` |
@@ -70,7 +70,7 @@ URL admin: `https://stefanuser.github.io/RapidAct/admin.html`
 
 ## FIELD_REGISTRY — sursă unică în `proto/field-registry.jsx`
 
-**Canonic acum:** `proto/field-registry.jsx` definește `window.FIELD_REGISTRY` (114 câmpuri, chei descriptive noi). Încărcat PRIMUL în ambele HTML.
+**Canonic acum:** `proto/field-registry.jsx` definește `window.FIELD_REGISTRY` (121 câmpuri, chei descriptive noi). Încărcat PRIMUL în ambele HTML.
 
 Prefixe / categorii:
 - `client_ci_*`, `client_permis_*`, `client_pasaport_*` — OCR documente client
@@ -81,7 +81,7 @@ Prefixe / categorii:
 
 **Stare consumatori:**
 - ✅ `admin.jsx` — consumă `window.FIELD_REGISTRY`
-- ✅ `pages-contract.jsx` — migrat: `const FIELD_REGISTRY = window.FIELD_REGISTRY` (linia ~46). Rezolvă cheile noi. ⚠️ rămâne doar fallback-ul hardcodat din `buildContractBody()` cu chei vechi (`driver_name`...) — folosit doar dacă un template NU are `body_template`; de curățat candva.
+- ✅ `pages-contract.jsx` — migrat complet: `const FIELD_REGISTRY = window.FIELD_REGISTRY`. Rezolvă cheile noi. `buildContractBody()` fallback e acum generic (label-uri din registry, zero chei vechi). Verificat și în DB: `rentacar-standard` are 39 fields + `body_template` pe chei noi. Nicio cheie veche rămasă nicăieri (cod + DB).
 
 ### Schema unui câmp (vezi header-ul fișierului pentru detalii complete)
 `{ label, cat, group?, source, type?, desc?, ocrDoc?, ocrKey?, profileKey?, assetType?, assetKey?, compute?, formGroup?, required?, placeholder?, options? }`
@@ -100,7 +100,13 @@ Prefixe / categorii:
 - `formGroup` = secțiunea din formularul StepForm (Perioadă/Tarife și plată/Condiții/Contract)
 
 ### Note OCR
-`DOC_SCHEMAS` (în `pages-contract.jsx`) extrage REAL doar: CI = `full_name, cnp, ci_serie, ci_nr, data_nastere, ci_valabilitate`; permis = `titular, nr, categorii, expirare`. Restul `ocrKey`-urilor din registry sunt forward-compatible (se rezolvă la `''` până se extinde OCR-ul). Pașaportul nu are încă `DOC_SCHEMAS`.
+**Motor:** edge function Supabase `ocr-ci` → OpenAI `gpt-4o-mini` (vision, `detail:'high'`). Moduri prompt: `ro_ci`, `ro_permis`, `ro_pasaport`, `ro_ci_permis` (acoperă format CI vechi/nou + MRZ pașaport). ⚠️ Cheia OpenAI e încă hardcodată în sursa edge function + `verify_jwt:false` — de securizat (acceptat ca risc pe moment).
+
+**Extragere reală (`DOC_SCHEMAS` în `pages-contract.jsx`):** CI = `full_name, cnp, ci_serie, ci_nr, data_nastere, ci_valabilitate`; permis = `titular, nr, categorii, expirare`. Restul `ocrKey`-urilor sunt forward-compatible (se rezolvă la `''`). Pașaportul: prompt server gata, dar fără `DOC_SCHEMAS` client încă.
+
+**Data nașterii din CNP (2026-05-31):** se calculează DETERMINIST din CNP (cifrele 2-7 = YYMMDD → `DD.MM.YY`) via `cnpToBirthdate()` din `shared.jsx`, NU din data tipărită citită de OCR. Verificare încrucișată cu data tipărită → `uncertain` (⚠️) la nepotrivire sau CNP invalid. Se aplică doar când există CNP valid (acte fără CNP → data tipărită). Folosit în ambele scanări (contract + profil).
+
+**Mărime poză + robustețe (2026-05-31):** `compressImage` reduce latura lungă la **1100px** (OpenAI `detail:'high'` reduce oricum la ~768px latură scurtă → OCR neschimbat, upload mai rapid). Scanarea din contract are timeout **20s** pe fetch + guard **10s** la decodarea imaginii (HEIC etc.) — fără ele rotița se învârtea la infinit.
 
 ### Sintaxă template
 - Câmpuri: `{{client_ci_nume_complet}}` în `body_template`. `fields[]` se derivă din `{{...}}` cu `extractFields()`.
