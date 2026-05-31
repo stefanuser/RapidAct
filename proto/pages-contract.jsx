@@ -91,8 +91,19 @@ async function compressImage(file) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const objUrl = URL.createObjectURL(file);
+    let settled = false;
+    const cleanup = () => { if (!settled) { settled = true; URL.revokeObjectURL(objUrl); } };
+    // Unele fișiere (ex. .HEIC pe laptop) nu pot fi decodate de browser și NU
+    // declanșează nici onload, nici onerror → fără acest guard scanarea s-ar bloca
+    // la infinit. Limită 10s + mesaj clar.
+    const guard = setTimeout(() => {
+      if (settled) return;
+      cleanup();
+      reject(new Error('Nu am putut citi imaginea (format neacceptat?). Încearcă JPG sau PNG.'));
+    }, 10000);
     img.onload = () => {
-      URL.revokeObjectURL(objUrl);
+      clearTimeout(guard);
+      cleanup();
       const MAX = 1300;
       let w = img.width, h = img.height;
       if (w > MAX || h > MAX) {
@@ -104,7 +115,11 @@ async function compressImage(file) {
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
       resolve(canvas.toDataURL('image/jpeg', 0.82).split(',')[1]);
     };
-    img.onerror = reject;
+    img.onerror = () => {
+      clearTimeout(guard);
+      cleanup();
+      reject(new Error('Format de imagine neacceptat. Încearcă JPG sau PNG.'));
+    };
     img.src = objUrl;
   });
 }
@@ -316,11 +331,16 @@ function StepScan({ template, onDone, initialScanned }) {
   async function scanDoc(doc, file) {
     if (scanning) return; // M21 — guard împotriva double-click / race condition
     setScanning(doc.id);
+    // Limită 10s pe cererea OCR — fără asta fetch poate atârna la infinit (rotița
+    // se învârte fără sfârșit). Oglindește comportamentul din scanul de profil.
+    const ctrl = new AbortController();
+    const timeoutId = setTimeout(() => ctrl.abort(), 10000);
     try {
       const base64 = await compressImage(file);
       const { data: { session } } = await window.sb.auth.getSession();
       const res = await fetch('https://wfresisyrlrawquzwlrs.supabase.co/functions/v1/ocr-ci', {
         method: 'POST',
+        signal: ctrl.signal,
         headers: {
           'Content-Type': 'application/json',
           ...(session ? { 'Authorization': `Bearer ${session.access_token}` } : {}),
@@ -332,8 +352,12 @@ function StepScan({ template, onDone, initialScanned }) {
       const { values, confidence } = parseDocOcr(doc.id, json);
       setScanned(prev => ({ ...prev, [doc.id]: { values, confidence } }));
     } catch (err) {
-      setScanned(prev => ({ ...prev, [doc.id]: { values: {}, confidence: {}, error: err.message } }));
+      const msg = err.name === 'AbortError'
+        ? 'Timeout — scanarea a durat prea mult (peste 10s). Încearcă cu o poză mai clară sau mai mică.'
+        : err.message;
+      setScanned(prev => ({ ...prev, [doc.id]: { values: {}, confidence: {}, error: msg } }));
     } finally {
+      clearTimeout(timeoutId);
       setScanning(null);
     }
   }
