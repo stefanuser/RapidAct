@@ -1719,6 +1719,30 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
           return await pdfDoc.embedPng(bytes);
         } catch { return null; }
       }
+      // Recolorează strokes-urile unei semnături în albastru (#2563eb), păstrând transparența.
+      function recolorBlue(dataUrl) {
+        return new Promise(resolve => {
+          if (!dataUrl) return resolve(null);
+          const im = new Image();
+          im.onload = () => {
+            try {
+              const cv = document.createElement('canvas');
+              cv.width = im.width; cv.height = im.height;
+              const cx = cv.getContext('2d');
+              cx.drawImage(im, 0, 0);
+              const id = cx.getImageData(0, 0, cv.width, cv.height);
+              const p = id.data;
+              for (let i = 0; i < p.length; i += 4) {
+                if (p[i + 3] > 10) { p[i] = 37; p[i + 1] = 99; p[i + 2] = 235; } // #2563eb, alpha păstrat
+              }
+              cx.putImageData(id, 0, 0);
+              resolve(cv.toDataURL('image/png'));
+            } catch { resolve(dataUrl); }
+          };
+          im.onerror = () => resolve(dataUrl);
+          im.src = dataUrl;
+        });
+      }
       // rapidact_logo (static) — încărcat din assets/rapidact-logo.png; opțional (lipsă → ignorat)
       let rapidactLogoImg = null;
       try {
@@ -1726,8 +1750,8 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
         if (lb) rapidactLogoImg = await pdfDoc.embedPng(lb);
       } catch {}
       const imgMap = {
-        semnatura_mea:    (!skipSig && profile?.signature) ? await embedImg(profile.signature) : null,
-        semnatura_client: clientSig ? await embedImg(clientSig) : null,
+        semnatura_mea:    (!skipSig && profile?.signature) ? await embedImg(await recolorBlue(profile.signature)) : null,
+        semnatura_client: clientSig ? await embedImg(await recolorBlue(clientSig)) : null,
         firma_logo:       profile?.logo_url ? await embedImg(profile.logo_url) : null,
         rapidact_logo:    rapidactLogoImg,
       };
