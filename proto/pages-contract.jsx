@@ -979,7 +979,10 @@ function StepForm({ template, docData, profile, savedValues, assets, onDone }) {
     (template.fields || []).forEach(key => {
       const reg = FIELD_REGISTRY[key];
       if (!reg) return;
-      if (reg.source === 'ocr')          out[key] = getDocVal(reg.ocrDoc, reg.ocrKey);
+      // Câmpurile imagine (semnături, logo) NU intră ca text în body — se inserează
+      // ca imagini în blocul de semnături / la generare, nu ca data URL base64.
+      if (reg.type === 'image')          out[key] = '';
+      else if (reg.source === 'ocr')     out[key] = getDocVal(reg.ocrDoc, reg.ocrKey);
       else if (reg.source === 'profile') out[key] = profile?.[reg.profileKey] ?? '';
       else if (reg.source === 'asset')   out[key] = selectedAsset?.details?.[reg.assetKey] ?? '';
       else                               out[key] = manualVals[key] ?? '';
@@ -1045,6 +1048,7 @@ function StepForm({ template, docData, profile, savedValues, assets, onDone }) {
   (template.fields || []).forEach(key => {
     const reg = FIELD_REGISTRY[key];
     if (!reg || (reg.source !== 'manual' && reg.source !== 'computed')) return;
+    if (reg.type === 'image') return; // imaginile (ex. semnătura clientului) nu se completează ca text
     const groupTitle = reg.formGroup || 'Contract';
     let g = manualGroups.find(x => x.title === groupTitle);
     if (!g) { g = { title: groupTitle, fields: [] }; manualGroups.push(g); }
@@ -1057,7 +1061,7 @@ function StepForm({ template, docData, profile, savedValues, assets, onDone }) {
   // Rânduri profil firmă: câmpuri cu source='profile' din template
   const PROFILE_LABELS = { firm_name: 'Firmă', firm_cui: 'CUI', firm_address: 'Adresă sediu', firm_reg: 'Reg. Com.', legal_rep: 'Reprezentant legal' };
   const profileRows = (template.fields || [])
-    .filter(key => FIELD_REGISTRY[key]?.source === 'profile')
+    .filter(key => FIELD_REGISTRY[key]?.source === 'profile' && FIELD_REGISTRY[key]?.type !== 'image')
     .filter((key, i, arr) => arr.indexOf(key) === i)
     .map(key => {
       const reg = FIELD_REGISTRY[key];
