@@ -26,6 +26,16 @@ function Sheet({ children, onClose }) {
 const PROFILE_TYPES_LIST = window.PROFILE_TYPES;
 const PROFILE_TYPE_MAP   = Object.fromEntries(PROFILE_TYPES_LIST.map(p => [p.id, p]));
 
+// Nume afișat: firmă → reprezentant → fallback. Nu folosim niciodată emailul
+// ca „nume" (înainte, cu firm_name gol, emailul apărea ca placeholder).
+function displayName(p) {
+  const fn = (p?.firm_name || '').trim();
+  if (fn && !fn.includes('@')) return fn;
+  const lr = (p?.legal_rep || '').trim();
+  if (lr && !lr.includes('@')) return lr;
+  return 'Contul meu';
+}
+
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 function DashboardScreen({ navigate, profile, contracts, deleteContract }) {
   const used  = profile.contracts_used;
@@ -38,7 +48,7 @@ function DashboardScreen({ navigate, profile, contracts, deleteContract }) {
       <header style={{ position: 'sticky', top: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', background: '#fff', padding: '14px 18px' }}>
         <div>
           <p style={{ fontSize: 12, color: '#94a3b8' }}>Bună,</p>
-          <p style={{ fontWeight: 600 }}>{profile.firm_name} 👋</p>
+          <p style={{ fontWeight: 600 }}>{displayName(profile)} 👋</p>
         </div>
         <button onClick={() => navigate('contract-new')} style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#2563eb', color: '#fff', borderRadius: 10, padding: '8px 14px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
           <PlusIcon size={15} /> Nou
@@ -456,7 +466,7 @@ function SettingsScreen({ navigate, profile, setProfile, logout }) {
             </span>
           </button>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontWeight: 700, fontSize: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile.firm_name}</p>
+            <p style={{ fontWeight: 700, fontSize: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName(profile)}</p>
             <p style={{ fontSize: 13, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile.email}</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
               <span style={{ display: 'inline-block', background: '#dbeafe', color: '#1e40af', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 600, textTransform: 'capitalize' }}>
@@ -962,18 +972,14 @@ function ContractDetailSheet({ contract: c, onClose, onDelete }) {
     setEmailStep('sent');
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!onDelete || deleting) return;
     if (!window.confirm('Sigur dorești să ștergi acest contract? Acțiunea nu poate fi anulată.')) return;
-    setDeleting(true);
-    try {
-      await onDelete(c.id);
-      onClose();
-    } catch (err) {
-      setDlToast('⚠️ Eroare la ștergere. Încearcă din nou.');
-      setTimeout(() => setDlToast(''), 3000);
-      setDeleting(false);
-    }
+    // Ștergerea în app.jsx e optimistă (scoate rândul din listă pe loc) → închidem
+    // popup-ul IMEDIAT și ștergem în fundal. Înainte așteptam round-trip-ul Supabase
+    // și, dacă atârna pe web, butonul rămânea blocat pe „Se șterge...".
+    onClose();
+    Promise.resolve(onDelete(c.id)).catch(err => console.error('[RapidAct] Delete failed:', err));
   }
 
   return (
