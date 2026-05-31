@@ -152,3 +152,17 @@ Cele 4 categorii **atribuibile** (dropdown admin + editor):
 5. **Coloane DB lipsă** (opțional): `profiles.firm_iban`, `profiles.firm_banca` (pentru `firma_iban/firma_banca`).
 6. **Bonus 10 contracte „de test" la cont nou (prima lună).** La înscriere oferim +10 contracte peste limita planului, pentru testare în prima lună. Implementare la onboarding (`handleFinish`/`handleSkip` în `pages-auth.jsx`): fie setăm `contracts_limit` mai mare (ex. `5 + 10`), fie un câmp separat `trial_bonus` (+ `trial_expires_at`) ca să-l putem expira după 30 zile. Decizia curentă (consum la generare, **fără refund la ștergere** — `deleteContract` în `app.jsx` NU scade `contracts_used`) e intenționată și compatibilă cu bonusul.
 7. La fiecare deploy: bump `?v=` în `index.html` + `admin.html`, update `version.json`, commit (push manual din GitHub Desktop).
+
+---
+
+## Istoric modificări (changelog)
+
+### 2026-05-31
+1. **Categorii template — sursă unică & consistență.** Definite în `field-registry.jsx`: `TEMPLATE_CATEGORIES` (🏠 Imobiliare · 🚗 Rent a car · 👥 Resurse Umane · 📋 General), `TEMPLATE_CAT_MINE` (📁 Contractele Mele — grupare virtuală `user_id ≠ null`), `TEMPLATE_CAT_IDS`, `DEFAULT_TEMPLATE_CATEGORY = 'General'`, `templateCatIcon`. Consumate de `admin.jsx` (dropdown + grupare ordonată canonic) și `pages-contract.jsx` (`CATEGORIES`). Eliminate listele hardcodate inconsistente de dinainte (`Mobilitate/Comercial/HR/Altele/Muncă/Închirieri Auto`).
+2. **DB categorii.** `rentacar-standard`: `Mobilitate → Rent a car`. Create 10 template-uri de test globale (3/categorie) + 1 propriu (`test-mele-imprumut`, secțiunea Contractele Mele, atașat lui `stefan@rapidact.ro`).
+3. **`rentacar-standard` rescris pe chei noi** (39 fields, `client_ci_*`/`asset_auto_*`/`contract_*`) + `body_template` canonic. Zero chei vechi.
+4. **Curățat toate rămășițele de chei vechi din cod:** `pages-contract.jsx` (seed `TEMPLATES` → chei noi; `buildContractBody` fallback → generic pe label-uri din registry; referințe `company_rep → firma_reprezentant`, `driver_name → client_ci_nume_complet`); `pages-assets.jsx` (eliminat 3× `contractMap` — cod mort). Verificat: **0 chei vechi în tot `proto/`**.
+5. **Fix `legal_rep` gol** pentru `stefan@rapidact.ro` (`eu_nume_complet` → `profile.legal_rep`) → numele ÎMPRUMUTĂTOR/părții nu mai apare gol în contract.
+6. **Semnături/imagini INLINE** la poziția `{{semnatura_*}}` din `body_template`; **eliminat blocul hardcodat LOCATOR/LOCATAR** de la final (token private-use + `imgMap` la generare; preview HTML arată marcaj). Rezolvă problema „semnături duble" + terminologie greșită.
+7. **Notat:** `pages-templates.jsx` eliminat anterior (management template = admin-only). Pending #1, #2, #4 actualizate.
+8. **Rămas neatins:** formatarea text în PDF (`**bold**`/`[center]`/`[size=N]` apar încă literal) — pending #3.
