@@ -1719,13 +1719,21 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
           return await pdfDoc.embedPng(bytes);
         } catch { return null; }
       }
+      // rapidact_logo (static) — încărcat din assets/rapidact-logo.png; opțional (lipsă → ignorat)
+      let rapidactLogoImg = null;
+      try {
+        const lb = await fetch('./assets/rapidact-logo.png').then(r => r.ok ? r.arrayBuffer() : null);
+        if (lb) rapidactLogoImg = await pdfDoc.embedPng(lb);
+      } catch {}
       const imgMap = {
         semnatura_mea:    (!skipSig && profile?.signature) ? await embedImg(profile.signature) : null,
         semnatura_client: clientSig ? await embedImg(clientSig) : null,
         firma_logo:       profile?.logo_url ? await embedImg(profile.logo_url) : null,
+        rapidact_logo:    rapidactLogoImg,
       };
 
-      const SIG_H = 30; // înălțime imagine semnătură (pt)
+      const SIG_H = 22, LOGO_H = 44;          // înălțimi imagini (pt): semnătură / logo
+      const SIG_MAXW = 150, LOGO_MAXW = 200;  // lățimi maxime (px → scalare proporțională)
       const O = String.fromCharCode(0xE000), C = String.fromCharCode(0xE001);
       const tokTest  = new RegExp(O + 'IMG:([a-z_]+)' + C);
       const tokSplit = new RegExp('(' + O + 'IMG:[a-z_]+' + C + ')');
@@ -1742,17 +1750,23 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
           continue;
         }
         // linie cu imagine inline — segmente stânga→dreapta, fără wrap
-        if (y < MY + SIG_H) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
-        let x = MX;
+        if (y < MY + LOGO_H) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
+        let x = MX, lineImgH = 0;
         for (const part of rawLine.split(tokSplit)) {
           if (!part) continue;
           const m = part.match(tokExact);
           if (m) {
             const img = imgMap[m[1]];
+            const isLogo = m[1].indexOf('logo') >= 0;
             if (img) {
-              const w = img.width * (SIG_H / img.height);
-              page.drawImage(img, { x, y: y - (SIG_H - FS), width: w, height: SIG_H });
-              x += w + 2;
+              let h = isLogo ? LOGO_H : SIG_H;
+              let w = img.width * (h / img.height);
+              const maxW = isLogo ? LOGO_MAXW : SIG_MAXW;
+              if (w > maxW) { h = h * (maxW / w); w = maxW; }
+              // imaginea atârnă SUB linia identificatorului (sus aliniat la text, nu deasupra)
+              page.drawImage(img, { x, y: y + FS * 0.7 - h, width: w, height: h });
+              x += w + 4;
+              lineImgH = Math.max(lineImgH, h);
             } else if (m[1].indexOf('semnatura') === 0) {
               // semnătură lipsă/omisă → linie goală pentru semnat manual
               const ph = '____________';
@@ -1765,7 +1779,7 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
             x += font.widthOfTextAtSize(part, FS);
           }
         }
-        y -= Math.max(LH, SIG_H + 4);
+        y -= Math.max(LH, lineImgH + 6);
       }
 
       const pdfBytes = await pdfDoc.save();

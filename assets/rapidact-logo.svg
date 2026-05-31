@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="760" viewBox="0 0 760 760">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <!-- icon: rounded square + lightning (rapid), centrat vertical -->
+  <rect x="20" y="310" width="140" height="140" rx="34" fill="url(#g)"/>
+  <path d="M104 340 L72 390 H92 L84 424 L120 372 H98 Z" fill="#fff"/>
+  <!-- wordmark -->
+  <text x="190" y="408" font-family="Helvetica, Arial, sans-serif" font-size="92" font-weight="700" fill="#0f172a" letter-spacing="-2">RapidAct<tspan fill="#2563eb">.ro</tspan></text>
+  <!-- tagline -->
+  <text x="194" y="446" font-family="Helvetica, Arial, sans-serif" font-size="26" font-weight="600" fill="#64748b" letter-spacing="2">CONTRACTE ÎN 30 DE SECUNDE</text>
+</svg>
