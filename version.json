@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "commit": "acb138e",
+  "commit": "fix-favorites-race",
   "date": "2026-05-31",
-  "time": "13:25"
+  "time": "13:55"
 }

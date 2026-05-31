@@ -357,14 +357,14 @@ function StepScan({ template, onDone, initialScanned }) {
     const timeoutId = setTimeout(() => ctrl.abort(), 20000);
     try {
       const base64 = await compressImage(file);
-      const { data: { session } } = await window.sb.auth.getSession();
+      // NU apelăm window.sb.auth.getSession() aici: funcția edge are verify_jwt:false
+      // (e publică), deci token-ul nu e folosit. În plus, getSession() se poate bloca
+      // pe web (Web Locks API din supabase-js) și NU e acoperit de AbortController →
+      // cauza rotiței blocate la infinit. Fără el, lanțul e 100% acoperit de timeout.
       const res = await fetch('https://wfresisyrlrawquzwlrs.supabase.co/functions/v1/ocr-ci', {
         method: 'POST',
         signal: ctrl.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session ? { 'Authorization': `Bearer ${session.access_token}` } : {}),
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageBase64: base64, mode: doc.ocrMode }),
       });
       const json = await res.json();
@@ -459,6 +459,17 @@ function parseDbTemplate(row) {
     userId:       row.user_id || null,
     isDbTemplate: true,
   };
+}
+
+// Merge listă template-uri: dedupe după id, sursa nouă are prioritate (suprascrie)
+function mergeTemplates(base, extra) {
+  const merged = [...base];
+  for (const tpl of (extra || [])) {
+    const idx = merged.findIndex(t => t.id === tpl.id);
+    if (idx >= 0) merged[idx] = { ...merged[idx], ...tpl };
+    else merged.push(tpl);
+  }
+  return merged;
 }
 
 function buildContractBody(template, values) {
@@ -1566,8 +1577,15 @@ const ACTIVE_TEMPLATES = TEMPLATES.filter(t => t.active);
 function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
   const STEPS = ['template', 'scan', 'form', 'preview'];
 
-  // Template-uri: hardcoded (fallback) + DB (globale + custom ale userului)
-  const [allTemplates, setAllTemplates] = React.useState(TEMPLATES);
+  // Template-uri: hardcoded (fallback) + cache localStorage (globale) + DB.
+  // Cache-ul face ca favoritele să apară INSTANT la deschidere, fără să aștepte
+  // fetch-ul DB (înainte: race → uneori favoritele nu se afișau toate).
+  const [allTemplates, setAllTemplates] = React.useState(() => {
+    try {
+      const cached = JSON.parse(localStorage.getItem('ra_templates_cache') || '[]');
+      return Array.isArray(cached) && cached.length ? mergeTemplates(TEMPLATES, cached) : TEMPLATES;
+    } catch { return TEMPLATES; }
+  });
 
   React.useEffect(() => {
     async function loadDbTemplates() {
@@ -1579,16 +1597,10 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
           .order('sort_order');
         if (error || !data || !data.length) return;
         const parsed = data.map(parseDbTemplate);
-        setAllTemplates(prev => {
-          const merged = [...prev];
-          for (const tpl of parsed) {
-            const idx = merged.findIndex(t => t.id === tpl.id);
-            // DB-ul are prioritate — suprascrie dacă există deja (ex: rentacar-standard cu bodyText)
-            if (idx >= 0) merged[idx] = { ...merged[idx], ...tpl };
-            else merged.push(tpl);
-          }
-          return merged;
-        });
+        // Cache DOAR template-urile globale (user_id = null) — nu scurgem
+        // template-uri personale între conturi pe același browser.
+        try { localStorage.setItem('ra_templates_cache', JSON.stringify(parsed.filter(t => !t.userId))); } catch {}
+        setAllTemplates(prev => mergeTemplates(prev, parsed));
       } catch(e) {
         console.warn('DB templates load failed:', e);
       }
