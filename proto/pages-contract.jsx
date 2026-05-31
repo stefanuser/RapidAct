@@ -1750,6 +1750,7 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
 
       // 3. Salvează în arhivă în FUNDAL, cu timeout — userul are deja PDF-ul.
       const saveToArchive = onContractCreated({
+        template_id:   template.id,
         template_name: template.name,
         status:        'generated',
         parties:       [{ name: formValues.client_ci_nume_complet || 'Necunoscut' }],

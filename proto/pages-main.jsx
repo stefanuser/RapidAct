@@ -812,8 +812,25 @@ function ContractDetailSheet({ contract: c, onClose, onDelete }) {
     const buildBody = window.buildContractBody;
     if (!buildBody) throw new Error('buildContractBody nedisponibil');
 
+    // Rezolvă template-ul: întâi din cele hardcodate, apoi din DB (template-uri
+    // create în admin nu sunt în TEMPLATES_MAP → fără asta ieșea doar titlul).
     const tplMap = window.TEMPLATES_MAP || {};
-    const tpl = tplMap[c.template_name] || { name: c.template_name, fields: [] };
+    let tpl = tplMap[c.template_name];
+    if (!tpl || !tpl.bodyText) {
+      try {
+        let row = null;
+        if (c.template_id) {
+          const r = await window.sb.from('contract_templates').select('body_template, fields').eq('id', c.template_id).maybeSingle();
+          row = r.data;
+        }
+        if (!row?.body_template && c.template_name) {
+          const r = await window.sb.from('contract_templates').select('body_template, fields').eq('name', c.template_name).limit(1).maybeSingle();
+          row = r.data;
+        }
+        if (row?.body_template) tpl = { name: c.template_name, bodyText: row.body_template, fields: row.fields || [] };
+      } catch (e) { console.warn('[RapidAct] template fetch for regen failed:', e); }
+    }
+    if (!tpl) tpl = { name: c.template_name, fields: [] };
     const contractBody = buildBody(tpl, fields);
 
     const { PDFDocument, rgb } = window.PDFLib;
