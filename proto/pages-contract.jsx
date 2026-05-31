@@ -331,10 +331,11 @@ function StepScan({ template, onDone, initialScanned }) {
   async function scanDoc(doc, file) {
     if (scanning) return; // M21 — guard împotriva double-click / race condition
     setScanning(doc.id);
-    // Limită 10s pe cererea OCR — fără asta fetch poate atârna la infinit (rotița
-    // se învârte fără sfârșit). Oglindește comportamentul din scanul de profil.
+    // Limită 20s pe cererea OCR — fără asta fetch poate atârna la infinit (rotița
+    // se învârte fără sfârșit). Serverul singur poate dura ~9s, plus upload/download
+    // pe net lent → 20s evită timeout-uri false pe scanări valide.
     const ctrl = new AbortController();
-    const timeoutId = setTimeout(() => ctrl.abort(), 10000);
+    const timeoutId = setTimeout(() => ctrl.abort(), 20000);
     try {
       const base64 = await compressImage(file);
       const { data: { session } } = await window.sb.auth.getSession();
@@ -353,7 +354,7 @@ function StepScan({ template, onDone, initialScanned }) {
       setScanned(prev => ({ ...prev, [doc.id]: { values, confidence } }));
     } catch (err) {
       const msg = err.name === 'AbortError'
-        ? 'Timeout — scanarea a durat prea mult (peste 10s). Încearcă cu o poză mai clară sau mai mică.'
+        ? 'Timeout — scanarea a durat prea mult (peste 20s). Încearcă cu o poză mai clară sau mai mică.'
         : err.message;
       setScanned(prev => ({ ...prev, [doc.id]: { values: {}, confidence: {}, error: msg } }));
     } finally {
@@ -1460,6 +1461,24 @@ function StepSuccess({ driverName, pdfBlob, filename, onNew, onHistory }) {
     setDownloaded(true);
   }
 
+  function handleView() {
+    if (!pdfBlob) return;
+    const url = URL.createObjectURL(pdfBlob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  function handleEmail() {
+    const subject = encodeURIComponent(`Contract${driverName ? ' – ' + driverName : ''}`);
+    const body = encodeURIComponent(
+      `Bună ziua,\n\nVă transmitem contractul dumneavoastră.\n\n` +
+      `⚠️ Vă rugăm să atașați fișierul PDF (${filename || 'contract.pdf'}) la acest email înainte de a-l trimite.\n\nCu stimă`
+    );
+    const a = document.createElement('a');
+    a.href = `mailto:?subject=${subject}&body=${body}`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', textAlign: 'center', gap: 16, animation: 'fadeIn 0.3s ease' }}>
       <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1472,20 +1491,41 @@ function StepSuccess({ driverName, pdfBlob, filename, onNew, onHistory }) {
         </p>
       </div>
 
-      {/* Buton download manual — funcționează pe iOS și Android */}
+      {/* Acțiuni PDF — funcționează pe iOS și Android */}
       {pdfBlob && (
-        <button onClick={handleDownload} style={{
-          width: '100%', padding: '14px 16px', borderRadius: 12,
-          border: `1.5px solid ${downloaded ? '#dcfce7' : '#2563eb'}`,
-          background: downloaded ? '#f0fdf4' : '#eff6ff',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-          cursor: 'pointer', transition: 'all 0.2s',
-        }}>
-          <DownloadIcon size={20} color={downloaded ? '#10b981' : '#2563eb'} />
-          <span style={{ fontSize: 14, fontWeight: 600, color: downloaded ? '#065f46' : '#1e40af' }}>
-            {downloaded ? '✓ PDF descărcat' : '📄 Descarcă PDF'}
-          </span>
-        </button>
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={handleView} style={{
+              flex: 1, padding: '13px 12px', borderRadius: 12, border: '1.5px solid #e2e8f0', background: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', transition: 'all 0.2s',
+            }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = '#93c5fd'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = '#e2e8f0'}>
+              <span style={{ fontSize: 16 }}>👁️</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: '#475569' }}>Vezi contract</span>
+            </button>
+            <button onClick={handleDownload} style={{
+              flex: 1, padding: '13px 12px', borderRadius: 12,
+              border: `1.5px solid ${downloaded ? '#dcfce7' : '#2563eb'}`,
+              background: downloaded ? '#f0fdf4' : '#eff6ff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', transition: 'all 0.2s',
+            }}>
+              <DownloadIcon size={18} color={downloaded ? '#10b981' : '#2563eb'} />
+              <span style={{ fontSize: 14, fontWeight: 600, color: downloaded ? '#065f46' : '#1e40af' }}>
+                {downloaded ? 'Descărcat' : 'Descarcă'}
+              </span>
+            </button>
+          </div>
+          <button onClick={handleEmail} style={{
+            width: '100%', padding: '13px 12px', borderRadius: 12, border: '1.5px solid #e2e8f0', background: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', transition: 'all 0.2s',
+          }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = '#93c5fd'}
+            onMouseLeave={e => e.currentTarget.style.borderColor = '#e2e8f0'}>
+            <span style={{ fontSize: 16 }}>📧</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: '#475569' }}>Trimite pe email</span>
+          </button>
+        </div>
       )}
 
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>

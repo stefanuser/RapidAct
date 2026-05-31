@@ -795,9 +795,87 @@ function ContractDetailSheet({ contract: c, onClose }) {
   const [emailAddr, setEmailAddr]     = React.useState('');
   const [downloading, setDownloading] = React.useState(false);
   const [downloaded, setDownloaded]   = React.useState(false);
+  const [viewing, setViewing]         = React.useState(false);
   const [dlToast, setDlToast]         = React.useState('');
   const name = c.parties?.[0]?.name ?? '—';
   const date = new Date(c.created_at).toLocaleDateString('ro-RO', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  // Regenerează PDF-ul din câmpurile salvate. Întoarce Blob sau null (dacă lipsesc câmpuri).
+  async function regenPdfBlob() {
+    const fields = c.fields;
+    if (!fields || Object.keys(fields).length === 0) {
+      setDlToast('⚠️ PDF indisponibil — contractul nu conține câmpuri salvate');
+      setTimeout(() => setDlToast(''), 3000);
+      return null;
+    }
+    const buildBody = window.buildContractBody;
+    if (!buildBody) throw new Error('buildContractBody nedisponibil');
+
+    const tplMap = window.TEMPLATES_MAP || {};
+    const tpl = tplMap[c.template_name] || { name: c.template_name, fields: [] };
+    const contractBody = buildBody(tpl, fields);
+
+    const { PDFDocument, rgb } = window.PDFLib;
+    const fontBytes = await fetch('./assets/fonts/NotoSans-Regular.ttf').then(r => r.arrayBuffer());
+    const pdfDoc = await PDFDocument.create();
+    pdfDoc.registerFontkit(window.fontkit);
+    const font = await pdfDoc.embedFont(fontBytes);
+
+    const PW = 595.28, PH = 841.89, MX = 51, MY = 45, FS = 9.5, LH = FS * 1.55;
+    const TW = PW - MX * 2;
+
+    // M9 — wrapText sincronizat cu versiunea din pages-contract.jsx (include fix M8)
+    function wrapText(text, maxW) {
+      if (!text.trim()) return [''];
+      const words = text.split(' ');
+      const lines = [];
+      let cur = '';
+      for (const w of words) {
+        if (font.widthOfTextAtSize(w, FS) > maxW) {
+          if (cur) { lines.push(cur); cur = ''; }
+          let chunk = '';
+          for (const ch of w) {
+            if (font.widthOfTextAtSize(chunk + ch, FS) <= maxW) { chunk += ch; }
+            else { if (chunk) lines.push(chunk); chunk = ch; }
+          }
+          cur = chunk;
+          continue;
+        }
+        const candidate = cur ? cur + ' ' + w : w;
+        if (font.widthOfTextAtSize(candidate, FS) <= maxW) { cur = candidate; }
+        else { if (cur) lines.push(cur); cur = w; }
+      }
+      if (cur) lines.push(cur);
+      return lines.length ? lines : [''];
+    }
+
+    let page = pdfDoc.addPage([PW, PH]);
+    let y = PH - MY;
+
+    page.drawText('RapidAct.ro', { x: MX, y, font, size: 14, color: rgb(0.145, 0.388, 0.922) });
+    const hd = 'Generat: ' + new Date().toLocaleDateString('ro-RO');
+    page.drawText(hd, { x: PW - MX - font.widthOfTextAtSize(hd, 8), y, font, size: 8, color: rgb(0.39, 0.455, 0.545) });
+    y -= 8;
+    page.drawLine({ start: { x: MX, y }, end: { x: PW - MX, y }, thickness: 0.4, color: rgb(0.145, 0.388, 0.922) });
+    y -= 20;
+
+    for (const rawLine of contractBody.split('\n')) {
+      for (const wl of wrapText(rawLine, TW)) {
+        if (y < MY) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
+        if (wl) page.drawText(wl, { x: MX, y, font, size: FS, color: rgb(0, 0, 0) });
+        y -= LH;
+      }
+    }
+
+    const pdfBytes = await pdfDoc.save();
+    return new Blob([pdfBytes], { type: 'application/pdf' });
+  }
+
+  function downloadName() {
+    const tipClean = (c.template_name || 'Contract').replace(/\s+/g,'').replace(/[ăâ]/gi,'a').replace(/[îÎ]/g,'i').replace(/[șşȘ]/g,'s').replace(/[țţȚ]/g,'t');
+    const lastName = (name || '').split(' ').slice(-1)[0];
+    return `${tipClean}_${lastName}_${new Date().toISOString().split('T')[0]}.pdf`;
+  }
 
   async function handleDownload() {
     // 1. Contract salvat cu URL real (Supabase Storage)
@@ -810,85 +888,15 @@ function ContractDetailSheet({ contract: c, onClose }) {
       setDownloaded(true);
       return;
     }
-
-    // 2. Regenerare PDF din câmpuri salvate (pdf_url e null la contractele curente)
-    const fields = c.fields;
-    if (!fields || Object.keys(fields).length === 0) {
-      setDlToast('⚠️ PDF indisponibil — contractul nu conține câmpuri salvate');
-      setTimeout(() => setDlToast(''), 3000);
-      return;
-    }
-
+    // 2. Regenerare PDF din câmpuri salvate
     setDownloading(true);
     try {
-      const buildBody = window.buildContractBody;
-      if (!buildBody) throw new Error('buildContractBody nedisponibil');
-
-      // Folosim template-ul din TEMPLATES_MAP sau unul minim
-      const tplMap = window.TEMPLATES_MAP || {};
-      const tpl = tplMap[c.template_name] || { name: c.template_name, fields: [] };
-      const contractBody = buildBody(tpl, fields);
-
-      const { PDFDocument, rgb } = window.PDFLib;
-      const fontBytes = await fetch('./assets/fonts/NotoSans-Regular.ttf').then(r => r.arrayBuffer());
-      const pdfDoc = await PDFDocument.create();
-      pdfDoc.registerFontkit(window.fontkit);
-      const font = await pdfDoc.embedFont(fontBytes);
-
-      const PW = 595.28, PH = 841.89, MX = 51, MY = 45, FS = 9.5, LH = FS * 1.55;
-      const TW = PW - MX * 2;
-
-      // M9 — wrapText sincronizat cu versiunea din pages-contract.jsx (include fix M8)
-      function wrapText(text, maxW) {
-        if (!text.trim()) return [''];
-        const words = text.split(' ');
-        const lines = [];
-        let cur = '';
-        for (const w of words) {
-          if (font.widthOfTextAtSize(w, FS) > maxW) {
-            if (cur) { lines.push(cur); cur = ''; }
-            let chunk = '';
-            for (const ch of w) {
-              if (font.widthOfTextAtSize(chunk + ch, FS) <= maxW) { chunk += ch; }
-              else { if (chunk) lines.push(chunk); chunk = ch; }
-            }
-            cur = chunk;
-            continue;
-          }
-          const candidate = cur ? cur + ' ' + w : w;
-          if (font.widthOfTextAtSize(candidate, FS) <= maxW) { cur = candidate; }
-          else { if (cur) lines.push(cur); cur = w; }
-        }
-        if (cur) lines.push(cur);
-        return lines.length ? lines : [''];
-      }
-
-      let page = pdfDoc.addPage([PW, PH]);
-      let y = PH - MY;
-
-      page.drawText('RapidAct.ro', { x: MX, y, font, size: 14, color: rgb(0.145, 0.388, 0.922) });
-      const hd = 'Generat: ' + new Date().toLocaleDateString('ro-RO');
-      page.drawText(hd, { x: PW - MX - font.widthOfTextAtSize(hd, 8), y, font, size: 8, color: rgb(0.39, 0.455, 0.545) });
-      y -= 8;
-      page.drawLine({ start: { x: MX, y }, end: { x: PW - MX, y }, thickness: 0.4, color: rgb(0.145, 0.388, 0.922) });
-      y -= 20;
-
-      for (const rawLine of contractBody.split('\n')) {
-        for (const wl of wrapText(rawLine, TW)) {
-          if (y < MY) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
-          if (wl) page.drawText(wl, { x: MX, y, font, size: FS, color: rgb(0, 0, 0) });
-          y -= LH;
-        }
-      }
-
-      const pdfBytes = await pdfDoc.save();
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const blob = await regenPdfBlob();
+      if (!blob) return;
       const url = URL.createObjectURL(blob);
-      const tipClean = (c.template_name || 'Contract').replace(/\s+/g,'').replace(/[ăâ]/gi,'a').replace(/[îÎ]/g,'i').replace(/[șşȘ]/g,'s').replace(/[țţȚ]/g,'t');
-      const lastName = (name || '').split(' ').slice(-1)[0];
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${tipClean}_${lastName}_${new Date().toISOString().split('T')[0]}.pdf`;
+      a.download = downloadName();
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 30000);
       setDownloaded(true);
@@ -898,6 +906,25 @@ function ContractDetailSheet({ contract: c, onClose }) {
       setTimeout(() => setDlToast(''), 3000);
     } finally {
       setDownloading(false);
+    }
+  }
+
+  async function handleView() {
+    // Contract cu URL real → deschide direct în tab nou
+    if (c.pdf_url) { window.open(c.pdf_url, '_blank'); return; }
+    setViewing(true);
+    try {
+      const blob = await regenPdfBlob();
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err) {
+      console.error('[RapidAct] PDF view error:', err);
+      setDlToast('⚠️ Eroare la generarea PDF. Încearcă din nou.');
+      setTimeout(() => setDlToast(''), 3000);
+    } finally {
+      setViewing(false);
     }
   }
 
@@ -941,6 +968,14 @@ function ContractDetailSheet({ contract: c, onClose }) {
 
         {/* Actions */}
         <div style={{ padding: '16px 20px 28px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+          {/* Vizualizează — buton mic, deschide PDF-ul în tab nou */}
+          <button onClick={handleView} disabled={viewing} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', border: '1px solid #e2e8f0', borderRadius: 10, padding: '9px 14px', background: '#f8fafc', cursor: viewing ? 'wait' : 'pointer', transition: 'all 0.15s' }}
+            onMouseEnter={e => { if (!viewing) e.currentTarget.style.borderColor = '#93c5fd'; }}
+            onMouseLeave={e => e.currentTarget.style.borderColor = '#e2e8f0'}>
+            {viewing ? <SpinnerIcon size={15} color="#2563eb" /> : <span style={{ fontSize: 14 }}>👁️</span>}
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#475569' }}>{viewing ? 'Se deschide...' : 'Vizualizează'}</span>
+          </button>
 
           {/* Download */}
           <button onClick={handleDownload} disabled={downloading} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', border: `1.5px solid ${downloaded ? '#6ee7b7' : '#e2e8f0'}`, borderRadius: 12, padding: '14px 16px', background: downloaded ? '#f0fdf4' : '#fff', cursor: downloading ? 'wait' : 'pointer', textAlign: 'left', transition: 'all 0.15s' }}
