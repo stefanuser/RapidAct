@@ -441,6 +441,12 @@ function StepScan({ template, onDone, initialScanned }) {
 }
 
 // Randează un body template cu sintaxa {{cheie}} (folosit pentru template-uri din DB)
+// Token pentru câmpuri imagine (semnături/logo) inserate INLINE, exact la poziția
+// placeholderului {{...}} din corp. Folosim caractere private-use ca să nu coincidă
+// cu text real. PDF-ul îl transformă în imagine; preview-ul HTML într-o etichetă.
+const IMG_TOKEN     = (key) => `IMG:${key}`;
+const IMG_TOKEN_RE  = /IMG:([a-z_]+)/g;
+
 function fillTemplate(bodyText, values) {
   return bodyText.replace(/\{\{(\w+)\}\}/g, (_, k) => values[k] || '___________');
 }
@@ -1012,7 +1018,7 @@ function StepForm({ template, docData, profile, savedValues, assets, onDone }) {
       if (!reg) return;
       // Câmpurile imagine (semnături, logo) NU intră ca text în body — se inserează
       // ca imagini în blocul de semnături / la generare, nu ca data URL base64.
-      if (reg.type === 'image')          out[key] = '';
+      if (reg.type === 'image')          out[key] = IMG_TOKEN(key);
       else if (reg.source === 'ocr')     out[key] = getDocVal(reg.ocrDoc, reg.ocrKey);
       else if (reg.source === 'profile') out[key] = profile?.[reg.profileKey] ?? '';
       else if (reg.source === 'asset')   out[key] = selectedAsset?.details?.[reg.assetKey] ?? '';
@@ -1373,7 +1379,8 @@ function ClientSignaturePad({ onSig }) {
 
 // ─── Step 4: Preview ──────────────────────────────────────────────────────────
 function StepPreview({ template, values, onGenerate, generating, pdfError, profile, navigate, skipSig, onSkipSig }) {
-  const body = buildContractBody(template, values);
+  const body = buildContractBody(template, values)
+    .replace(IMG_TOKEN_RE, (_, k) => `✍ [${FIELD_REGISTRY[k]?.label || 'semnătură'}]`);
   const sig = profile?.signature;
   const [clientSig, setClientSig] = React.useState(null);
 
@@ -1702,49 +1709,63 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
       page.drawLine({ start: { x: MX, y }, end: { x: PW - MX, y }, thickness: 0.4, color: rgb(0.145, 0.388, 0.922) });
       y -= 20;
 
-      // Contract body
-      for (const rawLine of contractBody.split('\n')) {
-        for (const wl of wrapText(rawLine, TW)) {
-          if (y < MY) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
-          if (wl) page.drawText(wl, { x: MX, y, font, size: FS, color: rgb(0, 0, 0) });
-          y -= LH;
-        }
+      // ── Corpul contractului — text + semnături/imagini INLINE la poziția {{...}} ──
+      // Embed imaginile disponibile o singură dată (cheie → imagine pdf-lib sau null).
+      const extractB64 = s => (s && s.includes(',')) ? s.split(',')[1] : s;
+      async function embedImg(dataUrl) {
+        if (!dataUrl) return null;
+        try {
+          const bytes = Uint8Array.from(atob(extractB64(dataUrl)), c => c.charCodeAt(0));
+          return await pdfDoc.embedPng(bytes);
+        } catch { return null; }
       }
+      const imgMap = {
+        semnatura_mea:    (!skipSig && profile?.signature) ? await embedImg(profile.signature) : null,
+        semnatura_client: clientSig ? await embedImg(clientSig) : null,
+        firma_logo:       profile?.logo_url ? await embedImg(profile.logo_url) : null,
+      };
 
-      // Signature block — LOCATOR (stânga) + LOCATAR (dreapta)
-      const hasLocatorSig = !!(profile?.signature && !skipSig);
-      if (hasLocatorSig || clientSig) {
-        if (y < MY + 80) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
-        y -= 14;
-        page.drawLine({ start: { x: MX, y }, end: { x: PW - MX, y }, thickness: 0.3, color: rgb(0.86, 0.86, 0.86) });
-        y -= 18;
-        page.drawText('LOCATOR', { x: MX + 51, y, font, size: 7, color: rgb(0.39, 0.455, 0.545) });
-        page.drawText('LOCATAR', { x: PW - MX - 113, y, font, size: 7, color: rgb(0.39, 0.455, 0.545) });
-        y -= 40;
-        // LOCATOR sig sau linie goală (stânga)
-        // M23 — guard: split(',')[1] poate fi undefined dacă sig nu e data URL
-        const extractB64 = s => (s && s.includes(',')) ? s.split(',')[1] : s;
-        if (hasLocatorSig) {
-          try {
-            const sigBase64 = extractB64(profile.signature);
-            const sigBytes  = Uint8Array.from(atob(sigBase64), c => c.charCodeAt(0));
-            const sigImg    = await pdfDoc.embedPng(sigBytes);
-            page.drawImage(sigImg, { x: MX, y, width: 102, height: 40 });
-          } catch { page.drawLine({ start: { x: MX, y: y + 40 }, end: { x: MX + 142, y: y + 40 }, thickness: 0.3, color: rgb(0,0,0) }); }
-        } else {
-          page.drawLine({ start: { x: MX, y: y + 40 }, end: { x: MX + 142, y: y + 40 }, thickness: 0.3, color: rgb(0, 0, 0) });
+      const SIG_H = 30; // înălțime imagine semnătură (pt)
+      const O = String.fromCharCode(0xE000), C = String.fromCharCode(0xE001);
+      const tokTest  = new RegExp(O + 'IMG:([a-z_]+)' + C);
+      const tokSplit = new RegExp('(' + O + 'IMG:[a-z_]+' + C + ')');
+      const tokExact = new RegExp('^' + O + 'IMG:([a-z_]+)' + C + '$');
+
+      for (const rawLine of contractBody.split('\n')) {
+        if (!tokTest.test(rawLine)) {
+          // linie normală — wrap + draw text
+          for (const wl of wrapText(rawLine, TW)) {
+            if (y < MY) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
+            if (wl) page.drawText(wl, { x: MX, y, font, size: FS, color: rgb(0, 0, 0) });
+            y -= LH;
+          }
+          continue;
         }
-        // LOCATAR sig sau linie goală (dreapta)
-        if (clientSig) {
-          try {
-            const cSigBase64 = extractB64(clientSig);
-            const cSigBytes  = Uint8Array.from(atob(cSigBase64), c => c.charCodeAt(0));
-            const cSigImg    = await pdfDoc.embedPng(cSigBytes);
-            page.drawImage(cSigImg, { x: PW - MX - 142, y, width: 102, height: 40 });
-          } catch { page.drawLine({ start: { x: PW - MX - 142, y: y + 40 }, end: { x: PW - MX, y: y + 40 }, thickness: 0.3, color: rgb(0,0,0) }); }
-        } else {
-          page.drawLine({ start: { x: PW - MX - 142, y: y + 40 }, end: { x: PW - MX, y: y + 40 }, thickness: 0.3, color: rgb(0, 0, 0) });
+        // linie cu imagine inline — segmente stânga→dreapta, fără wrap
+        if (y < MY + SIG_H) { page = pdfDoc.addPage([PW, PH]); y = PH - MY; }
+        let x = MX;
+        for (const part of rawLine.split(tokSplit)) {
+          if (!part) continue;
+          const m = part.match(tokExact);
+          if (m) {
+            const img = imgMap[m[1]];
+            if (img) {
+              const w = img.width * (SIG_H / img.height);
+              page.drawImage(img, { x, y: y - (SIG_H - FS), width: w, height: SIG_H });
+              x += w + 2;
+            } else if (m[1].indexOf('semnatura') === 0) {
+              // semnătură lipsă/omisă → linie goală pentru semnat manual
+              const ph = '____________';
+              page.drawText(ph, { x, y, font, size: FS, color: rgb(0, 0, 0) });
+              x += font.widthOfTextAtSize(ph, FS);
+            }
+            // logo lipsă → nu desenăm nimic
+          } else {
+            page.drawText(part, { x, y, font, size: FS, color: rgb(0, 0, 0) });
+            x += font.widthOfTextAtSize(part, FS);
+          }
         }
+        y -= Math.max(LH, SIG_H + 4);
       }
 
       const pdfBytes = await pdfDoc.save();
