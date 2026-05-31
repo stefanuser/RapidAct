@@ -26,16 +26,6 @@ const ASSET_TYPES = {
     primary:   d => d.plate || '—',
     secondary: d => [d.make, d.model, d.year].filter(Boolean).join(' '),
     tertiary:  d => d.color,
-    // map to FIELD_REGISTRY contract keys (auto-fill din asset picker)
-    contractMap: {
-      vehicle_make:   'make',
-      vehicle_model:  'model',
-      vehicle_year:   'year',
-      vehicle_plate:  'plate',
-      vehicle_color:  'color',
-      vehicle_vin:    'vin',
-      contract_casco: 'casco',
-    },
   },
   property: {
     label: 'Proprietăți', singular: 'proprietate',
@@ -56,13 +46,6 @@ const ASSET_TYPES = {
     primary:   d => d.name || '—',
     secondary: d => d.address || '',
     tertiary:  d => [d.prop_type, d.surface ? `${d.surface} mp` : ''].filter(Boolean).join(' · '),
-    contractMap: {
-      imobil_adresa:     'address',
-      imobil_tip:        'prop_type',
-      imobil_proprietar: 'owner',
-      imobil_suprafata:  'surface',
-      imobil_cadastral:  'cadastral',
-    },
   },
   company: {
     label: 'Companii', singular: 'companie',
@@ -82,12 +65,6 @@ const ASSET_TYPES = {
     primary:   d => d.name || '—',
     secondary: d => d.address || '',
     tertiary:  d => d.contact_name || '',
-    contractMap: {
-      client_firma:    'name',
-      client_cui:      'cui',
-      client_adresa:   'address',
-      client_contact:  'contact_name',
-    },
   },
 };
 

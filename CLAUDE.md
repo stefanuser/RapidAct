@@ -44,7 +44,7 @@ URL admin: `https://stefanuser.github.io/RapidAct/admin.html`
 | `pages-main.jsx` | 1604 | Dashboard, History, **Settings**, DatePersonale. Meniul din Settings duce la celelalte ecrane |
 | `pages-firma.jsx` | 200 | Date firmă (DateFirmaScreen) |
 | `pages-assets.jsx` | 605 | Active: mașini / proprietăți / companii. `ASSET_TYPES`, `AssetPickerSheet` |
-| `pages-contract.jsx` | 1952 | **Fluxul de generare** (4 pași: Template → Scan → Form → Preview). ⚠️ ÎNCĂ pe FIELD_REGISTRY local VECHI — DE MIGRAT la `field-registry.jsx` |
+| `pages-contract.jsx` | ~1950 | **Fluxul de generare** (4 pași: Template → Scan → Form → Preview). ✅ migrat la `window.FIELD_REGISTRY`. `CATEGORIES = window.TEMPLATE_CATEGORIES`. |
 | ~~`pages-templates.jsx`~~ | — | **ELIMINAT** — management template-uri e acum doar în `admin.jsx` (admin-only). Ruta `templates-dashboard` nu mai există. |
 | `admin.jsx` | 1106 | **Dashboard admin** (desktop). ✅ consumă `window.FIELD_REGISTRY` din `field-registry.jsx` |
 
@@ -64,9 +64,7 @@ URL admin: `https://stefanuser.github.io/RapidAct/admin.html`
 
 **Admini setați:** `stefan@rapidact.ro`, `office@rapidact.ro`.
 
-**Template-uri în DB acum:**
-- `rentacar-standard` (global, „Închiriere Auto", 37 fields) — ⚠️ folosește chei VECHI
-- `contract-decomodat-...` (global, creat din admin, chei NOI)
+**Template-uri în DB:** vezi secțiunea „Categorii template" mai jos. Toate folosesc chei NOI (canonice). `rentacar-standard` a fost rescris cu chei noi (39 fields: `client_ci_*`, `asset_auto_*`, `contract_*`).
 
 ---
 
@@ -83,7 +81,7 @@ Prefixe / categorii:
 
 **Stare consumatori:**
 - ✅ `admin.jsx` — consumă `window.FIELD_REGISTRY`
-- ⚠️ `pages-contract.jsx` — ÎNCĂ are registry local VECHI (`driver_name`, `vehicle_make`...). **De migrat** (vezi pending #1). Până atunci, template-urile cu chei noi NU se rezolvă în fluxul de generare.
+- ✅ `pages-contract.jsx` — migrat: `const FIELD_REGISTRY = window.FIELD_REGISTRY` (linia ~46). Rezolvă cheile noi. ⚠️ rămâne doar fallback-ul hardcodat din `buildContractBody()` cu chei vechi (`driver_name`...) — folosit doar dacă un template NU are `body_template`; de curățat candva.
 
 ### Schema unui câmp (vezi header-ul fișierului pentru detalii complete)
 `{ label, cat, group?, source, type?, desc?, ocrDoc?, ocrKey?, profileKey?, assetType?, assetKey?, compute?, formGroup?, required?, placeholder?, options? }`
@@ -141,8 +139,8 @@ Cele 4 categorii **atribuibile** (dropdown admin + editor):
 
 ## De făcut (pending)
 
-1. **[PRIORITAR] Migrează `pages-contract.jsx` la `field-registry.jsx`.** Înlocuiește registry-ul local vechi cu `window.FIELD_REGISTRY`; adaptează `resolveContractValues` (nou: `ocrDoc/ocrKey`, `assetType/assetKey`, `compute`), `StepForm` (grupare pe `formGroup`), auto-calc (`days_between`, `total`). Adaugă `field-registry.jsx` în `index.html` (PRIMUL script). Rescrie template-ul `rentacar-standard` din DB cu chei noi. **Testează generarea unui contract real.**
-2. **Mapping asset → câmpuri** pentru `asset_*` (în `pages-assets.jsx` sau în resolve): când selectezi un activ, completează `asset_auto_*` etc. din `asset.details` via `assetKey`. Notă: unele `assetKey` (fuel, engine_cc, city, county, capital, iban...) nu există încă în `ASSET_TYPES` — de extins.
+1. ✅ **GATA — Migrarea `pages-contract.jsx` la `field-registry.jsx`.** Consumă `window.FIELD_REGISTRY`; `rentacar-standard` rescris cu chei noi (39 fields). ✅ Fallback-ul hardcodat din `buildContractBody()` e acum generic (label-uri din registry, zero chei vechi). ✅ `TEMPLATES` seed + toate referințele (`company_rep`→`firma_reprezentant`, `driver_name`→`client_ci_nume_complet`) pe chei noi. **Rămas: testează generarea unui contract real** end-to-end (resolve `ocrDoc/ocrKey`, `assetType/assetKey`, `compute`; `StepForm` pe `formGroup`; auto-calc `days_between`/`total`).
+2. **Mapping asset → câmpuri** pentru `asset_*`: la selectarea unui activ, completează `asset_auto_*` etc. din `asset.details` via `assetKey` din FIELD_REGISTRY (registry-ul declară deja `assetType`+`assetKey`). NU mai există `contractMap` în `pages-assets.jsx` (era cod mort cu chei vechi — eliminat). Notă: unele `assetKey` (engine_cc, power, seats, itp_exp, rca_exp...) nu există încă în `ASSET_TYPES` — de extins.
 3. **Randare formatare în PDF** — interpretează `**bold**`, `[center]`, `[size=N]` la generare (pdf-lib).
 4. **Câmpuri tip imagine în PDF** — `firma_logo` (profiles.logo_url), `rapidact_logo` (static), `semnatura_mea` (profiles.signature), `semnatura_client` (desenată la generare).
 5. **Coloane DB lipsă** (opțional): `profiles.firm_iban`, `profiles.firm_banca` (pentru `firma_iban/firma_banca`).

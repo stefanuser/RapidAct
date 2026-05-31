@@ -56,16 +56,18 @@ const TEMPLATES = [
     active: true,
     description: 'Contract standard de închiriere autovehicul cu predare-primire',
     fields: [
-      'driver_name', 'driver_cnp', 'driver_ci_series', 'driver_ci_number',
-      'driver_birthdate', 'driver_ci_expiry', 'driver_address',
-      'driver_license_nr', 'driver_license_cat', 'driver_license_expiry',
-      'company_name', 'company_cui', 'company_address', 'company_reg', 'company_rep',
-      'vehicle_make', 'vehicle_model', 'vehicle_year', 'vehicle_plate', 'vehicle_color', 'vehicle_vin',
-      'contract_date', 'contract_location',
-      'contract_start', 'contract_end', 'contract_days', 'contract_handover_location',
-      'contract_price_day', 'contract_total', 'contract_deposit', 'contract_payment',
-      'contract_km_start', 'contract_km_limit', 'contract_fuel', 'contract_franchise', 'contract_casco',
-      'contract_notes',
+      'contract_numar', 'contract_data', 'contract_loc',
+      'firma_denumire', 'firma_adresa', 'firma_reg_com', 'firma_cui', 'firma_reprezentant',
+      'client_ci_nume_complet', 'client_ci_cnp', 'client_ci_serie', 'client_ci_numar',
+      'client_ci_valabila_pana', 'client_ci_adresa', 'client_ci_data_nastere',
+      'client_permis_numar', 'client_permis_categorii', 'client_permis_valabil_pana',
+      'asset_auto_marca', 'asset_auto_model', 'asset_auto_an', 'asset_auto_nr_inmatriculare',
+      'asset_auto_culoare', 'asset_auto_vin', 'asset_auto_casco',
+      'contract_start', 'contract_end', 'contract_durata',
+      'contract_km_start', 'contract_km_limita', 'contract_combustibil_nivel',
+      'contract_pret_zi', 'contract_total', 'contract_garantie', 'contract_fransiza',
+      'contract_mod_plata', 'contract_observatii',
+      'semnatura_mea', 'semnatura_client',
     ],
   },
 ];
@@ -417,62 +419,13 @@ function parseDbTemplate(row) {
 
 function buildContractBody(template, values) {
   if (template.bodyText) return fillTemplate(template.bodyText, values);
-  const fill = (k) => values[k] || '___________';
-  return `CONTRACT DE ÎNCHIRIERE AUTOVEHICUL
-Nr. _____ / ${fill('contract_date')}
-
-Încheiat la ${fill('contract_location')}, astăzi ${fill('contract_date')},
-
-I. PĂRȚILE CONTRACTANTE
-
-LOCATOR (Firma):
-${fill('company_name')}, sediu în ${fill('company_address')},
-Reg. Com. ${fill('company_reg')}, CUI ${fill('company_cui')},
-reprezentată prin ${fill('company_rep')},
-
-LOCATAR (Șoferul):
-${fill('driver_name')}, CNP ${fill('driver_cnp')},
-CI seria ${fill('driver_ci_series')} nr. ${fill('driver_ci_number')}, valabilă: ${fill('driver_ci_expiry')},
-domiciliu: ${fill('driver_address')},
-data nașterii: ${fill('driver_birthdate')},
-permis conducere nr. ${fill('driver_license_nr')}, categorii: ${fill('driver_license_cat')}, valabil: ${fill('driver_license_expiry')},
-
-II. OBIECTUL CONTRACTULUI
-
-Autovehicul: ${fill('vehicle_make')} ${fill('vehicle_model')} ${fill('vehicle_year')}
-Nr. înmatriculare: ${fill('vehicle_plate')}
-Culoare: ${fill('vehicle_color')} · VIN: ${fill('vehicle_vin')}
-CASCO: ${fill('contract_casco')}
-
-III. DURATA ÎNCHIRIERII
-
-Predare: ${fill('contract_start')}
-Restituire: ${fill('contract_end')}
-Perioadă: ${fill('contract_days')} zile
-Loc predare: ${fill('contract_handover_location')}
-
-IV. PREȚUL ȘI PLATA
-
-Tarif: ${fill('contract_price_day')} RON/zi
-Valoare totală: ${fill('contract_total')} RON
-Garanție: ${fill('contract_deposit')} RON
-Mod plată: ${fill('contract_payment')}
-
-V. CONDIȚII
-
-Km incluși: ${fill('contract_km_limit')}
-Franșiță daune: ${fill('contract_franchise')} RON
-Km la predare: ${fill('contract_km_start')} km
-Combustibil: ${fill('contract_fuel')}
-Observații: ${fill('contract_notes') || '—'}
-
-VI. SEMNĂTURI
-
-LOCATOR: ${fill('company_rep')}
-LOCATAR: ${fill('driver_name')}
-
-________________________    ________________________
-  (semnătură + ștampilă)          (semnătură)`;
+  // Fallback generic (template fără body_template): listează câmpurile cu
+  // label-uri din FIELD_REGISTRY. Fără chei vechi, fără hardcodare pe rentacar.
+  const reg = window.FIELD_REGISTRY || {};
+  const lines = (template.fields || [])
+    .filter(k => reg[k] && reg[k].type !== 'image')
+    .map(k => `${reg[k]?.label || k}: ${values[k] || '___________'}`);
+  return `${(template.name || 'CONTRACT').toUpperCase()}\n\n${lines.join('\n')}`;
 }
 // ─── All available templates (active + coming soon) ──────────────────────────
 
@@ -1390,7 +1343,7 @@ function StepPreview({ template, values, onGenerate, generating, pdfError, profi
                 <img src={sig} alt="Semnătură" style={{ height: 48, maxWidth: 200, objectFit: 'contain' }} />
                 <div style={{ textAlign: 'right' }}>
                   <p style={{ fontSize: 11, fontWeight: 700, color: '#065f46' }}>LOCATOR</p>
-                  <p style={{ fontSize: 11, color: '#059669' }}>{values.company_rep || profile?.legal_rep || '—'}</p>
+                  <p style={{ fontSize: 11, color: '#059669' }}>{values.firma_reprezentant || profile?.legal_rep || '—'}</p>
                 </div>
               </div>
               <button onClick={() => onSkipSig(true)} style={{ marginTop: 8, width: '100%', border: 'none', background: 'none', fontSize: 12, color: '#94a3b8', cursor: 'pointer', textDecoration: 'underline', padding: '4px 0', textAlign: 'center' }}>
@@ -1429,7 +1382,7 @@ function StepPreview({ template, values, onGenerate, generating, pdfError, profi
                 {clientSig ? 'Semnătura clientului (LOCATAR) ✓' : 'Semnătură client — opțional'}
               </p>
               <p style={{ fontSize: 11, color: '#64748b', marginTop: 1 }}>
-                {clientSig ? `${values.driver_name || 'Client'} a semnat` : 'Clientul poate semna acum pe ecran'}
+                {clientSig ? `${values.client_ci_nume_complet || 'Client'} a semnat` : 'Clientul poate semna acum pe ecran'}
               </p>
             </div>
           </div>
@@ -1583,7 +1536,7 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
     setGenerating(true);
     try {
       const contractBody = buildContractBody(template, formValues);
-      const driverName = formValues.driver_name || 'client';
+      const driverName = formValues.client_ci_nume_complet || 'client';
       const lastName   = driverName.split(' ').slice(-1)[0];
       const now        = new Date();
       const timeStr    = String(now.getHours()).padStart(2,'0') + '-' + String(now.getMinutes()).padStart(2,'0');
@@ -1706,7 +1659,7 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
       await onContractCreated({
         template_name: template.name,
         status:        'generated',
-        parties:       [{ name: formValues.driver_name || 'Necunoscut' }],
+        parties:       [{ name: formValues.client_ci_nume_complet || 'Necunoscut' }],
         fields:        formValues,
         created_at:    new Date().toISOString(),
         pdf_url:       null,
@@ -1747,7 +1700,7 @@ function ContractNewScreen({ navigate, profile, onContractCreated, assets }) {
 
       {done ? (
         <StepSuccess
-          driverName={formValues.driver_name}
+          driverName={formValues.client_ci_nume_complet}
           pdfBlob={pdfBlob}
           filename={pdfFilename}
           onNew={reset}
