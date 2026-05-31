@@ -355,6 +355,9 @@ function OnboardingScreen({ navigate }) {
                 </button>
               ))}
             </div>
+            <button onClick={handleFinish} disabled={saving} style={{ display: 'block', width: '100%', marginTop: 18, padding: '10px', border: 'none', background: 'none', color: '#94a3b8', fontSize: 13, fontWeight: 600, cursor: saving ? 'wait' : 'pointer' }}>
+              {saving ? 'Se salvează...' : 'Omite acum — completez mai târziu'}
+            </button>
           </div>
         )}
 
@@ -400,7 +403,10 @@ function OnboardingScreen({ navigate }) {
           <PrimaryBtn onClick={handleFinish} disabled={saving || !firmName}>
             {saving ? <><SpinnerIcon size={18} /> Se salvează...</> : 'Finalizează →'}
           </PrimaryBtn>
-          <button onClick={() => setStep(0)} style={{ border: 'none', background: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>← Înapoi</button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <button onClick={() => setStep(0)} disabled={saving} style={{ border: 'none', background: 'none', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>← Înapoi</button>
+            <button onClick={handleFinish} disabled={saving} style={{ border: 'none', background: 'none', color: '#94a3b8', fontSize: 13, fontWeight: 600, cursor: saving ? 'wait' : 'pointer' }}>Omite acum</button>
+          </div>
         </div>
       )}
     </AppFrame>

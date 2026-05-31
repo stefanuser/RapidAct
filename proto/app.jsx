@@ -23,6 +23,7 @@ const EMPTY_PROFILE = {
   watermark_enabled: true,
   cnp: '', ci_serie: '', ci_nr: '', ci_valabilitate: '', data_nastere: '', adresa: '', signature: null,
   permis_serie: '', permis_nr: '', permis_categorii: '', permis_expirare: '',
+  logo_url: null,
 };
 
 

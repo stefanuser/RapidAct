@@ -330,12 +330,37 @@ function AddContractSheet({ onClose, onAdd }) {
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
+// Citește un fișier imagine, redimensionează la max 400px și întoarce data URL PNG (păstrează transparența logo-ului)
+function logoFileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objUrl);
+      const MAX = 400;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else       { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = reject;
+    img.src = objUrl;
+  });
+}
+
 function SettingsScreen({ navigate, profile, setProfile, logout }) {
   const [signingOut, setSigning]       = React.useState(false);
   const [showTypePicker, setShowType]  = React.useState(false);
   const [showSignature, setShowSig]    = React.useState(false);
   const [toast, setToast]              = React.useState('');
   const [appVer, setAppVer]            = React.useState(null);
+  const [logoUploading, setLogoUploading] = React.useState(false);
+  const logoInputRef = React.useRef(null);
   React.useEffect(() => { if (toast) { const t = setTimeout(() => setToast(''), 2800); return () => clearTimeout(t); } }, [toast]);
   React.useEffect(() => {
     fetch('./version.json?_=' + Date.now())
@@ -367,6 +392,39 @@ function SettingsScreen({ navigate, profile, setProfile, logout }) {
     setToast('Semnătură salvată ✓');
   }
 
+  async function handleLogoFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setLogoUploading(true);
+    try {
+      const dataUrl = await logoFileToDataUrl(file);
+      setProfile(p => ({ ...p, logo_url: dataUrl }));
+      const { data: { user } } = await window.sb.auth.getUser();
+      if (user) {
+        const { error } = await window.sb.from('profiles')
+          .update({ logo_url: dataUrl, updated_at: new Date().toISOString() })
+          .eq('id', user.id);
+        if (error) console.error('[RapidAct] Logo save error:', error);
+      }
+      setToast('Logo salvat ✓');
+    } catch (err) {
+      console.error('[RapidAct] Logo upload error:', err);
+      setToast('Eroare la încărcarea logo-ului');
+    } finally {
+      setLogoUploading(false);
+    }
+  }
+
+  async function handleLogoRemove() {
+    setProfile(p => ({ ...p, logo_url: null }));
+    const { data: { user } } = await window.sb.auth.getUser();
+    if (user) {
+      await window.sb.from('profiles').update({ logo_url: null, updated_at: new Date().toISOString() }).eq('id', user.id);
+    }
+    setToast('Logo eliminat');
+  }
+
   const used  = profile.contracts_used;
   const limit = profile.contracts_limit;
   const pct   = Math.min(Math.round((used / limit) * 100), 100);
@@ -382,13 +440,32 @@ function SettingsScreen({ navigate, profile, setProfile, logout }) {
 
         {/* Identity card */}
         <div style={{ border: '1px solid #e2e8f0', borderRadius: 14, padding: 16, display: 'flex', gap: 14, alignItems: 'center' }}>
-          <Avatar name={profile.firm_name} size={56} />
+          <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoFile} style={{ display: 'none' }} />
+          <button
+            onClick={() => !logoUploading && logoInputRef.current?.click()}
+            title={profile.logo_url ? 'Schimbă logo-ul' : 'Încarcă logo'}
+            style={{ position: 'relative', width: 56, height: 56, borderRadius: '50%', border: 'none', padding: 0, background: 'none', cursor: logoUploading ? 'wait' : 'pointer', flexShrink: 0 }}
+          >
+            {profile.logo_url ? (
+              <img src={profile.logo_url} alt="Logo firmă" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '1px solid #e2e8f0', background: '#fff' }} />
+            ) : (
+              <Avatar name={profile.firm_name} size={56} />
+            )}
+            <span style={{ position: 'absolute', right: -2, bottom: -2, width: 22, height: 22, borderRadius: '50%', background: '#2563eb', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>
+              {logoUploading ? <SpinnerIcon size={11} color="#fff" /> : <span style={{ color: '#fff', lineHeight: 1 }}>✎</span>}
+            </span>
+          </button>
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ fontWeight: 700, fontSize: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile.firm_name}</p>
             <p style={{ fontSize: 13, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile.email}</p>
-            <span style={{ display: 'inline-block', marginTop: 4, background: '#dbeafe', color: '#1e40af', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 600, textTransform: 'capitalize' }}>
-              Plan {profile.plan}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+              <span style={{ display: 'inline-block', background: '#dbeafe', color: '#1e40af', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 600, textTransform: 'capitalize' }}>
+                Plan {profile.plan}
+              </span>
+              {profile.logo_url && (
+                <button onClick={handleLogoRemove} style={{ border: 'none', background: 'none', color: '#94a3b8', fontSize: 12, cursor: 'pointer', padding: 0 }}>Elimină logo</button>
+              )}
+            </div>
           </div>
         </div>
 
